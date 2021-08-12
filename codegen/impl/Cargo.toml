@@ -1,0 +1,22 @@
+[package]
+name = "arcana-codegen-impl"
+version = "0.1.0-dev"
+edition = "2018"
+resolver = "2"
+authors = ["Kai Ren <tyranron@gmail.com>"]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+es = []
+
+[dependencies]
+proc-macro2 = "1.0.26"
+proc-macro-error = "1.0.4"
+quote = "1.0.9"
+[dependencies.syn]
+    version = "1.0.72"
+    default-features = false
+    features = ["derive", "printing"]
+
