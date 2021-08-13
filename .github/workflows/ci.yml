@@ -56,8 +56,10 @@ jobs:
       fail-fast: false
       matrix:
         crate:
-          - cucumber_rust
-          - cucumber_rust_codegen
+          - arcana
+          - arcana-core
+          - arcana-codegen
+          - arcana-codegen-impl
         os:
           - ubuntu
           - macOS
