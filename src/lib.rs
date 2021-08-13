@@ -21,7 +21,7 @@
 )]
 
 #[doc(inline)]
-pub use arcana_core::{Event, VersionedEvent};
+pub use arcana_core::{Event, EventInitialized, EventSourced, InitialEvent, VersionedEvent};
 
 /// Macro for deriving [`VersionedEvent`](trait@VersionedEvent).
 pub use arcana_codegen::VersionedEvent;

@@ -23,4 +23,7 @@
 mod event;
 
 #[doc(inline)]
-pub use event::{Event, Versioned as VersionedEvent};
+pub use event::{
+    Event, Initial as InitialEvent, Initialized as EventInitialized, Sourced as EventSourced,
+    Versioned as VersionedEvent,
+};
