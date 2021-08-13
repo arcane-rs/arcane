@@ -1,0 +1,7 @@
+[package]
+name = "arcana-core"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+ref-cast = "1.0"
