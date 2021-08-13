@@ -25,14 +25,6 @@ mod event;
 use proc_macro::TokenStream;
 
 /// Macro for deriving `arcana::VersionedEvent`.
-///
-/// # Example
-///
-/// ```
-/// #[derive(VersionedEvent)]
-/// #[type = "event", version = 1]
-/// struct Event;
-/// ```
 #[proc_macro_derive(VersionedEvent, attributes(event))]
 pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
     event::derive(input.into())

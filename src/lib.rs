@@ -23,5 +23,5 @@
 #[doc(inline)]
 pub use arcana_core::{Event, VersionedEvent};
 
-#[doc(inline)]
+/// Macro for deriving [`VersionedEvent`](trait@VersionedEvent).
 pub use arcana_codegen::VersionedEvent;
