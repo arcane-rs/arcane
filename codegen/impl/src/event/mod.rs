@@ -1,51 +1,142 @@
 //! TODO
 
+pub(crate) mod versioned;
+
+use std::convert::TryFrom;
+
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::Result;
-use synthez::ParseAttrs;
+use syn::{punctuated::Punctuated, spanned::Spanned as _, Result};
+use synthez::ToTokens;
 
-/// Derives `serde::Deserialize` for `arcana::VersionedEvent`.
+const MAX_EVENTS: usize = 10000;
+
+/// Derives `arcana::Event` for enum.
 pub(crate) fn derive(input: TokenStream) -> Result<TokenStream> {
     let input: syn::DeriveInput = syn::parse2(input)?;
-    let attrs: Attrs = Attrs::parse_attrs("event", &input)?;
+    let definitions = EnumDefinitions::try_from(input)?;
 
-    match (attrs.r#type, attrs.version) {
-        (Some(event_type), Some(event_version)) => {
-            let name = &input.ident;
-            let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    Ok(quote! { #definitions })
+}
 
-            Ok(quote! {
-                #[automatically_derived]
-                impl #impl_generics ::arcana::VersionedEvent for
-                    #name #ty_generics #where_clause
-                {
-                    #[inline(always)]
-                    fn event_type() -> &'static str {
-                        #event_type
+#[derive(ToTokens)]
+#[to_tokens(append(impl_from, unique_event_type_and_ver))]
+struct EnumDefinitions {
+    ident: syn::Ident,
+    generics: syn::Generics,
+    variants: Punctuated<syn::Variant, syn::Token![,]>,
+}
+
+impl EnumDefinitions {
+    fn impl_from(&self) -> TokenStream {
+        let name = &self.ident;
+        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
+        let (event_types, event_vers): (TokenStream, TokenStream) = self
+            .variants
+            .iter()
+            .map(|variant| {
+                let name = &variant.ident;
+
+                let generate_variant = |func: TokenStream| match &variant.fields {
+                    syn::Fields::Named(named) => {
+                        let field = &named.named.iter().next().unwrap().ident;
+                        quote! {
+                            Self::#name { #field } => {
+                                ::arcana::Event::#func(#field)
+                            }
+                        }
                     }
+                    syn::Fields::Unnamed(_) => {
+                        quote! {
+                            Self::#name(inner) => {
+                                ::arcana::Event::#func(inner)
+                            }
+                        }
+                    }
+                    syn::Fields::Unit => unreachable!(),
+                };
 
-                    #[inline(always)]
-                    fn ver() -> u16 {
-                        #event_version
+                let (ty, ver) = (
+                    generate_variant(quote! { event_type }),
+                    generate_variant(quote! { ver }),
+                );
+
+                (quote! { #ty }, quote! { #ver })
+            })
+            .unzip();
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_generics ::arcana::Event for
+                #name #ty_generics #where_clause
+            {
+                #[inline(always)]
+                fn event_type(&self) -> &'static str {
+                    match self {
+                        #event_types
                     }
                 }
-            })
+
+                #[inline(always)]
+                fn ver(&self) -> u16 {
+                    match self {
+                        #event_vers
+                    }
+                }
+            }
         }
-        _ => Err(syn::Error::new_spanned(
-            input,
-            "`type` and `version` arguments expected",
-        )),
+    }
+
+    fn unique_event_type_and_ver(&self) -> TokenStream {
+        let name = &self.ident;
+        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
+        let event_variants = self
+            .variants
+            .iter()
+            .map(|variant| {
+                let ty = &variant.fields.iter().next().unwrap().ty;
+                quote! { #ty, }
+            })
+            .collect::<TokenStream>();
+        let max = MAX_EVENTS;
+
+        quote! {
+            impl #impl_generics #name #ty_generics #where_clause {
+                ::arcana::unique_event_type_and_ver_for_enum!(
+                    #max, #event_variants
+                );
+            }
+
+            arcana::unique_event_type_and_ver_check!(#name);
+        }
     }
 }
 
-#[derive(Default, ParseAttrs)]
-struct Attrs {
-    #[parse(value)]
-    r#type: Option<syn::LitStr>,
+impl TryFrom<syn::DeriveInput> for EnumDefinitions {
+    type Error = syn::Error;
 
-    #[parse(value)]
-    version: Option<syn::LitInt>,
+    fn try_from(input: syn::DeriveInput) -> Result<Self> {
+        let data = if let syn::Data::Enum(data) = &input.data {
+            data
+        } else {
+            return Err(syn::Error::new(input.span(), "Expected enum"));
+        };
+
+        for variant in &data.variants {
+            if variant.fields.len() != 1 {
+                return Err(syn::Error::new(
+                    variant.span(),
+                    "Enum variants must have exactly 1 field",
+                ));
+            }
+        }
+
+        Ok(Self {
+            ident: input.ident,
+            generics: input.generics,
+            variants: data.variants.clone(),
+        })
+    }
 }
 
 #[cfg(test)]
@@ -53,23 +144,41 @@ mod spec {
     use super::{derive, quote};
 
     #[test]
-    fn derives_struct_impl() {
+    fn derives_enum_impl() {
         let input = syn::parse_quote! {
-            #[event(type = "event", version = 1)]
-            struct Event;
+            enum Event {
+                Event1(EventUnnamend),
+                Event2 {
+                    event: EventNamed,
+                }
+            }
         };
 
         let output = quote! {
             #[automatically_derived]
-            impl ::arcana::VersionedEvent for Event {
+            impl ::arcana::Event for Event {
                 #[inline(always)]
-                fn event_type() -> &'static str {
-                    "event"
+                fn event_type(&self) -> &'static str {
+                    match self {
+                        Self::Event1(inner) => {
+                            ::arcana::Event::event_type(inner)
+                        }
+                        Self::Event2 { event } => {
+                            ::arcana::Event::event_type(event)
+                        }
+                    }
                 }
 
                 #[inline(always)]
-                fn ver() -> u16 {
-                    1
+                fn ver(&self) -> u16 {
+                    match self {
+                        Self::Event1(inner) => {
+                            ::arcana::Event::ver(inner)
+                        }
+                        Self::Event2 { event } => {
+                            ::arcana::Event::ver(event)
+                        }
+                    }
                 }
             }
         };

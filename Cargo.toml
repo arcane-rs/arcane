@@ -6,6 +6,8 @@ edition = "2018"
 [dependencies]
 arcana-core = { version = "0.1.0", path = "./core" }
 arcana-codegen = { version = "0.1.0", path = "./codegen" }
+static_assertions = "1.1"
+once_cell = "1.8"
 
 [workspace]
 members = ["codegen", "codegen/impl", "core"]

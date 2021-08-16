@@ -21,4 +21,4 @@
 )]
 
 #[doc(inline)]
-pub use arcana_codegen_impl::VersionedEvent;
+pub use arcana_codegen_impl::{Event, VersionedEvent};

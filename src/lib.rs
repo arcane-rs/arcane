@@ -20,8 +20,11 @@
     unused_results
 )]
 
+#[doc(hidden)]
+pub mod private;
+
 #[doc(inline)]
 pub use arcana_core::{Event, EventInitialized, EventSourced, InitialEvent, VersionedEvent};
 
 /// Macro for deriving [`VersionedEvent`](trait@VersionedEvent).
-pub use arcana_codegen::VersionedEvent;
+pub use arcana_codegen::{Event, VersionedEvent};

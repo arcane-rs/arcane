@@ -24,10 +24,18 @@ mod event;
 
 use proc_macro::TokenStream;
 
+/// Macro for deriving `arcana::Event`.
+#[proc_macro_derive(Event, attributes(event))]
+pub fn derive_event(input: TokenStream) -> TokenStream {
+    event::derive(input.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
 /// Macro for deriving `arcana::VersionedEvent`.
 #[proc_macro_derive(VersionedEvent, attributes(event))]
 pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
-    event::derive(input.into())
+    event::versioned::derive(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
