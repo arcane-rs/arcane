@@ -9,7 +9,7 @@ use quote::quote;
 use syn::{punctuated::Punctuated, spanned::Spanned as _, Result};
 use synthez::ToTokens;
 
-const MAX_EVENTS: usize = 10000;
+const MAX_UNIQUE_EVENTS: usize = 100000;
 
 /// Derives `arcana::Event` for enum.
 pub(crate) fn derive(input: TokenStream) -> Result<TokenStream> {
@@ -98,7 +98,7 @@ impl EnumDefinitions {
                 quote! { #ty, }
             })
             .collect::<TokenStream>();
-        let max = MAX_EVENTS;
+        let max = MAX_UNIQUE_EVENTS;
 
         quote! {
             impl #impl_generics #name #ty_generics #where_clause {

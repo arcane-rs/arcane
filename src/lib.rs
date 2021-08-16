@@ -26,5 +26,41 @@ pub mod private;
 #[doc(inline)]
 pub use arcana_core::{Event, EventInitialized, EventSourced, InitialEvent, VersionedEvent};
 
-/// Macro for deriving [`VersionedEvent`](trait@VersionedEvent).
-pub use arcana_codegen::{Event, VersionedEvent};
+/// Macro for deriving [`Event`](trait@Event) on enums. For structs consider
+/// [`VersionedEvent`](macro@VersionedEvent).
+///
+/// This macro ensures that every combination of `event_type` and `ver` are
+/// unique. The only limitation is that every underlying
+/// [`Event`](trait@Event) or [`VersionedEvent`](trait@VersionedEvent) impls are
+/// generated with proc macros.
+///
+/// # Example
+///
+/// ```compile_fail
+/// # use arcana::{Event, VersionedEvent};
+///
+/// #[derive(VersionedEvent)]
+/// #[event(type = "chat", version = 1)]
+/// struct ChatEvent;
+///
+/// #[derive(VersionedEvent)]
+/// #[event(type = "file", version = 1)]
+/// struct FileEvent;
+///
+/// #[derive(Event)]
+/// enum AnyEvent {
+///     Chat(ChatEvent),
+///     File { event: FileEvent },
+/// }
+///
+/// #[derive(Event)]
+/// enum DuplicatedEvent {
+///     Any(AnyEvent),
+///     File(event: FileEvent),
+/// }
+/// ```
+pub use arcana_codegen::Event;
+
+/// Macro for deriving [`VersionedEvent`](trait@VersionedEvent) on structs. For
+/// enums, consisting of different events consider [`Event`](macro@Event).
+pub use arcana_codegen::VersionedEvent;

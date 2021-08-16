@@ -52,7 +52,7 @@ impl Definitions {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
         let (event_type, event_ver) = (&self.event_type, &self.event_ver);
-        let max = super::MAX_EVENTS;
+        let max = super::MAX_UNIQUE_EVENTS;
 
         quote! {
             impl #impl_generics #name #ty_generics #where_clause {

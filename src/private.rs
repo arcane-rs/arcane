@@ -1,7 +1,40 @@
+//! Module for utils used in proc macro expansion.
+
 pub use static_assertions as sa;
 
+/// Utils for ensuring that every [`Event`] variant has a unique combination of
+/// `event_type` and `ver`.
+///
+/// # Explanation
+///
+/// Main idea is that every [`Event`] or [`VersionedEvent`] deriver generates
+/// `const fn __arcana_event_types() -> [Option<(&'static str, u16)>; size]`
+/// const function. Size of outputted array determines max count of unique
+/// [`VersionedEvent`]s inside [`Event`] and is tweakable inside
+/// `arcana_codegen_impl` crate (default is `100_000` which should be plenty).
+///
+/// - Structs
+///
+///   [`unique_event_type_and_ver_for_struct`] macro generates function, which
+///   returns array with only first occupied entry. The rest of them are
+///   [`None`].
+///
+/// - Enums
+///
+///   [`unique_event_type_and_ver_for_enum`] macro generates function, which
+///   glues subtypes arrays into single continues array. First `n` entries are
+///   occupied, while the rest of them are [`None`], where `n` is the number of
+///   [`VersionedEvent`]s. As structs deriving [`VersionedEvent`] and enums
+///   deriving [`Event`] have the same output by `__arcana_event_types()` const
+///   function, top-level enum variants can have different levels of nesting.
+///
+///   [`unique_event_type_and_ver_check`] macro generates [`const_assert`]
+///   check, which fails in case of duplicated `event_type` and `ver`.
+///
+///
+/// [`Event`]: trait@crate::Event
+/// [`VersionedEvent`]: trait@crate::VersionedEvent
 pub mod unique_event_type_and_ver {
-
     #[doc(hidden)]
     #[macro_export]
     macro_rules! unique_event_type_and_ver_for_struct {
