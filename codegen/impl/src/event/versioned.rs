@@ -1,4 +1,4 @@
-//! TODO
+//! Definition of `arcana::VersionedEvent` derive macro for structs.
 
 use std::convert::TryFrom;
 
@@ -27,7 +27,8 @@ struct Definitions {
 impl Definitions {
     fn impl_from(&self) -> TokenStream {
         let name = &self.ident;
-        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
+        let (impl_generics, ty_generics, where_clause) =
+            self.generics.split_for_impl();
         let (event_type, event_ver) = (&self.event_type, &self.event_ver);
 
         quote! {
@@ -50,7 +51,8 @@ impl Definitions {
 
     fn unique_event_type_and_ver(&self) -> TokenStream {
         let name = &self.ident;
-        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
+        let (impl_generics, ty_generics, where_clause) =
+            self.generics.split_for_impl();
         let (event_type, event_ver) = (&self.event_type, &self.event_ver);
         let max = super::MAX_UNIQUE_EVENTS;
 
@@ -69,10 +71,13 @@ impl TryFrom<syn::DeriveInput> for Definitions {
 
     fn try_from(input: syn::DeriveInput) -> Result<Self> {
         if !matches!(input.data, syn::Data::Struct(..)) {
-            return Err(syn::Error::new(input.span(), "Expected struct"));
+            return Err(syn::Error::new(
+                input.span(),
+                "Expected struct. Consider using arcana::Event for enums",
+            ));
         }
 
-        let attrs: Attrs = Attrs::parse_attrs("event", &input)?;
+        let attrs = Attrs::parse_attrs("event", &input)?;
         let (event_type, event_ver) = match (attrs.r#type, attrs.version) {
             (Some(event_type), Some(event_ver)) => (event_type, event_ver),
             _ => {
@@ -113,25 +118,73 @@ mod spec {
         };
 
         let output = quote! {
-            impl Event {
-                pub const EVENT_TYPE: &'static str = "event";
-                pub const EVENT_VER: u16 = 1;
-            }
-
             #[automatically_derived]
             impl ::arcana::VersionedEvent for Event {
                 #[inline(always)]
                 fn event_type() -> &'static str {
-                    Self::EVENT_TYPE
+                    "event"
                 }
 
                 #[inline(always)]
                 fn ver() -> u16 {
-                    Self::EVENT_VER
+                    1
                 }
+            }
+
+            impl Event {
+                ::arcana::unique_event_type_and_ver_for_struct!(
+                    100000usize, "event", 1
+                );
             }
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
+    }
+
+    #[test]
+    fn type_argument_is_expected() {
+        let input = syn::parse_quote! {
+            #[event(version = 1)]
+            struct Event;
+        };
+
+        let error = derive(input).unwrap_err();
+
+        assert_eq!(
+            format!("{}", error),
+            "`type` and `version` arguments expected",
+        );
+    }
+
+    #[test]
+    fn version_argument_is_expected() {
+        let input = syn::parse_quote! {
+            #[event(type = "event")]
+            struct Event;
+        };
+
+        let error = derive(input).unwrap_err();
+
+        assert_eq!(
+            format!("{}", error),
+            "`type` and `version` arguments expected",
+        );
+    }
+
+    #[test]
+    fn errors_on_enum() {
+        let input = syn::parse_quote! {
+            #[event(type = "event", version = 1)]
+            enum Event {
+                Event1(Event1),
+            }
+        };
+
+        let error = derive(input).unwrap_err();
+
+        assert_eq!(
+            format!("{}", error),
+            "Expected struct. Consider using arcana::Event for enums",
+        );
     }
 }

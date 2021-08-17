@@ -12,6 +12,8 @@ pub use static_assertions as sa;
 /// const function. Size of outputted array determines max count of unique
 /// [`VersionedEvent`]s inside [`Event`] and is tweakable inside
 /// `arcana_codegen_impl` crate (default is `100_000` which should be plenty).
+/// As these arrays are used only at compile-time, there should be no
+/// performance impact at runtime.
 ///
 /// - Structs
 ///
@@ -32,6 +34,7 @@ pub use static_assertions as sa;
 ///   check, which fails in case of duplicated `event_type` and `ver`.
 ///
 ///
+/// [`const_assert`]: static_assertions::const_assert
 /// [`Event`]: trait@crate::Event
 /// [`VersionedEvent`]: trait@crate::VersionedEvent
 pub mod unique_event_type_and_ver {
@@ -39,7 +42,9 @@ pub mod unique_event_type_and_ver {
     #[macro_export]
     macro_rules! unique_event_type_and_ver_for_struct {
         ($max_events: literal, $event_type: literal, $event_ver: literal) => {
-            pub const fn __arcana_event_types() -> [Option<(&'static str, u16)>; $max_events] {
+            #[allow(clippy::large_stack_arrays)]
+            pub const fn __arcana_event_types(
+            ) -> [Option<(&'static str, u16)>; $max_events] {
                 let mut res = [None; $max_events];
                 res[0] = Some(($event_type, $event_ver));
                 res
@@ -51,6 +56,7 @@ pub mod unique_event_type_and_ver {
     #[macro_export]
     macro_rules! unique_event_type_and_ver_for_enum {
         ($max_events: literal, $($event_type: ty),* $(,)?) => {
+            #[allow(clippy::large_stack_arrays)]
             pub const fn __arcana_event_types() ->
                 [Option<(&'static str, u16)>; $max_events]
             {
@@ -87,7 +93,9 @@ pub mod unique_event_type_and_ver {
 
     #[doc(hidden)]
     #[must_use]
-    pub const fn all_unique<const N: usize>(types: [Option<(&str, u16)>; N]) -> bool {
+    pub const fn all_unique<const N: usize>(
+        types: [Option<(&str, u16)>; N],
+    ) -> bool {
         const fn str_eq(l: &str, r: &str) -> bool {
             let (l, r) = (l.as_bytes(), r.as_bytes());
 

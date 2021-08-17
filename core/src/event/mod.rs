@@ -73,7 +73,9 @@ pub trait Initialized<Ev: ?Sized> {
 #[repr(transparent)]
 pub struct Initial<Ev: ?Sized>(pub Ev);
 
-impl<Ev: Event + ?Sized, Agg: Initialized<Ev>> Sourced<Initial<Ev>> for Option<Agg> {
+impl<Ev: Event + ?Sized, Agg: Initialized<Ev>> Sourced<Initial<Ev>>
+    for Option<Agg>
+{
     fn apply(&mut self, event: &Initial<Ev>) {
         *self = Some(Agg::init(&event.0));
     }
