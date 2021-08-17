@@ -98,7 +98,7 @@ pub use arcana_core::{
 ///     File(FileEvent),
 /// }
 /// ```
-#[cfg(feature = "derive")]
+#[cfg(all(feature = "derive", feature = "es"))]
 pub use arcana_codegen::Event;
 
 /// Macro for deriving [`VersionedEvent`](trait@VersionedEvent) on structs. For
@@ -123,5 +123,5 @@ pub use arcana_codegen::Event;
 /// #[event(name = "event", version = 1)]
 /// struct Event;
 /// ```
-#[cfg(feature = "derive")]
+#[cfg(all(feature = "derive", feature = "es"))]
 pub use arcana_codegen::VersionedEvent;

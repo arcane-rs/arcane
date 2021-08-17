@@ -5,7 +5,7 @@ edition = "2018"
 
 [features]
 default = ["derive", "es"]
-derive = ["es"]
+derive = []
 es = ["arcana-core/es"]
 
 [dependencies]
