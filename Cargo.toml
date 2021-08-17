@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
-default = ["derive"]
-derive = []
+default = ["derive", "es"]
+derive = ["es"]
+es = ["arcana-core/es"]
 
 [dependencies]
 arcana-core = { version = "0.1.0", path = "./core" }

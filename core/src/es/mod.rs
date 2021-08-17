@@ -1,4 +1,6 @@
-//! Event related definitions.
+//! [Event Sourcing] related definitions.
+//!
+//! [Event Sourcing]: https://martinfowler.com/eaaDev/EventSourcing.html
 
 use std::{convert::TryFrom, num::NonZeroU16};
 
@@ -8,9 +10,6 @@ use safety_guard::safety;
 
 /// [Event Sourcing] event that describes something that has occurred (happened
 /// fact).
-///
-/// A sequence of [`Event`]s may represent a concrete versioned state of an
-/// Aggregate.
 ///
 /// [Event Sourcing]: https://martinfowler.com/eaaDev/EventSourcing.html
 pub trait Event {
@@ -95,10 +94,10 @@ pub trait Sourced<Ev: ?Sized> {
     fn apply(&mut self, event: &Ev);
 }
 
-impl<Ev: Event + ?Sized, Agg: Sourced<Ev>> Sourced<Ev> for Option<Agg> {
+impl<Ev: Event + ?Sized, S: Sourced<Ev>> Sourced<Ev> for Option<S> {
     fn apply(&mut self, event: &Ev) {
-        if let Some(agg) = self {
-            agg.apply(event);
+        if let Some(state) = self {
+            state.apply(event);
         }
     }
 }
@@ -110,14 +109,14 @@ pub trait Initialized<Ev: ?Sized> {
 }
 
 /// Wrapper-type intended for [`Event`]s that can initialize [`Sourced`] items.
-#[derive(Debug, RefCast)]
+#[derive(Clone, Copy, Debug, Display, RefCast)]
 #[repr(transparent)]
 pub struct Initial<Ev: ?Sized>(pub Ev);
 
-impl<Ev: Event + ?Sized, Agg: Initialized<Ev>> Sourced<Initial<Ev>>
-    for Option<Agg>
+impl<Ev: Event + ?Sized, S: Initialized<Ev>> Sourced<Initial<Ev>>
+    for Option<S>
 {
     fn apply(&mut self, event: &Initial<Ev>) {
-        *self = Some(Agg::init(&event.0));
+        *self = Some(S::init(&event.0));
     }
 }

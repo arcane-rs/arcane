@@ -21,10 +21,12 @@
     unused_results
 )]
 
-mod event;
+#[cfg(feature = "es")]
+mod es;
 
 #[doc(inline)]
-pub use event::{
+#[cfg(feature = "es")]
+pub use es::{
     Event, Initial as InitialEvent, Initialized as EventInitialized,
     Name as EventName, Sourced as EventSourced, Version as EventVersion,
     Versioned as VersionedEvent,

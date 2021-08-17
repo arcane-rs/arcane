@@ -3,6 +3,10 @@ name = "arcana-core"
 version = "0.1.0"
 edition = "2018"
 
+[features]
+default = ["es"]
+es = []
+
 [dependencies]
 derive_more = "0.99"
 ref-cast = "1.0"

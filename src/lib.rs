@@ -21,9 +21,11 @@
 )]
 
 #[doc(hidden)]
+#[cfg(feature = "es")]
 pub mod private;
 
 #[doc(inline)]
+#[cfg(feature = "es")]
 pub use arcana_core::{
     Event, EventInitialized, EventName, EventSourced, EventVersion,
     InitialEvent, VersionedEvent,
