@@ -97,12 +97,11 @@ pub mod unique_event_type_and_ver {
         types: [Option<(&str, u16)>; N],
     ) -> bool {
         const fn str_eq(l: &str, r: &str) -> bool {
-            let (l, r) = (l.as_bytes(), r.as_bytes());
-
             if l.len() != r.len() {
                 return false;
             }
 
+            let (l, r) = (l.as_bytes(), r.as_bytes());
             let mut i = 0;
             while i < l.len() {
                 if l[i] != r[i] {
