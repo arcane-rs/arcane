@@ -65,8 +65,6 @@ jobs:
           - macOS
           - windows
         toolchain:
-          - stable
-          - beta
           - nightly
     runs-on: ${{ matrix.os }}-latest
     steps:
