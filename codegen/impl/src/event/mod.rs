@@ -27,12 +27,101 @@ pub(crate) fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     Ok(quote! { #definitions })
 }
 
+/// Attributes for [`Event`] derive macro.
+///
+/// [`Event`]: arcana_core::Event
+#[derive(Default, ParseAttrs)]
+struct Attrs {
+    /// `#[event(skip(...))` attribute.
+    #[parse(value)]
+    skip: Option<Spanning<SkipAttr>>,
+}
+
+impl Attrs {
+    /// Checks whether variant or whole container shouldn't be checked for
+    /// [`Event::name()`] and [`Event::ver()`] uniqueness.
+    ///
+    /// [`Event::name()`]: arcana_core::Event::name()
+    /// [`Event::ver()`]: arcana_core::Event::ver()
+    fn skip_check_unique_name_and_ver(&self) -> bool {
+        matches!(
+            self.skip.as_ref().map(|sp| sp.item),
+            Some(SkipAttr::CheckUniqueNameAndVer),
+        )
+    }
+}
+
+/// Wrapper for storing [`Span`].
+///
+/// We don't use one from [`synthez`], as we can't derive [`Parse`] with our `T`
+/// inside.
+#[derive(Clone, Debug)]
+struct Spanning<T> {
+    item: T,
+    span: Span,
+}
+
+impl<T> Spanned for Spanning<T> {
+    fn span(&self) -> Span {
+        self.span
+    }
+}
+
+/// Inner value for `#[event(skip(...))]` attribute.
+#[derive(Clone, Copy, Debug, EnumString, EnumVariantNames)]
+#[strum(serialize_all = "snake_case")]
+enum SkipAttr {
+    /// Variant for skipping uniqueness check of [`Event::name()`] and
+    /// [`Event::ver()`].
+    ///
+    /// [`Event::name()`]: arcana_core::Event::name()
+    /// [`Event::ver()`]: arcana_core::Event::ver()
+    CheckUniqueNameAndVer,
+}
+
+impl Parse for Spanning<SkipAttr> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let ident = syn::Ident::parse(input)?;
+        Ok(Spanning {
+            item: SkipAttr::from_str(&ident.to_string()).map_err(|_| {
+                syn::Error::new(
+                    ident.span(),
+                    &format!(
+                        "Unknown value. Allowed values: {}",
+                        SkipAttr::VARIANTS.join(", "),
+                    ),
+                )
+            })?,
+            span: ident.span(),
+        })
+    }
+}
+
+/// Definition of [`Event`] derive macro.
+///
+/// [`Event`]: arcana_core::Event
 #[derive(ToTokens)]
 #[to_tokens(append(impl_from, unique_event_name_and_ver))]
 struct Definitions {
+    /// Enum's [`Ident`].
+    ///
+    /// [`Ident`]: syn::Ident
     ident: syn::Ident,
+
+    /// Enum's [`Generics`].
+    ///
+    /// [`Generics`]: syn::Generics
     generics: syn::Generics,
+
+    /// Enum's [`Variant`]s alongside with parsed [`Attrs`].
+    ///
+    /// Every [`Variant`] has exactly 1 [`Field`].
+    ///
+    /// [`Field`]: syn::Field
+    /// [`Variant`]: syn::Variant
     variants: Vec<(syn::Variant, Attrs)>,
+
+    /// Enum's top-level [`Attrs`].
     attrs: Attrs,
 }
 
@@ -167,57 +256,6 @@ impl TryFrom<syn::DeriveInput> for Definitions {
             generics: input.generics,
             variants,
             attrs,
-        })
-    }
-}
-
-#[derive(Default, ParseAttrs)]
-struct Attrs {
-    #[parse(value)]
-    skip: Option<Spanning<SkipAttr>>,
-}
-
-impl Attrs {
-    fn skip_check_unique_name_and_ver(&self) -> bool {
-        matches!(
-            self.skip.as_ref().map(|sp| sp.item),
-            Some(SkipAttr::CheckUniqueNameAndVer),
-        )
-    }
-}
-
-#[derive(Clone, Debug)]
-struct Spanning<T> {
-    item: T,
-    span: Span,
-}
-
-impl<T> Spanned for Spanning<T> {
-    fn span(&self) -> Span {
-        self.span
-    }
-}
-
-#[derive(Clone, Copy, Debug, EnumString, EnumVariantNames)]
-#[strum(serialize_all = "snake_case")]
-enum SkipAttr {
-    CheckUniqueNameAndVer,
-}
-
-impl Parse for Spanning<SkipAttr> {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let ident = syn::Ident::parse(input)?;
-        Ok(Spanning {
-            item: SkipAttr::from_str(&ident.to_string()).map_err(|_| {
-                syn::Error::new(
-                    ident.span(),
-                    &format!(
-                        "Unknown value. Allowed values: {}",
-                        SkipAttr::VARIANTS.join(", "),
-                    ),
-                )
-            })?,
-            span: ident.span(),
         })
     }
 }
