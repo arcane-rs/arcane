@@ -32,17 +32,19 @@ pub use arcana_core::{
 /// Macro for deriving [`Event`](trait@Event) on enums. For structs consider
 /// [`VersionedEvent`](macro@VersionedEvent).
 ///
-/// This macro ensures that every combination of `event_type` and `ver` are
-/// unique. The only limitation is that every underlying
-/// [`Event`](trait@Event) or [`VersionedEvent`](trait@VersionedEvent) impls
-/// should be generated with proc macros.
+/// This macro ensures that every combination of [`Event::name()`](trait@Event)
+/// and [`Event::ver()`](trait@Event) are unique. The only limitation is that
+/// every underlying [`Event`](trait@Event) or
+/// [`VersionedEvent`](trait@VersionedEvent) impls should be generated with proc
+/// macros.
 ///
 /// # Attribute arguments
 ///
-/// - `#[event(skip(unique_event_type_and_ver))]` — optional
+/// - `#[event(skip(check_unique_name_and_ver))]` — optional
 ///
 ///   Use this value on whole container or particular enum variant to skip check
-///   for unique combination of `event_type` and `ver`.
+///   for unique combination of [`Event::name()`](trait@Event) and
+///   [`Event::ver()`](trait@Event).
 ///
 /// # Examples
 ///
@@ -50,11 +52,11 @@ pub use arcana_core::{
 /// # use arcana::{Event, VersionedEvent};
 /// #
 /// #[derive(VersionedEvent)]
-/// #[event(type = "chat", version = 1)]
+/// #[event(name = "chat", version = 1)]
 /// struct ChatEvent;
 ///
 /// #[derive(VersionedEvent)]
-/// #[event(type = "file", version = 1)]
+/// #[event(name = "file", version = 1)]
 /// struct FileEvent;
 ///
 /// #[derive(Event)]
@@ -74,11 +76,11 @@ pub use arcana_core::{
 /// # use arcana::{Event, VersionedEvent};
 /// #
 /// # #[derive(VersionedEvent)]
-/// # #[event(type = "chat", version = 1)]
+/// # #[event(name = "chat", version = 1)]
 /// # struct ChatEvent;
 /// #
 /// # #[derive(VersionedEvent)]
-/// # #[event(type = "file", version = 1)]
+/// # #[event(name = "file", version = 1)]
 /// # struct FileEvent;
 /// #
 /// # #[derive(Event)]
@@ -90,7 +92,7 @@ pub use arcana_core::{
 /// #[derive(Event)]
 /// enum DuplicatedEvent {
 ///     Any(AnyEvent),
-///     #[event(skip(check_unique_type_and_ver))]
+///     #[event(skip(check_unique_name_and_ver))]
 ///     File(FileEvent),
 /// }
 /// ```
@@ -102,13 +104,13 @@ pub use arcana_codegen::Event;
 ///
 /// # Attribute arguments
 ///
-/// - `#[event(type = "...")]` — required
+/// - `#[event(name = "...")]` — required
 ///
-///   Value used in `fn event_type()` impl.
+///   Value used in [`VersionedEvent::name()`](trait@VersionedEvent) impl.
 ///
-/// - `#[event(ver = u16)]` — required
+/// - `#[event(ver = NonZeroU16)]` — required
 ///
-///   Value used in `fn ver()` impl.
+///   Value used in [`VersionedEvent::ver()`](trait@VersionedEvent) impl.
 ///
 /// # Examples
 ///
@@ -116,7 +118,7 @@ pub use arcana_codegen::Event;
 /// # use arcana::VersionedEvent;
 /// #
 /// #[derive(VersionedEvent)]
-/// #[event(type = "event", version = 1)]
+/// #[event(name = "event", version = 1)]
 /// struct Event;
 /// ```
 #[cfg(feature = "derive")]

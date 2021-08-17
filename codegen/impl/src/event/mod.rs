@@ -24,7 +24,7 @@ pub(crate) fn derive(input: TokenStream) -> syn::Result<TokenStream> {
 }
 
 #[derive(ToTokens)]
-#[to_tokens(append(impl_from, unique_event_type_and_ver))]
+#[to_tokens(append(impl_from, unique_event_name_and_ver))]
 struct Definitions {
     ident: syn::Ident,
     generics: syn::Generics,
@@ -37,7 +37,7 @@ impl Definitions {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
             self.generics.split_for_impl();
-        let (event_types, event_versions): (TokenStream, TokenStream) = self
+        let (event_names, event_versions): (TokenStream, TokenStream) = self
             .variants
             .iter()
             .map(|(variant, _)| {
@@ -66,7 +66,7 @@ impl Definitions {
                 };
 
                 (
-                    generate_variant(quote! { event_type }),
+                    generate_variant(quote! { name }),
                     generate_variant(quote! { ver }),
                 )
             })
@@ -78,9 +78,9 @@ impl Definitions {
                 #name #ty_generics #where_clause
             {
                 #[inline(always)]
-                fn event_type(&self) -> ::arcana::EventName {
+                fn name(&self) -> ::arcana::EventName {
                     match self {
-                        #event_types
+                        #event_names
                     }
                 }
 
@@ -94,8 +94,8 @@ impl Definitions {
         }
     }
 
-    fn unique_event_type_and_ver(&self) -> TokenStream {
-        if self.attrs.skip_check_unique_type_and_ver() {
+    fn unique_event_name_and_ver(&self) -> TokenStream {
+        if self.attrs.skip_check_unique_name_and_ver() {
             return TokenStream::new();
         }
 
@@ -107,7 +107,7 @@ impl Definitions {
             .variants
             .iter()
             .filter_map(|(variant, attr)| {
-                (!attr.skip_check_unique_type_and_ver()).then(|| {
+                (!attr.skip_check_unique_name_and_ver()).then(|| {
                     let ty = &variant.fields.iter().next().unwrap().ty;
                     quote! { #ty, }
                 })
@@ -116,12 +116,12 @@ impl Definitions {
 
         quote! {
             impl #impl_generics #name #ty_generics #where_clause {
-                ::arcana::unique_event_type_and_ver_for_enum!(
+                ::arcana::unique_event_name_and_ver_for_enum!(
                     #max, #event_variants
                 );
             }
 
-            ::arcana::unique_event_type_and_ver_check!(#name);
+            ::arcana::unique_event_name_and_ver_check!(#name);
         }
     }
 }
@@ -174,10 +174,10 @@ struct Attrs {
 }
 
 impl Attrs {
-    fn skip_check_unique_type_and_ver(&self) -> bool {
+    fn skip_check_unique_name_and_ver(&self) -> bool {
         matches!(
             self.skip.as_ref().map(|sp| sp.item),
-            Some(SkipAttr::CheckUniqueTypeAndVer),
+            Some(SkipAttr::CheckUniqueNameAndVer),
         )
     }
 }
@@ -197,7 +197,7 @@ impl<T> Spanned for Spanning<T> {
 #[derive(Clone, Copy, Debug, EnumString, EnumVariantNames)]
 #[strum(serialize_all = "snake_case")]
 enum SkipAttr {
-    CheckUniqueTypeAndVer,
+    CheckUniqueNameAndVer,
 }
 
 impl Parse for Spanning<SkipAttr> {
@@ -237,13 +237,13 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::Event for Event {
                 #[inline(always)]
-                fn event_type(&self) -> ::arcana::EventName {
+                fn name(&self) -> ::arcana::EventName {
                     match self {
                         Self::Event1(inner) => {
-                            ::arcana::Event::event_type(inner)
+                            ::arcana::Event::name(inner)
                         }
                         Self::Event2 { event } => {
-                            ::arcana::Event::event_type(event)
+                            ::arcana::Event::name(event)
                         }
                     }
                 }
@@ -262,12 +262,12 @@ mod spec {
             }
 
             impl Event {
-                ::arcana::unique_event_type_and_ver_for_enum!(
+                ::arcana::unique_event_name_and_ver_for_enum!(
                     100000usize, EventUnnamend, EventNamed,
                 );
             }
 
-            ::arcana::unique_event_type_and_ver_check!(Event);
+            ::arcana::unique_event_name_and_ver_check!(Event);
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
@@ -276,7 +276,7 @@ mod spec {
     #[test]
     fn skip_unique_check_on_container() {
         let input = syn::parse_quote! {
-            #[event(skip(check_unique_type_and_ver))]
+            #[event(skip(check_unique_name_and_ver))]
             enum Event {
                 Event1(EventUnnamend),
                 Event2 {
@@ -289,13 +289,13 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::Event for Event {
                 #[inline(always)]
-                fn event_type(&self) -> ::arcana::EventName {
+                fn name(&self) -> ::arcana::EventName {
                     match self {
                         Self::Event1(inner) => {
-                            ::arcana::Event::event_type(inner)
+                            ::arcana::Event::name(inner)
                         }
                         Self::Event2 { event } => {
-                            ::arcana::Event::event_type(event)
+                            ::arcana::Event::name(event)
                         }
                     }
                 }
@@ -321,7 +321,7 @@ mod spec {
     fn skip_unique_check_on_variant() {
         let input = syn::parse_quote! {
             enum Event {
-                #[event(skip(check_unique_type_and_ver))]
+                #[event(skip(check_unique_name_and_ver))]
                 Event1(EventUnnamend),
                 Event2 {
                     event: EventNamed,
@@ -333,13 +333,13 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::Event for Event {
                 #[inline(always)]
-                fn event_type(&self) -> ::arcana::EventName {
+                fn name(&self) -> ::arcana::EventName {
                     match self {
                         Self::Event1(inner) => {
-                            ::arcana::Event::event_type(inner)
+                            ::arcana::Event::name(inner)
                         }
                         Self::Event2 { event } => {
-                            ::arcana::Event::event_type(event)
+                            ::arcana::Event::name(event)
                         }
                     }
                 }
@@ -358,12 +358,12 @@ mod spec {
             }
 
             impl Event {
-                ::arcana::unique_event_type_and_ver_for_enum!(
+                ::arcana::unique_event_name_and_ver_for_enum!(
                     100000usize, EventNamed,
                 );
             }
 
-            ::arcana::unique_event_type_and_ver_check!(Event);
+            ::arcana::unique_event_name_and_ver_check!(Event);
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
@@ -402,7 +402,7 @@ mod spec {
 
         assert_eq!(
             format!("{}", error),
-            "Unknown value. Allowed values: check_unique_type_and_ver",
+            "Unknown value. Allowed values: check_unique_name_and_ver",
         );
     }
 

@@ -19,7 +19,7 @@ pub trait Event {
     /// _Note:_ This should effectively be a constant value, and should never
     /// change.
     #[must_use]
-    fn event_type(&self) -> Name;
+    fn name(&self) -> Name;
 
     /// Returns [`Version`] of this [`Event`].
     #[must_use]
@@ -39,7 +39,7 @@ pub trait Versioned {
     /// _Note:_ This should effectively be a constant value, and should never
     /// change.
     #[must_use]
-    fn event_type() -> Name;
+    fn name() -> Name;
 
     /// Returns [`Version`] of this [`Event`].
     #[must_use]
@@ -80,8 +80,8 @@ impl Version {
 }
 
 impl<Ev: Versioned> Event for Ev {
-    fn event_type(&self) -> Name {
-        <Self as Versioned>::event_type()
+    fn name(&self) -> Name {
+        <Self as Versioned>::name()
     }
 
     fn ver(&self) -> Version {

@@ -18,11 +18,11 @@ pub(crate) fn derive(input: TokenStream) -> Result<TokenStream> {
 }
 
 #[derive(ToTokens)]
-#[to_tokens(append(impl_from, unique_event_type_and_ver))]
+#[to_tokens(append(impl_from, unique_event_name_and_ver))]
 struct Definitions {
     ident: syn::Ident,
     generics: syn::Generics,
-    event_type: syn::LitStr,
+    event_name: syn::LitStr,
     event_ver: syn::LitInt,
 }
 
@@ -31,7 +31,7 @@ impl Definitions {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
             self.generics.split_for_impl();
-        let (event_type, event_ver) = (&self.event_type, &self.event_ver);
+        let (event_name, event_ver) = (&self.event_name, &self.event_ver);
 
         quote! {
             #[automatically_derived]
@@ -39,8 +39,8 @@ impl Definitions {
                 #name #ty_generics #where_clause
             {
                 #[inline(always)]
-                fn event_type() -> ::arcana::EventName {
-                    #event_type
+                fn name() -> ::arcana::EventName {
+                    #event_name
                 }
 
                 #[inline(always)]
@@ -53,17 +53,17 @@ impl Definitions {
         }
     }
 
-    fn unique_event_type_and_ver(&self) -> TokenStream {
+    fn unique_event_name_and_ver(&self) -> TokenStream {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
             self.generics.split_for_impl();
-        let (event_type, event_ver) = (&self.event_type, &self.event_ver);
+        let (event_name, event_ver) = (&self.event_name, &self.event_ver);
         let max = MAX_UNIQUE_EVENTS;
 
         quote! {
             impl #impl_generics #name #ty_generics #where_clause {
-                ::arcana::unique_event_type_and_ver_for_struct!(
-                    #max, #event_type, #event_ver
+                ::arcana::unique_event_name_and_ver_for_struct!(
+                    #max, #event_name, #event_ver
                 );
             }
         }
@@ -82,12 +82,12 @@ impl TryFrom<syn::DeriveInput> for Definitions {
         }
 
         let attrs = Attrs::parse_attrs("event", &input)?;
-        let (event_type, event_ver) = match (attrs.r#type, attrs.version) {
-            (Some(event_type), Some(event_ver)) => (event_type, event_ver),
+        let (event_name, event_ver) = match (attrs.name, attrs.version) {
+            (Some(event_name), Some(event_ver)) => (event_name, event_ver),
             _ => {
                 return Err(syn::Error::new_spanned(
                     input,
-                    "`type` and `version` arguments expected",
+                    "`name` and `version` arguments expected",
                 ))
             }
         };
@@ -95,7 +95,7 @@ impl TryFrom<syn::DeriveInput> for Definitions {
         Ok(Self {
             ident: input.ident,
             generics: input.generics,
-            event_type,
+            event_name,
             event_ver,
         })
     }
@@ -104,7 +104,7 @@ impl TryFrom<syn::DeriveInput> for Definitions {
 #[derive(Default, ParseAttrs)]
 struct Attrs {
     #[parse(value)]
-    r#type: Option<syn::LitStr>,
+    name: Option<syn::LitStr>,
 
     #[parse(value, validate = parses_to_non_zero_u16)]
     version: Option<syn::LitInt>,
@@ -126,7 +126,7 @@ mod spec {
     #[test]
     fn derives_struct_impl() {
         let input = syn::parse_quote! {
-            #[event(type = "event", version = 1)]
+            #[event(name = "event", version = 1)]
             struct Event;
         };
 
@@ -134,7 +134,7 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::VersionedEvent for Event {
                 #[inline(always)]
-                fn event_type() -> ::arcana::EventName {
+                fn name() -> ::arcana::EventName {
                     "event"
                 }
 
@@ -147,7 +147,7 @@ mod spec {
             }
 
             impl Event {
-                ::arcana::unique_event_type_and_ver_for_struct!(
+                ::arcana::unique_event_name_and_ver_for_struct!(
                     100000usize, "event", 1
                 );
             }
@@ -157,7 +157,7 @@ mod spec {
     }
 
     #[test]
-    fn type_argument_is_expected() {
+    fn name_argument_is_expected() {
         let input = syn::parse_quote! {
             #[event(version = 1)]
             struct Event;
@@ -167,14 +167,14 @@ mod spec {
 
         assert_eq!(
             format!("{}", error),
-            "`type` and `version` arguments expected",
+            "`name` and `version` arguments expected",
         );
     }
 
     #[test]
     fn version_argument_is_expected() {
         let input = syn::parse_quote! {
-            #[event(type = "event")]
+            #[event(name = "event")]
             struct Event;
         };
 
@@ -182,14 +182,14 @@ mod spec {
 
         assert_eq!(
             format!("{}", error),
-            "`type` and `version` arguments expected",
+            "`name` and `version` arguments expected",
         );
     }
 
     #[test]
     fn errors_on_negative_version() {
         let input = syn::parse_quote! {
-            #[event(type = "event", version = -1)]
+            #[event(name = "event", version = -1)]
             struct Event;
         };
 
@@ -201,7 +201,7 @@ mod spec {
     #[test]
     fn errors_on_zero_version() {
         let input = syn::parse_quote! {
-            #[event(type = "event", version = 0)]
+            #[event(name = "event", version = 0)]
             struct Event;
         };
 
@@ -216,7 +216,7 @@ mod spec {
     #[test]
     fn errors_on_too_big_version() {
         let input = syn::parse_quote! {
-            #[event(type = "event", version = 4294967295)]
+            #[event(name = "event", version = 4294967295)]
             struct Event;
         };
 
@@ -231,7 +231,7 @@ mod spec {
     #[test]
     fn errors_on_enum() {
         let input = syn::parse_quote! {
-            #[event(type = "event", version = 1)]
+            #[event(name = "event", version = 1)]
             enum Event {
                 Event1(Event1),
             }
