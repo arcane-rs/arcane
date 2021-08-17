@@ -1,4 +1,6 @@
-//! Definition of `arcana::VersionedEvent` derive macro for structs.
+//! Definition of [`VersionedEvent`] derive macro for structs.
+//!
+//! [`VersionedEvent`]: arcana_core::VersionedEvent
 
 use std::{convert::TryFrom, num::NonZeroU16};
 
@@ -9,7 +11,9 @@ use synthez::{ParseAttrs, ToTokens};
 
 use super::MAX_UNIQUE_EVENTS;
 
-/// Derives `arcana::VersionedEvent` for struct.
+/// Derives [`VersionedEvent`] for struct.
+///
+/// [`VersionedEvent`]: arcana_core::VersionedEvent
 pub(crate) fn derive(input: TokenStream) -> Result<TokenStream> {
     let input = syn::parse2::<syn::DeriveInput>(input)?;
     let definitions = Definitions::try_from(input)?;

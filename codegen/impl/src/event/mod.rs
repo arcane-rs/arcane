@@ -1,4 +1,6 @@
-//! Definition of `arcana::Event` derive macro for enums.
+//! Definition of [`Event`] derive macro for enums.
+//!
+//! [`Event`]: arcana_core::Event
 
 pub(crate) mod versioned;
 
@@ -15,7 +17,9 @@ use synthez::{ParseAttrs, ToTokens};
 
 const MAX_UNIQUE_EVENTS: usize = 100_000;
 
-/// Derives `arcana::Event` for enum.
+/// Derives [`Event`] for enum.
+///
+/// [`Event`]: arcana_core::Event
 pub(crate) fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     let input: syn::DeriveInput = syn::parse2(input)?;
     let definitions = Definitions::try_from(input)?;
