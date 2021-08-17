@@ -59,7 +59,7 @@ cargo.fmt:
 #	make cargo.lint
 
 cargo.lint:
-	cargo +stable clippy --workspace -- -D clippy::pedantic -D warnings
+	cargo +nightly clippy --workspace -- -D clippy::pedantic -D warnings
 
 
 
@@ -74,7 +74,7 @@ cargo.lint:
 #	make test [crate=<crate-name>]
 
 test:
-	cargo +stable test $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
+	cargo +nightly test $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
 		--all-features
 
 
