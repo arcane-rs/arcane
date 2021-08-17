@@ -7,6 +7,8 @@ use quote::quote;
 use syn::{spanned::Spanned as _, Result};
 use synthez::{ParseAttrs, ToTokens};
 
+use super::MAX_UNIQUE_EVENTS;
+
 /// Derives `arcana::VersionedEvent` for struct.
 pub(crate) fn derive(input: TokenStream) -> Result<TokenStream> {
     let input = syn::parse2::<syn::DeriveInput>(input)?;
@@ -54,7 +56,7 @@ impl Definitions {
         let (impl_generics, ty_generics, where_clause) =
             self.generics.split_for_impl();
         let (event_type, event_ver) = (&self.event_type, &self.event_ver);
-        let max = super::MAX_UNIQUE_EVENTS;
+        let max = MAX_UNIQUE_EVENTS;
 
         quote! {
             impl #impl_generics #name #ty_generics #where_clause {

@@ -47,7 +47,7 @@ pub use arcana_core::{
 ///
 /// ```compile_fail
 /// # use arcana::{Event, VersionedEvent};
-///
+/// #
 /// #[derive(VersionedEvent)]
 /// #[event(type = "chat", version = 1)]
 /// struct ChatEvent;
@@ -65,33 +65,31 @@ pub use arcana_core::{
 /// #[derive(Event)]
 /// enum DuplicatedEvent {
 ///     Any(AnyEvent),
-///     File {
-///         event: FileEvent,
-///     },
+///     File { event: FileEvent },
 /// }
 /// ```
 ///
 /// ```
 /// # use arcana::{Event, VersionedEvent};
-///
+/// #
 /// # #[derive(VersionedEvent)]
 /// # #[event(type = "chat", version = 1)]
 /// # struct ChatEvent;
-///
+/// #
 /// # #[derive(VersionedEvent)]
 /// # #[event(type = "file", version = 1)]
 /// # struct FileEvent;
-///
+/// #
 /// # #[derive(Event)]
 /// # enum AnyEvent {
 /// #     Chat(ChatEvent),
 /// #     File { event: FileEvent },
 /// # }
-///
+/// #
 /// #[derive(Event)]
 /// enum DuplicatedEvent {
 ///     Any(AnyEvent),
-///     #[event(skip(unique_event_type_and_ver))]
+///     #[event(skip(check_unique_type_and_ver))]
 ///     File {
 ///         event: FileEvent,
 ///     },
@@ -115,6 +113,8 @@ pub use arcana_codegen::Event;
 /// # Examples
 ///
 /// ```
+/// # use arcana::VersionedEvent;
+/// #
 /// #[derive(VersionedEvent)]
 /// #[event(type = "event", version = 1)]
 /// struct Event;

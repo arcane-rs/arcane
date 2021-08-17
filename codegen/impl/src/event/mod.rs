@@ -121,7 +121,7 @@ impl Definitions {
                 );
             }
 
-            arcana::unique_event_type_and_ver_check!(#name);
+            ::arcana::unique_event_type_and_ver_check!(#name);
         }
     }
 }
@@ -216,7 +216,9 @@ impl FromStr for SkipAttr {
     fn from_str(s: &str) -> StdResult<Self, Self::Err> {
         match s {
             "check_unique_type_and_ver" => Ok(Self::CheckUniqueTypeAndVer),
-            _ => Err("unknown value"),
+            _ => {
+                Err("Unknown value. Allowed values: check_unique_type_and_ver")
+            }
         }
     }
 }
@@ -270,7 +272,7 @@ mod spec {
                 );
             }
 
-            arcana::unique_event_type_and_ver_check!(Event);
+            ::arcana::unique_event_type_and_ver_check!(Event);
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
@@ -366,10 +368,47 @@ mod spec {
                 );
             }
 
-            arcana::unique_event_type_and_ver_check!(Event);
+            ::arcana::unique_event_type_and_ver_check!(Event);
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
+    }
+
+    #[test]
+    fn errors_on_multiple_fields_in_variant() {
+        let input = syn::parse_quote! {
+            enum Event {
+                Event1(Event1),
+                Event2 {
+                    event: Event2,
+                    second_field: Event3,
+                }
+            }
+        };
+
+        let error = derive(input).unwrap_err();
+
+        assert_eq!(
+            format!("{}", error),
+            "Enum variants must have exactly 1 field",
+        );
+    }
+
+    #[test]
+    fn errors_on_unknown_attribute_value() {
+        let input = syn::parse_quote! {
+            enum Event {
+                #[event(skip(unknown))]
+                Event1(Event1),
+            }
+        };
+
+        let error = derive(input).unwrap_err();
+
+        assert_eq!(
+            format!("{}", error),
+            "Unknown value. Allowed values: check_unique_type_and_ver",
+        );
     }
 
     #[test]

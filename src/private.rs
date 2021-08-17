@@ -41,7 +41,7 @@ pub mod unique_event_type_and_ver {
     #[doc(hidden)]
     #[macro_export]
     macro_rules! unique_event_type_and_ver_for_struct {
-        ($max_events: literal, $event_type: literal, $event_ver: literal) => {
+        ($max_events:literal, $event_type:literal, $event_ver:literal) => {
             #[allow(clippy::large_stack_arrays)]
             pub const fn __arcana_event_types(
             ) -> [Option<(&'static str, u16)>; $max_events] {
@@ -82,7 +82,7 @@ pub mod unique_event_type_and_ver {
     #[doc(hidden)]
     #[macro_export]
     macro_rules! unique_event_type_and_ver_check {
-        ($event: ty) => {
+        ($event:ty) => {
             $crate::private::sa::const_assert!(
                 $crate::private::unique_event_type_and_ver::all_unique(
                     <$event>::__arcana_event_types()
