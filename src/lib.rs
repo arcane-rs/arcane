@@ -65,7 +65,7 @@ pub use arcana_core::{
 /// #[derive(Event)]
 /// enum DuplicatedEvent {
 ///     Any(AnyEvent),
-///     File { event: FileEvent },
+///     File(FileEvent),
 /// }
 /// ```
 ///
@@ -90,11 +90,10 @@ pub use arcana_core::{
 /// enum DuplicatedEvent {
 ///     Any(AnyEvent),
 ///     #[event(skip(check_unique_type_and_ver))]
-///     File {
-///         event: FileEvent,
-///     },
+///     File(FileEvent),
 /// }
 /// ```
+#[cfg(feature = "derive")]
 pub use arcana_codegen::Event;
 
 /// Macro for deriving [`VersionedEvent`](trait@VersionedEvent) on structs. For
@@ -119,4 +118,5 @@ pub use arcana_codegen::Event;
 /// #[event(type = "event", version = 1)]
 /// struct Event;
 /// ```
+#[cfg(feature = "derive")]
 pub use arcana_codegen::VersionedEvent;

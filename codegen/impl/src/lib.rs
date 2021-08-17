@@ -25,13 +25,6 @@ mod event;
 use proc_macro::TokenStream;
 
 /// Macro for deriving `arcana::Event`.
-///
-/// # Attribute arguments
-///
-/// - `#[event(skip(unique_event_type_and_ver))]` — optional
-///
-///   Use this value on whole container or particular enum variant to skip check
-///   for unique combination of `event_type` and `ver`.
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     event::derive(input.into())
@@ -40,16 +33,6 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 }
 
 /// Macro for deriving `arcana::VersionedEvent`.
-///
-/// # Attribute arguments
-///
-/// - `#[event(type = "...")]` — required
-///
-///   Value used in `fn event_type()` impl.
-///
-/// - `#[event(ver = u16)]` — required
-///
-///   Value used in `fn ver()` impl.
 #[proc_macro_derive(VersionedEvent, attributes(event))]
 pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
     event::versioned::derive(input.into())

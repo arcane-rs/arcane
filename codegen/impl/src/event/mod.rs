@@ -2,21 +2,21 @@
 
 pub(crate) mod versioned;
 
-use std::{convert::TryFrom, result::Result as StdResult, str::FromStr};
+use std::{convert::TryFrom, str::FromStr as _};
 
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
+use strum::{EnumString, EnumVariantNames, VariantNames as _};
 use syn::{
     parse::{Parse, ParseStream},
     spanned::Spanned,
-    Result,
 };
 use synthez::{ParseAttrs, ToTokens};
 
 const MAX_UNIQUE_EVENTS: usize = 100_000;
 
 /// Derives `arcana::Event` for enum.
-pub(crate) fn derive(input: TokenStream) -> Result<TokenStream> {
+pub(crate) fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     let input: syn::DeriveInput = syn::parse2(input)?;
     let definitions = Definitions::try_from(input)?;
 
@@ -129,14 +129,14 @@ impl Definitions {
 impl TryFrom<syn::DeriveInput> for Definitions {
     type Error = syn::Error;
 
-    fn try_from(input: syn::DeriveInput) -> Result<Self> {
+    fn try_from(input: syn::DeriveInput) -> syn::Result<Self> {
         let data = if let syn::Data::Enum(data) = &input.data {
             data
         } else {
             return Err(syn::Error::new(
                 input.span(),
                 "Expected enum. \
-                          Consider using arcana::VersionedEvent for structs",
+                 Consider using arcana::VersionedEvent for structs",
             ));
         };
 
@@ -156,7 +156,7 @@ impl TryFrom<syn::DeriveInput> for Definitions {
             .map(|variant| {
                 Ok((variant.clone(), Attrs::parse_attrs("event", variant)?))
             })
-            .collect::<Result<_>>()?;
+            .collect::<syn::Result<_>>()?;
 
         Ok(Self {
             ident: input.ident,
@@ -194,32 +194,27 @@ impl<T> Spanned for Spanning<T> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, EnumString, EnumVariantNames)]
+#[strum(serialize_all = "snake_case")]
 enum SkipAttr {
     CheckUniqueTypeAndVer,
 }
 
 impl Parse for Spanning<SkipAttr> {
-    fn parse(input: ParseStream<'_>) -> Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let ident = syn::Ident::parse(input)?;
         Ok(Spanning {
-            item: SkipAttr::from_str(&ident.to_string())
-                .map_err(|err| syn::Error::new(ident.span(), err))?,
+            item: SkipAttr::from_str(&ident.to_string()).map_err(|_| {
+                syn::Error::new(
+                    ident.span(),
+                    &format!(
+                        "Unknown value. Allowed values: {}",
+                        SkipAttr::VARIANTS.join(", "),
+                    ),
+                )
+            })?,
             span: ident.span(),
         })
-    }
-}
-
-impl FromStr for SkipAttr {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> StdResult<Self, Self::Err> {
-        match s {
-            "check_unique_type_and_ver" => Ok(Self::CheckUniqueTypeAndVer),
-            _ => {
-                Err("Unknown value. Allowed values: check_unique_type_and_ver")
-            }
-        }
     }
 }
 

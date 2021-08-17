@@ -3,6 +3,10 @@ name = "arcana"
 version = "0.1.0"
 edition = "2018"
 
+[features]
+default = ["derive"]
+derive = []
+
 [dependencies]
 arcana-core = { version = "0.1.0", path = "./core" }
 arcana-codegen = { version = "0.1.0", path = "./codegen" }
