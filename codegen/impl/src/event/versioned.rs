@@ -21,16 +21,65 @@ pub(crate) fn derive(input: TokenStream) -> Result<TokenStream> {
     Ok(quote! { #definitions })
 }
 
+/// Attributes for [`VersionedEvent`] derive macro.
+///
+/// [`VersionedEvent`]: arcana_core::VersionedEvent
+#[derive(Default, ParseAttrs)]
+struct Attrs {
+    /// Value for [`VersionedEvent::name()`] impl.
+    ///
+    /// [`VersionedEvent::name()`]: arcana_core::VersionedEvent::name()
+    #[parse(value)]
+    name: Option<syn::LitStr>,
+
+    /// Value for [`VersionedEvent::ver()`] impl.
+    ///
+    /// [`VersionedEvent::ver()`]: arcana_core::VersionedEvent::ver()
+    #[parse(value, validate = parses_to_non_zero_u16)]
+    version: Option<syn::LitInt>,
+}
+
+/// If `val` is [`Some`], checks if it can be parsed to [`NonZeroU16`].
+fn parses_to_non_zero_u16<'a>(
+    val: impl Into<Option<&'a syn::LitInt>>,
+) -> Result<()> {
+    val.into()
+        .map(syn::LitInt::base10_parse::<NonZeroU16>)
+        .transpose()
+        .map(drop)
+}
+
+/// Definition of [`VersionedEvent`] derive macro.
+///
+/// [`VersionedEvent`]: arcana_core::Event
 #[derive(ToTokens)]
 #[to_tokens(append(impl_from, unique_event_name_and_ver))]
 struct Definitions {
+    /// Struct's [`Ident`].
+    ///
+    /// [`Ident`]: syn::Ident
     ident: syn::Ident,
+
+    /// Struct's [`Generics`].
+    ///
+    /// [`Generics`]: syn::Generics
     generics: syn::Generics,
+
+    /// [`Attr::name`] from top-level struct attribute.
     event_name: syn::LitStr,
+
+    /// [`Attr::version`] from top-level struct attribute.
     event_ver: syn::LitInt,
 }
 
 impl Definitions {
+    /// Generates code to derive [`VersionedEvent`] by placing values from
+    /// [`Attrs`] inside [`VersionedEvent::name()`] and
+    /// [`VersionedEvent::ver()`] impls.
+    ///
+    /// [`VersionedEvent`]: arcana_core::VersionedEvent
+    /// [`VersionedEvent::name()`]: arcana_core::VersionedEvent::name()
+    /// [`VersionedEvent::ver()`]: arcana_core::VersionedEvent::ver()
     fn impl_from(&self) -> TokenStream {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
@@ -57,6 +106,11 @@ impl Definitions {
         }
     }
 
+    /// Generates code, that is used to check uniqueness of [`Event::name()`]
+    /// and [`Event::ver()`].
+    ///
+    /// [`Event::name()`]: arcana_core::Event::name()
+    /// [`Event::ver()`]: arcana_core::Event::ver()
     fn unique_event_name_and_ver(&self) -> TokenStream {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
@@ -103,24 +157,6 @@ impl TryFrom<syn::DeriveInput> for Definitions {
             event_ver,
         })
     }
-}
-
-#[derive(Default, ParseAttrs)]
-struct Attrs {
-    #[parse(value)]
-    name: Option<syn::LitStr>,
-
-    #[parse(value, validate = parses_to_non_zero_u16)]
-    version: Option<syn::LitInt>,
-}
-
-fn parses_to_non_zero_u16<'a>(
-    val: impl Into<Option<&'a syn::LitInt>>,
-) -> Result<()> {
-    val.into()
-        .map(syn::LitInt::base10_parse::<NonZeroU16>)
-        .transpose()
-        .map(drop)
 }
 
 #[cfg(test)]
