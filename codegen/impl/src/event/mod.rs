@@ -126,6 +126,10 @@ struct Definitions {
 }
 
 impl Definitions {
+    /// Generates code to derive [`Event`] by simply matching over every enum
+    /// variant, which is expected to be itself [`Event`] deriver.
+    ///
+    /// [`Event`]: arcana_core::Event
     fn impl_from(&self) -> TokenStream {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
@@ -187,6 +191,11 @@ impl Definitions {
         }
     }
 
+    /// Generates code, that checks uniqueness of [`Event::name()`] and
+    /// [`Event::ver()`].
+    ///
+    /// [`Event::name()`]: arcana_core::Event::name()
+    /// [`Event::ver()`]: arcana_core::Event::ver()
     fn unique_event_name_and_ver(&self) -> TokenStream {
         if self.attrs.skip_check_unique_name_and_ver() {
             return TokenStream::new();
