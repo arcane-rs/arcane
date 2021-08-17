@@ -19,6 +19,7 @@ All user visible changes to this project will be documented in this file. This p
     - `EventInitialised`
   - Structs
     - `InitialEvent` wrapper
+    - `EventVersion`
   - Proc macros
     - `Event` derive
     - `VersionedEvent` derive
