@@ -25,7 +25,8 @@ pub mod private;
 
 #[doc(inline)]
 pub use arcana_core::{
-    Event, EventInitialized, EventSourced, InitialEvent, VersionedEvent,
+    Event, EventInitialized, EventName, EventSourced, EventVersion,
+    InitialEvent, VersionedEvent,
 };
 
 /// Macro for deriving [`Event`](trait@Event) on enums. For structs consider

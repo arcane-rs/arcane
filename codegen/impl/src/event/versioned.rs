@@ -1,6 +1,6 @@
 //! Definition of `arcana::VersionedEvent` derive macro for structs.
 
-use std::convert::TryFrom;
+use std::{convert::TryFrom, num::NonZeroU16};
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -39,13 +39,15 @@ impl Definitions {
                 #name #ty_generics #where_clause
             {
                 #[inline(always)]
-                fn event_type() -> &'static str {
+                fn event_type() -> ::arcana::EventName {
                     #event_type
                 }
 
                 #[inline(always)]
-                fn ver() -> u16 {
-                    #event_ver
+                fn ver() -> ::arcana::EventVersion {
+                    // This is safe, because checked by proc-macro.
+                    #[allow(unsafe_code)]
+                    unsafe { ::arcana::EventVersion::new_unchecked(#event_ver) }
                 }
             }
         }
@@ -104,8 +106,17 @@ struct Attrs {
     #[parse(value)]
     r#type: Option<syn::LitStr>,
 
-    #[parse(value)]
+    #[parse(value, validate = parses_to_non_zero_u16)]
     version: Option<syn::LitInt>,
+}
+
+fn parses_to_non_zero_u16<'a>(
+    val: impl Into<Option<&'a syn::LitInt>>,
+) -> Result<()> {
+    val.into()
+        .map(syn::LitInt::base10_parse::<NonZeroU16>)
+        .transpose()
+        .map(drop)
 }
 
 #[cfg(test)]
@@ -123,13 +134,15 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::VersionedEvent for Event {
                 #[inline(always)]
-                fn event_type() -> &'static str {
+                fn event_type() -> ::arcana::EventName {
                     "event"
                 }
 
                 #[inline(always)]
-                fn ver() -> u16 {
-                    1
+                fn ver() -> ::arcana::EventVersion {
+                    // This is safe, because checked by proc-macro.
+                    #[allow(unsafe_code)]
+                    unsafe { ::arcana::EventVersion::new_unchecked(1) }
                 }
             }
 
@@ -170,6 +183,48 @@ mod spec {
         assert_eq!(
             format!("{}", error),
             "`type` and `version` arguments expected",
+        );
+    }
+
+    #[test]
+    fn errors_on_negative_version() {
+        let input = syn::parse_quote! {
+            #[event(type = "event", version = -1)]
+            struct Event;
+        };
+
+        let error = derive(input).unwrap_err();
+
+        assert_eq!(format!("{}", error), "invalid digit found in string",);
+    }
+
+    #[test]
+    fn errors_on_zero_version() {
+        let input = syn::parse_quote! {
+            #[event(type = "event", version = 0)]
+            struct Event;
+        };
+
+        let error = derive(input).unwrap_err();
+
+        assert_eq!(
+            format!("{}", error),
+            "number would be zero for non-zero type",
+        );
+    }
+
+    #[test]
+    fn errors_on_too_big_version() {
+        let input = syn::parse_quote! {
+            #[event(type = "event", version = 4294967295)]
+            struct Event;
+        };
+
+        let error = derive(input).unwrap_err();
+
+        assert_eq!(
+            format!("{}", error),
+            "number too large to fit in target type",
         );
     }
 

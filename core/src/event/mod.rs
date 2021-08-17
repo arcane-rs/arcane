@@ -1,6 +1,10 @@
 //! Event related definitions.
 
+use std::{convert::TryFrom, num::NonZeroU16};
+
+use derive_more::{Display, Into};
 use ref_cast::RefCast;
+use safety_guard::safety;
 
 /// [Event Sourcing] event that describes something that has occurred (happened
 /// fact).
@@ -10,14 +14,16 @@ use ref_cast::RefCast;
 ///
 /// [Event Sourcing]: https://martinfowler.com/eaaDev/EventSourcing.html
 pub trait Event {
-    /// Returns type of this [`Event`].
+    /// Returns [`Name`] of this [`Event`].
     ///
     /// _Note:_ This should effectively be a constant value, and should never
     /// change.
-    fn event_type(&self) -> &'static str;
+    #[must_use]
+    fn event_type(&self) -> Name;
 
-    /// Returns version of this [`Event`].
-    fn ver(&self) -> u16;
+    /// Returns [`Version`] of this [`Event`].
+    #[must_use]
+    fn ver(&self) -> Version;
 }
 
 /// Versioned [`Event`].
@@ -28,22 +34,57 @@ pub trait Event {
 /// version of [`Event`] to implement trait [`From`] its previous versions, so
 /// they can be automatically transformed into the latest actual version of
 pub trait Versioned {
-    /// Returns type of this [`Event`].
+    /// Returns [`Name`] of this [`Event`].
     ///
     /// _Note:_ This should effectively be a constant value, and should never
     /// change.
-    fn event_type() -> &'static str;
+    #[must_use]
+    fn event_type() -> Name;
 
-    /// Returns version of this [`Event`].
-    fn ver() -> u16;
+    /// Returns [`Version`] of this [`Event`].
+    #[must_use]
+    fn ver() -> Version;
+}
+
+/// Fully qualified name of an [`Event`].
+pub type Name = &'static str;
+
+/// Revision number of an [`Event`].
+#[derive(
+    Clone, Copy, Debug, Display, Eq, Hash, Into, Ord, PartialEq, PartialOrd,
+)]
+pub struct Version(NonZeroU16);
+
+impl Version {
+    /// Creates a new [`Version`] out of the given `val`ue.
+    ///
+    /// The given value should not be `0` (zero) and fit into [`u16`] size.
+    #[inline]
+    #[must_use]
+    pub fn try_new<N>(val: N) -> Option<Self>
+    where
+        u16: TryFrom<N>,
+    {
+        Some(Self(NonZeroU16::new(u16::try_from(val).ok()?)?))
+    }
+
+    /// Creates a new [`Version`] out of the given `val`ue without checking its
+    /// invariants.
+    #[allow(unsafe_code)]
+    #[inline]
+    #[must_use]
+    #[safety(ne(val, 0), "The given `val`ue must not be `0` (zero).")]
+    pub unsafe fn new_unchecked(val: u16) -> Self {
+        Self(NonZeroU16::new_unchecked(val))
+    }
 }
 
 impl<Ev: Versioned> Event for Ev {
-    fn event_type(&self) -> &'static str {
+    fn event_type(&self) -> Name {
         <Self as Versioned>::event_type()
     }
 
-    fn ver(&self) -> u16 {
+    fn ver(&self) -> Version {
         <Self as Versioned>::ver()
     }
 }

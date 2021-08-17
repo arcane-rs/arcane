@@ -5,9 +5,10 @@
     rustdoc::broken_intra_doc_links,
     rustdoc::private_intra_doc_links,
     trivial_casts,
-    trivial_numeric_casts
+    trivial_numeric_casts,
+    unsafe_code
 )]
-#![forbid(non_ascii_idents, unsafe_code)]
+#![forbid(non_ascii_idents)]
 #![warn(
     deprecated_in_future,
     missing_copy_implementations,
@@ -25,5 +26,6 @@ mod event;
 #[doc(inline)]
 pub use event::{
     Event, Initial as InitialEvent, Initialized as EventInitialized,
-    Sourced as EventSourced, Versioned as VersionedEvent,
+    Name as EventName, Sourced as EventSourced, Version as EventVersion,
+    Versioned as VersionedEvent,
 };

@@ -78,14 +78,14 @@ impl Definitions {
                 #name #ty_generics #where_clause
             {
                 #[inline(always)]
-                fn event_type(&self) -> &'static str {
+                fn event_type(&self) -> ::arcana::EventName {
                     match self {
                         #event_types
                     }
                 }
 
                 #[inline(always)]
-                fn ver(&self) -> u16 {
+                fn ver(&self) -> ::arcana::EventVersion {
                     match self {
                         #event_versions
                     }
@@ -237,7 +237,7 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::Event for Event {
                 #[inline(always)]
-                fn event_type(&self) -> &'static str {
+                fn event_type(&self) -> ::arcana::EventName {
                     match self {
                         Self::Event1(inner) => {
                             ::arcana::Event::event_type(inner)
@@ -249,7 +249,7 @@ mod spec {
                 }
 
                 #[inline(always)]
-                fn ver(&self) -> u16 {
+                fn ver(&self) -> ::arcana::EventVersion {
                     match self {
                         Self::Event1(inner) => {
                             ::arcana::Event::ver(inner)
@@ -289,7 +289,7 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::Event for Event {
                 #[inline(always)]
-                fn event_type(&self) -> &'static str {
+                fn event_type(&self) -> ::arcana::EventName {
                     match self {
                         Self::Event1(inner) => {
                             ::arcana::Event::event_type(inner)
@@ -301,7 +301,7 @@ mod spec {
                 }
 
                 #[inline(always)]
-                fn ver(&self) -> u16 {
+                fn ver(&self) -> ::arcana::EventVersion {
                     match self {
                         Self::Event1(inner) => {
                             ::arcana::Event::ver(inner)
@@ -333,7 +333,7 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::Event for Event {
                 #[inline(always)]
-                fn event_type(&self) -> &'static str {
+                fn event_type(&self) -> ::arcana::EventName {
                     match self {
                         Self::Event1(inner) => {
                             ::arcana::Event::event_type(inner)
@@ -345,7 +345,7 @@ mod spec {
                 }
 
                 #[inline(always)]
-                fn ver(&self) -> u16 {
+                fn ver(&self) -> ::arcana::EventVersion {
                     match self {
                         Self::Event1(inner) => {
                             ::arcana::Event::ver(inner)
