@@ -78,7 +78,7 @@ impl Version {
     }
 }
 
-impl<Ev: Versioned> Event for Ev {
+impl<Ev: Versioned + ?Sized> Event for Ev {
     fn name(&self) -> Name {
         <Self as Versioned>::name()
     }

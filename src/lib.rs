@@ -21,8 +21,8 @@
 )]
 
 #[doc(hidden)]
-#[cfg(feature = "es")]
-pub mod private;
+#[cfg(all(feature = "derive", feature = "es"))]
+pub mod codegen;
 
 #[doc(inline)]
 #[cfg(feature = "es")]

@@ -218,12 +218,12 @@ impl Definitions {
 
         quote! {
             impl #impl_generics #name #ty_generics #where_clause {
-                ::arcana::unique_event_name_and_ver_for_enum!(
+                ::arcana::codegen::unique_event_name_and_ver_for_enum!(
                     #max, #event_variants
                 );
             }
 
-            ::arcana::unique_event_name_and_ver_check!(#name);
+            ::arcana::codegen::unique_event_name_and_ver_check!(#name);
         }
     }
 }
@@ -313,12 +313,12 @@ mod spec {
             }
 
             impl Event {
-                ::arcana::unique_event_name_and_ver_for_enum!(
+                ::arcana::codegen::unique_event_name_and_ver_for_enum!(
                     100000usize, EventUnnamend, EventNamed,
                 );
             }
 
-            ::arcana::unique_event_name_and_ver_check!(Event);
+            ::arcana::codegen::unique_event_name_and_ver_check!(Event);
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
@@ -409,12 +409,12 @@ mod spec {
             }
 
             impl Event {
-                ::arcana::unique_event_name_and_ver_for_enum!(
+                ::arcana::codegen::unique_event_name_and_ver_for_enum!(
                     100000usize, EventNamed,
                 );
             }
 
-            ::arcana::unique_event_name_and_ver_check!(Event);
+            ::arcana::codegen::unique_event_name_and_ver_check!(Event);
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());

@@ -120,7 +120,7 @@ impl Definitions {
 
         quote! {
             impl #impl_generics #name #ty_generics #where_clause {
-                ::arcana::unique_event_name_and_ver_for_struct!(
+                ::arcana::codegen::unique_event_name_and_ver_for_struct!(
                     #max, #event_name, #event_ver
                 );
             }
@@ -187,7 +187,7 @@ mod spec {
             }
 
             impl Event {
-                ::arcana::unique_event_name_and_ver_for_struct!(
+                ::arcana::codegen::unique_event_name_and_ver_for_struct!(
                     100000usize, "event", 1
                 );
             }
