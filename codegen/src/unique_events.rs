@@ -37,70 +37,15 @@
 //! [`Event::ver()`]: trait@crate::Event::ver()
 //! [`VersionedEvent`]: trait@crate::VersionedEvent
 
-/// Generates `const fn __arcana_events()` method for struct which returns array
-/// with only first occupied entry.
-#[macro_export]
-macro_rules! unique_event_name_and_ver_for_struct {
-    ($max_events:literal, $event_name:literal, $event_ver:literal) => {
-        #[allow(clippy::large_stack_arrays)]
-        pub const fn __arcana_events(
-        ) -> [Option<(&'static str, u16)>; $max_events] {
-            let mut res = [None; $max_events];
-            res[0] = Some(($event_name, $event_ver));
-            res
-        }
-    };
-}
-
-/// Glues `const fn __arcana_events()` methods of all enum variants into single
-/// continues array.
-#[macro_export]
-macro_rules! unique_event_name_and_ver_for_enum {
-        ($max_events: literal, $($event_name: ty),* $(,)?) => {
-            #[allow(clippy::large_stack_arrays)]
-            pub const fn __arcana_events() ->
-                [Option<(&'static str, u16)>; $max_events]
-            {
-                let mut res = [None; $max_events];
-
-                let mut global = 0;
-
-                $({
-                    let ev = <$event_name>::__arcana_events();
-                    let mut local = 0;
-                    while let Some(s) = ev[local] {
-                        res[global] = Some(s);
-                        local += 1;
-                        global += 1;
-                    }
-                })*
-
-                res
-            }
-        };
-    }
-
-/// Checks if `const fn __arcana_events()` has no duplicates.
-#[macro_export]
-macro_rules! unique_event_name_and_ver_check {
-    ($event:ty) => {
-        ::arcana::codegen::sa::const_assert!(
-            !::arcana::codegen::unique_events::has_duplicates(
-                <$event>::__arcana_events()
-            )
-        );
-    };
-}
-
 /// Checks if array has [`Some`] duplicates.
 #[must_use]
-pub const fn has_duplicates<const N: usize>(
-    events: [Option<(&str, u16)>; N],
-) -> bool {
+pub const fn has_duplicates<const N: usize>(events: [(&str, u16); N]) -> bool {
     let mut outer = 0;
-    while let Some((outer_name, outer_ver)) = events[outer] {
+    while outer < events.len() {
         let mut inner = outer + 1;
-        while let Some((inner_name, inner_ver)) = events[inner] {
+        while inner < events.len() {
+            let (inner_name, inner_ver) = events[inner];
+            let (outer_name, outer_ver) = events[outer];
             if str_eq(inner_name, outer_name) && inner_ver == outer_ver {
                 return true;
             }

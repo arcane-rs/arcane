@@ -15,8 +15,6 @@ use syn::{
 };
 use synthez::{ParseAttrs, ToTokens};
 
-const MAX_UNIQUE_EVENTS: usize = 100_000;
-
 /// Derives [`Event`] for enum.
 ///
 /// [`Event`]: arcana_core::Event
@@ -201,29 +199,71 @@ impl Definitions {
             return TokenStream::new();
         }
 
-        let max = MAX_UNIQUE_EVENTS;
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
             self.generics.split_for_impl();
-        let event_variants = self
+        let (event_sizes, event_array_population): (
+            Vec<TokenStream>,
+            TokenStream,
+        ) = self
             .variants
             .iter()
             .filter_map(|(variant, attr)| {
                 (!attr.skip_check_unique_name_and_ver()).then(|| {
                     let ty = &variant.fields.iter().next().unwrap().ty;
-                    quote! { #ty, }
+                    (
+                        quote! { <#ty as ::arcana::UniqueArcanaEvent>::SIZE },
+                        quote! {{
+                            let ev = #ty::__arcana_events();
+                            let mut local = 0;
+                            while local < ev.len() {
+                                res[global] = ev[local];
+                                local += 1;
+                                global += 1;
+                            }
+                        }},
+                    )
                 })
             })
-            .collect::<TokenStream>();
+            .unzip();
+
+        let event_sizes = event_sizes
+            .into_iter()
+            .fold(None, |acc, size| {
+                Some(acc.map(|acc| quote! { #acc + #size }).unwrap_or(size))
+            })
+            .unwrap_or(quote! { 1 });
 
         quote! {
-            impl #impl_generics #name #ty_generics #where_clause {
-                ::arcana::codegen::unique_event_name_and_ver_for_enum!(
-                    #max, #event_variants
-                );
+            #[automatically_derived]
+            impl #impl_generics ::arcana::UniqueArcanaEvent for
+                #name #ty_generics #where_clause
+            {
+                const SIZE: usize = #event_sizes;
             }
 
-            ::arcana::codegen::unique_event_name_and_ver_check!(#name);
+            impl #impl_generics #name #ty_generics #where_clause {
+                #[automatically_derived]
+                pub const fn __arcana_events() -> [
+                    (&'static str, u16);
+                    <Self as ::arcana::UniqueArcanaEvent>::SIZE
+                ] {
+                    let mut res =
+                        [("", 0); <Self as ::arcana::UniqueArcanaEvent>::SIZE];
+
+                    let mut global = 0;
+
+                    #event_array_population
+
+                    res
+                }
+            }
+
+            ::arcana::codegen::sa::const_assert!(
+                !::arcana::codegen::unique_events::has_duplicates(
+                    #name::__arcana_events()
+                )
+            );
         }
     }
 }
@@ -312,13 +352,53 @@ mod spec {
                 }
             }
 
-            impl Event {
-                ::arcana::codegen::unique_event_name_and_ver_for_enum!(
-                    100000usize, EventUnnamend, EventNamed,
-                );
+            #[automatically_derived]
+            impl ::arcana::UniqueArcanaEvent for Event {
+                const SIZE: usize =
+                    <EventUnnamend as ::arcana::UniqueArcanaEvent>::SIZE +
+                    <EventNamed as ::arcana::UniqueArcanaEvent>::SIZE;
             }
 
-            ::arcana::codegen::unique_event_name_and_ver_check!(Event);
+            impl Event {
+                #[automatically_derived]
+                pub const fn __arcana_events() -> [
+                    (&'static str, u16);
+                    <Self as ::arcana::UniqueArcanaEvent>::SIZE
+                ] {
+                    let mut res =
+                        [("", 0); <Self as ::arcana::UniqueArcanaEvent>::SIZE];
+
+                    let mut global = 0;
+
+                    {
+                        let ev = EventUnnamend::__arcana_events();
+                        let mut local = 0;
+                        while local < ev.len() {
+                            res[global] = ev[local];
+                            local += 1;
+                            global += 1;
+                        }
+                    }
+
+                    {
+                        let ev = EventNamed::__arcana_events();
+                        let mut local = 0;
+                        while local < ev.len() {
+                            res[global] = ev[local];
+                            local += 1;
+                            global += 1;
+                        }
+                    }
+
+                    res
+                }
+            }
+
+            ::arcana::codegen::sa::const_assert!(
+                !::arcana::codegen::unique_events::has_duplicates(
+                    Event::__arcana_events()
+                )
+            );
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
@@ -408,13 +488,42 @@ mod spec {
                 }
             }
 
-            impl Event {
-                ::arcana::codegen::unique_event_name_and_ver_for_enum!(
-                    100000usize, EventNamed,
-                );
+            #[automatically_derived]
+            impl ::arcana::UniqueArcanaEvent for Event {
+                const SIZE: usize =
+                    <EventNamed as ::arcana::UniqueArcanaEvent>::SIZE;
             }
 
-            ::arcana::codegen::unique_event_name_and_ver_check!(Event);
+            impl Event {
+                #[automatically_derived]
+                pub const fn __arcana_events() -> [
+                    (&'static str, u16);
+                    <Self as ::arcana::UniqueArcanaEvent>::SIZE
+                ] {
+                    let mut res =
+                        [("", 0); <Self as ::arcana::UniqueArcanaEvent>::SIZE];
+
+                    let mut global = 0;
+
+                    {
+                        let ev = EventNamed::__arcana_events();
+                        let mut local = 0;
+                        while local < ev.len() {
+                            res[global] = ev[local];
+                            local += 1;
+                            global += 1;
+                        }
+                    }
+
+                    res
+                }
+            }
+
+            ::arcana::codegen::sa::const_assert!(
+                !::arcana::codegen::unique_events::has_duplicates(
+                    Event::__arcana_events()
+                )
+            );
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());

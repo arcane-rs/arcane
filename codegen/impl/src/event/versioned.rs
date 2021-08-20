@@ -9,8 +9,6 @@ use quote::quote;
 use syn::{spanned::Spanned as _, Result};
 use synthez::{ParseAttrs, ToTokens};
 
-use super::MAX_UNIQUE_EVENTS;
-
 /// Derives [`VersionedEvent`] for struct.
 ///
 /// [`VersionedEvent`]: arcana_core::VersionedEvent
@@ -116,13 +114,19 @@ impl Definitions {
         let (impl_generics, ty_generics, where_clause) =
             self.generics.split_for_impl();
         let (event_name, event_ver) = (&self.event_name, &self.event_ver);
-        let max = MAX_UNIQUE_EVENTS;
 
         quote! {
+            #[automatically_derived]
+            impl #impl_generics ::arcana::UniqueArcanaEvent for
+                #name #ty_generics #where_clause {
+                const SIZE: usize = 1;
+            }
+
             impl #impl_generics #name #ty_generics #where_clause {
-                ::arcana::codegen::unique_event_name_and_ver_for_struct!(
-                    #max, #event_name, #event_ver
-                );
+                #[automatically_derived]
+                pub const fn __arcana_events() -> [(&'static str, u16); 1] {
+                    [(#event_name, #event_ver)]
+                }
             }
         }
     }
@@ -186,10 +190,16 @@ mod spec {
                 }
             }
 
+            #[automatically_derived]
+            impl ::arcana::UniqueArcanaEvent for Event {
+                const SIZE: usize = 1;
+            }
+
             impl Event {
-                ::arcana::codegen::unique_event_name_and_ver_for_struct!(
-                    100000usize, "event", 1
-                );
+                #[automatically_derived]
+                pub const fn __arcana_events() -> [(&'static str, u16); 1] {
+                    [("event", 1)]
+                }
             }
         };
 
