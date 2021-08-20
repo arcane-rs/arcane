@@ -2,7 +2,7 @@
 //!
 //! [`Event`]: arcana_core::Event
 
-pub(crate) mod versioned;
+pub mod versioned;
 
 use std::{convert::TryFrom, str::FromStr as _};
 
@@ -18,7 +18,13 @@ use synthez::{ParseAttrs, ToTokens};
 /// Derives [`Event`] for enum.
 ///
 /// [`Event`]: arcana_core::Event
-pub(crate) fn derive(input: TokenStream) -> syn::Result<TokenStream> {
+///
+/// # Errors
+///
+/// - If `input` isn't an `enum`;
+/// - If `enum` variant consist not from single event;
+/// - If failed to parse [`Attrs`].
+pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     let input: syn::DeriveInput = syn::parse2(input)?;
     let definitions = Definitions::try_from(input)?;
 
@@ -28,8 +34,8 @@ pub(crate) fn derive(input: TokenStream) -> syn::Result<TokenStream> {
 /// Attributes for [`Event`] derive macro.
 ///
 /// [`Event`]: arcana_core::Event
-#[derive(Default, ParseAttrs)]
-struct Attrs {
+#[derive(Debug, Default, ParseAttrs)]
+pub struct Attrs {
     /// `#[event(skip(...))` attribute.
     #[parse(value)]
     skip: Option<Spanning<SkipAttr>>,
@@ -41,7 +47,8 @@ impl Attrs {
     ///
     /// [`Event::name()`]: arcana_core::Event::name()
     /// [`Event::ver()`]: arcana_core::Event::ver()
-    fn skip_check_unique_name_and_ver(&self) -> bool {
+    #[must_use]
+    pub fn skip_check_unique_name_and_ver(&self) -> bool {
         matches!(
             self.skip.as_ref().map(|sp| sp.item),
             Some(SkipAttr::CheckUniqueNameAndVer),
@@ -68,7 +75,7 @@ impl<T> Spanned for Spanning<T> {
 /// Inner value for `#[event(skip(...))]` attribute.
 #[derive(Clone, Copy, Debug, EnumString, EnumVariantNames)]
 #[strum(serialize_all = "snake_case")]
-enum SkipAttr {
+pub enum SkipAttr {
     /// Variant for skipping uniqueness check of [`Event::name()`] and
     /// [`Event::ver()`].
     ///
@@ -212,7 +219,9 @@ impl Definitions {
                 (!attr.skip_check_unique_name_and_ver()).then(|| {
                     let ty = &variant.fields.iter().next().unwrap().ty;
                     (
-                        quote! { <#ty as ::arcana::UniqueArcanaEvent>::SIZE },
+                        quote! {
+                            <#ty as ::arcana::codegen::UniqueEvents>::COUNT
+                        },
                         quote! {{
                             let ev = #ty::__arcana_events();
                             let mut local = 0;
@@ -236,20 +245,22 @@ impl Definitions {
 
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::arcana::UniqueArcanaEvent for
+            impl #impl_generics ::arcana::codegen::UniqueEvents for
                 #name #ty_generics #where_clause
             {
-                const SIZE: usize = #event_sizes;
+                const COUNT: usize = #event_sizes;
             }
 
             impl #impl_generics #name #ty_generics #where_clause {
                 #[automatically_derived]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
-                    <Self as ::arcana::UniqueArcanaEvent>::SIZE
+                    <Self as ::arcana::codegen::UniqueEvents>::COUNT
                 ] {
-                    let mut res =
-                        [("", 0); <Self as ::arcana::UniqueArcanaEvent>::SIZE];
+                    let mut res =[
+                        ("", 0);
+                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                    ];
 
                     let mut global = 0;
 
@@ -353,20 +364,22 @@ mod spec {
             }
 
             #[automatically_derived]
-            impl ::arcana::UniqueArcanaEvent for Event {
-                const SIZE: usize =
-                    <EventUnnamend as ::arcana::UniqueArcanaEvent>::SIZE +
-                    <EventNamed as ::arcana::UniqueArcanaEvent>::SIZE;
+            impl ::arcana::codegen::UniqueEvents for Event {
+                const COUNT: usize =
+                    <EventUnnamend as ::arcana::codegen::UniqueEvents>::COUNT +
+                    <EventNamed as ::arcana::codegen::UniqueEvents>::COUNT;
             }
 
             impl Event {
                 #[automatically_derived]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
-                    <Self as ::arcana::UniqueArcanaEvent>::SIZE
+                    <Self as ::arcana::codegen::UniqueEvents>::COUNT
                 ] {
-                    let mut res =
-                        [("", 0); <Self as ::arcana::UniqueArcanaEvent>::SIZE];
+                    let mut res = [
+                        ("", 0);
+                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                    ];
 
                     let mut global = 0;
 
@@ -489,19 +502,21 @@ mod spec {
             }
 
             #[automatically_derived]
-            impl ::arcana::UniqueArcanaEvent for Event {
-                const SIZE: usize =
-                    <EventNamed as ::arcana::UniqueArcanaEvent>::SIZE;
+            impl ::arcana::codegen::UniqueEvents for Event {
+                const COUNT: usize =
+                    <EventNamed as ::arcana::codegen::UniqueEvents>::COUNT;
             }
 
             impl Event {
                 #[automatically_derived]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
-                    <Self as ::arcana::UniqueArcanaEvent>::SIZE
+                    <Self as ::arcana::codegen::UniqueEvents>::COUNT
                 ] {
-                    let mut res =
-                        [("", 0); <Self as ::arcana::UniqueArcanaEvent>::SIZE];
+                    let mut res = [
+                        ("", 0);
+                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                    ];
 
                     let mut global = 0;
 

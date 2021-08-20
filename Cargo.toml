@@ -13,4 +13,4 @@ arcana-core = { version = "0.1.0", path = "./core" }
 arcana-codegen = { version = "0.1.0", path = "./codegen" }
 
 [workspace]
-members = ["codegen", "codegen/impl", "core"]
+members = ["codegen", "codegen/impl", "codegen/shim", "core"]

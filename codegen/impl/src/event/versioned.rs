@@ -12,7 +12,12 @@ use synthez::{ParseAttrs, ToTokens};
 /// Derives [`VersionedEvent`] for struct.
 ///
 /// [`VersionedEvent`]: arcana_core::VersionedEvent
-pub(crate) fn derive(input: TokenStream) -> Result<TokenStream> {
+///
+/// # Errors
+///
+/// - If `input` isn't a `struct`;
+/// - If failed to parse [`Attrs`].
+pub fn derive(input: TokenStream) -> Result<TokenStream> {
     let input = syn::parse2::<syn::DeriveInput>(input)?;
     let definitions = Definitions::try_from(input)?;
 
@@ -22,8 +27,8 @@ pub(crate) fn derive(input: TokenStream) -> Result<TokenStream> {
 /// Attributes for [`VersionedEvent`] derive macro.
 ///
 /// [`VersionedEvent`]: arcana_core::VersionedEvent
-#[derive(Default, ParseAttrs)]
-struct Attrs {
+#[derive(Debug, Default, ParseAttrs)]
+pub struct Attrs {
     /// Value for [`VersionedEvent::name()`] impl.
     ///
     /// [`VersionedEvent::name()`]: arcana_core::VersionedEvent::name()
@@ -117,9 +122,9 @@ impl Definitions {
 
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::arcana::UniqueArcanaEvent for
+            impl #impl_generics ::arcana::codegen::UniqueEvents for
                 #name #ty_generics #where_clause {
-                const SIZE: usize = 1;
+                const COUNT: usize = 1;
             }
 
             impl #impl_generics #name #ty_generics #where_clause {
@@ -191,8 +196,8 @@ mod spec {
             }
 
             #[automatically_derived]
-            impl ::arcana::UniqueArcanaEvent for Event {
-                const SIZE: usize = 1;
+            impl ::arcana::codegen::UniqueEvents for Event {
+                const COUNT: usize = 1;
             }
 
             impl Event {

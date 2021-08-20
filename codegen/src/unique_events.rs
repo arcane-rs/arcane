@@ -32,12 +32,21 @@
 //!
 //!
 //! [`const_assert`]: static_assertions::const_assert
-//! [`Event`]: trait@crate::Event
-//! [`Event::name()`]: trait@crate::Event::name()
-//! [`Event::ver()`]: trait@crate::Event::ver()
-//! [`VersionedEvent`]: trait@crate::VersionedEvent
+//! [`Event`]: arcana_core::Event
+//! [`Event::name()`]: arcana_core::Event::name()
+//! [`Event::ver()`]: arcana_core::Event::ver()
+//! [`VersionedEvent`]: arcana_core::VersionedEvent
 
-/// Checks if array has [`Some`] duplicates.
+/// Trait for keeping track of number of [`VersionedEvent`]s.
+pub trait UniqueEvents {
+    /// Number of [`VersionedEvent`]s in this [`Event`].
+    ///
+    /// [`Event`]: arcana_core::Event
+    /// [`VersionedEvent`]: arcana_core::VersionedEvent
+    const COUNT: usize;
+}
+
+/// Checks if array has duplicates.
 #[must_use]
 pub const fn has_duplicates<const N: usize>(events: [(&str, u16); N]) -> bool {
     let mut outer = 0;

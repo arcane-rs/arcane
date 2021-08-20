@@ -59,6 +59,7 @@ jobs:
           - arcana
           - arcana-core
           - arcana-codegen
+          - arcana-codegen-shim
           - arcana-codegen-impl
         os:
           - ubuntu

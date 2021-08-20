@@ -24,8 +24,6 @@
 #[cfg(all(feature = "derive", feature = "es"))]
 pub mod codegen;
 
-pub use codegen::UniqueArcanaEvent;
-
 #[doc(inline)]
 #[cfg(feature = "es")]
 pub use arcana_core::{

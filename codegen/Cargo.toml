@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-arcana-codegen-impl = { version = "0.1.0", path = "./impl"}
+arcana-codegen-shim = { version = "0.1.0", path = "./shim"}
 static_assertions = "1.1"
+
+[dev-dependencies]
+arcana-core = { path = "../core" }
