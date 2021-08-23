@@ -1,2 +1,2 @@
-arcana-codegen-impl
+arcana-codegen-core
 ===================

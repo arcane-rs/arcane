@@ -60,7 +60,7 @@ jobs:
           - arcana-core
           - arcana-codegen
           - arcana-codegen-shim
-          - arcana-codegen-impl
+          - arcana-codegen-core
         os:
           - ubuntu
           - macOS
