@@ -109,11 +109,12 @@ impl Definitions {
         }
     }
 
-    /// Generates code, that is used to check uniqueness of [`Event::name()`]
-    /// and [`Event::ver()`].
+    /// Generates functions, that returns array of size 1 with
+    /// [`VersionedEvent::name()`] and [`VersionedEvent::ver()`]. Used for
+    /// uniqueness check.
     ///
-    /// [`Event::name()`]: arcana_core::Event::name()
-    /// [`Event::ver()`]: arcana_core::Event::ver()
+    /// [`VersionedEvent::name()`]: arcana_core::VersionedEvent::name()
+    /// [`VersionedEvent::ver()`]: arcana_core::VersionedEvent::ver()
     fn unique_event_name_and_ver(&self) -> TokenStream {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
@@ -123,7 +124,8 @@ impl Definitions {
         quote! {
             #[automatically_derived]
             impl #impl_generics ::arcana::codegen::UniqueEvents for
-                #name #ty_generics #where_clause {
+                #name #ty_generics #where_clause
+            {
                 const COUNT: usize = 1;
             }
 

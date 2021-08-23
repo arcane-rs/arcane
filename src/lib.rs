@@ -50,7 +50,7 @@ pub use arcana_core::{
 ///
 /// # Examples
 ///
-/// ```compile_fail
+/// ```compile_fail,E0080
 /// # use arcana::{Event, VersionedEvent};
 /// #
 /// #[derive(VersionedEvent)]

@@ -25,7 +25,7 @@ use synthez::{ParseAttrs, ToTokens};
 /// - If `enum` variant consist not from single event;
 /// - If failed to parse [`Attrs`].
 pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
-    let input: syn::DeriveInput = syn::parse2(input)?;
+    let input = syn::parse2::<syn::DeriveInput>(input)?;
     let definitions = Definitions::try_from(input)?;
 
     Ok(quote! { #definitions })
@@ -196,11 +196,13 @@ impl Definitions {
         }
     }
 
-    /// Generates code, that checks uniqueness of [`Event::name()`] and
-    /// [`Event::ver()`].
+    /// Generates functions, that returns array composed from arrays of all enum
+    /// variants. Resulting array size is count of all [`VersionedEvent`]s.
     ///
-    /// [`Event::name()`]: arcana_core::Event::name()
-    /// [`Event::ver()`]: arcana_core::Event::ver()
+    /// Checks uniqueness of all [`Event::name`]s and [`Event::ver`]s.
+    ///
+    /// [`Event::name`]: arcana_core::Event::name()
+    /// [`Event::ver`]: arcana_core::Event::ver()
     fn unique_event_name_and_ver(&self) -> TokenStream {
         if self.attrs.skip_check_unique_name_and_ver() {
             return TokenStream::new();
@@ -217,6 +219,8 @@ impl Definitions {
             .iter()
             .filter_map(|(variant, attr)| {
                 (!attr.skip_check_unique_name_and_ver()).then(|| {
+                    // Unwrapping is safe here as we checked for `.len() == 1`
+                    // in TryFrom impl.
                     let ty = &variant.fields.iter().next().unwrap().ty;
                     (
                         quote! {
@@ -257,7 +261,7 @@ impl Definitions {
                     (&'static str, u16);
                     <Self as ::arcana::codegen::UniqueEvents>::COUNT
                 ] {
-                    let mut res =[
+                    let mut res = [
                         ("", 0);
                         <Self as ::arcana::codegen::UniqueEvents>::COUNT
                     ];

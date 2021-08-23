@@ -1,0 +1,20 @@
+[package]
+name = "arcana-codegen-core"
+version = "0.1.0-dev"
+edition = "2018"
+
+[dependencies]
+arcana-core = { version = "0.1.0-dev", path = "../../core" }
+strum = { version = "0.21", features = ["derive"] }
+[dependencies.proc-macro2]
+    version = "1.0"
+    default-features = false
+[dependencies.quote]
+    version = "1.0"
+    default-features = false
+[dependencies.syn]
+    version = "1.0"
+    default-features = false
+[dependencies.synthez]
+    version = "0.1"
+    default-features = false

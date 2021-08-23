@@ -1,11 +1,14 @@
 [package]
 name = "arcana-codegen-shim"
-version = "0.1.0"
+version = "0.1.0-dev"
 edition = "2018"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-arcana-codegen-impl = { path = "../impl" }
-syn = "1.0"
+arcana-codegen-core = { version = "0.1.0-dev", path = "../core" }
+arcana-core = { version = "0.1.0-dev", path = "../../core" }
+[dependencies.syn]
+    version = "1.0"
+    default-features = false
