@@ -10,4 +10,3 @@ es = []
 [dependencies]
 derive_more = "0.99"
 ref-cast = "1.0"
-safety-guard = "0.1"

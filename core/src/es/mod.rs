@@ -6,7 +6,6 @@ use std::{convert::TryFrom, num::NonZeroU16};
 
 use derive_more::{Display, Into};
 use ref_cast::RefCast;
-use safety_guard::safety;
 
 /// [Event Sourcing] event that describes something that has occurred (happened
 /// fact).
@@ -69,11 +68,14 @@ impl Version {
 
     /// Creates a new [`Version`] out of the given `val`ue without checking its
     /// invariants.
+    ///
+    /// # Safety
+    ///
+    /// The given `val`ue must not be `0` (zero).
     #[allow(unsafe_code)]
     #[inline]
     #[must_use]
-    #[safety(ne(val, 0), "The given `val`ue must not be `0` (zero).")]
-    pub unsafe fn new_unchecked(val: u16) -> Self {
+    pub const unsafe fn new_unchecked(val: u16) -> Self {
         Self(NonZeroU16::new_unchecked(val))
     }
 }
