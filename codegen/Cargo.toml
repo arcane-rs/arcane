@@ -2,8 +2,20 @@
 name = "arcana-codegen"
 version = "0.1.0-dev"
 edition = "2018"
+resolver = "2"
+description = "Code generation of `arcana` crate."
+authors = [
+    "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
+    "Kai Ren <tyranron@gmail.com>"
+]
+documentation = "https://docs.rs/arcana-codegen"
+homepage = "https://github.com/arcana-rs/arcana/tree/master/codegen"
+repository = "https://github.com/arcana-rs/arcana"
+readme = "README.md"
 
 [dependencies]
 arcana-codegen-shim = { version = "0.1.0-dev", path = "./shim"}
-arcana-core = { version = "0.1.0-dev", path = "../core" }
-static_assertions = "1.1"
+static_assertions = { version = "1.1", default-features = false }
+
+[dev-dependencies]
+arcana-core = { version = "0.1.0-dev", path = "../core", features = ["es"] }

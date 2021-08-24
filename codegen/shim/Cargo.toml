@@ -2,13 +2,23 @@
 name = "arcana-codegen-shim"
 version = "0.1.0-dev"
 edition = "2018"
+resolver = "2"
+description = "Internal proc macro shim of `arcana-codegen` crate."
+authors = [
+    "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
+    "Kai Ren <tyranron@gmail.com>"
+]
+documentation = "https://docs.rs/arcana-codegen"
+homepage = "https://github.com/arcana-rs/arcana/tree/master/codegen"
+repository = "https://github.com/arcana-rs/arcana"
+readme = "README.md"
 
 [lib]
 proc-macro = true
 
 [dependencies]
 arcana-codegen-core = { version = "0.1.0-dev", path = "../core" }
-arcana-core = { version = "0.1.0-dev", path = "../../core" }
-[dependencies.syn]
-    version = "1.0"
-    default-features = false
+syn = { version = "1.0.72", features = ["parsing", "proc-macro"], default-features = false }
+
+[dev-dependencies]
+arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"] }

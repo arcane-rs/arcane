@@ -2,19 +2,23 @@
 name = "arcana-codegen-core"
 version = "0.1.0-dev"
 edition = "2018"
+resolver = "2"
+description = "Core implementations of `arcana-codegen` crate."
+authors = [
+    "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
+    "Kai Ren <tyranron@gmail.com>"
+]
+documentation = "https://docs.rs/arcana-codegen-core"
+homepage = "https://github.com/arcana-rs/arcana/tree/master/codegen/core"
+repository = "https://github.com/arcana-rs/arcana"
+readme = "README.md"
 
 [dependencies]
-arcana-core = { version = "0.1.0-dev", path = "../../core" }
+proc-macro2 = { version = "1.0", default-features = false }
+quote = { version = "1.0", default-features = false }
 strum = { version = "0.21", features = ["derive"] }
-[dependencies.proc-macro2]
-    version = "1.0"
-    default-features = false
-[dependencies.quote]
-    version = "1.0"
-    default-features = false
-[dependencies.syn]
-    version = "1.0"
-    default-features = false
-[dependencies.synthez]
-    version = "0.1"
-    default-features = false
+syn = { version = "1.0", features = ["derive", "extra-traits", "parsing", "printing"], default-features = false }
+synthez = { version = "0.1", default-features = false }
+
+[dev-dependencies]
+arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"] }

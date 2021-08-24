@@ -20,24 +20,25 @@
     unused_results
 )]
 
+use arcana_codegen_core as codegen;
 use proc_macro::TokenStream;
 
 /// Macro for deriving [`Event`].
 ///
-/// [`Event`]: arcana_core::Event
+/// [`Event`]: arcana_core::es::Event
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
-    arcana_codegen_core::event::derive(input.into())
+    codegen::event::derive(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
 
-/// Macro for deriving [`VersionedEvent`].
+/// Macro for deriving [`event::Versioned`].
 ///
-/// [`VersionedEvent`]: arcana_core::VersionedEvent
+/// [`event::Versioned`]: arcana_core::es::event::Versioned
 #[proc_macro_derive(VersionedEvent, attributes(event))]
 pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
-    arcana_codegen_core::event::versioned::derive(input.into())
+    codegen::event::versioned::derive(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

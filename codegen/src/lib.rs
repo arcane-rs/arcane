@@ -22,7 +22,7 @@
 
 pub mod unique_events;
 
-pub use static_assertions as sa;
-
 #[doc(inline)]
 pub use arcana_codegen_shim::{Event, VersionedEvent};
+#[doc(hidden)]
+pub use static_assertions as sa;

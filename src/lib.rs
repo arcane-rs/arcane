@@ -26,10 +26,7 @@ pub mod codegen;
 
 #[doc(inline)]
 #[cfg(feature = "es")]
-pub use arcana_core::{
-    Event, EventInitialized, EventName, EventSourced, EventVersion,
-    InitialEvent, VersionedEvent,
-};
+pub use arcana_core::es;
 
 /// Macro for deriving [`Event`](trait@Event) on enums. For structs consider
 /// [`VersionedEvent`](macro@VersionedEvent).

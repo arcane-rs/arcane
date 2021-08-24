@@ -5,8 +5,7 @@
     rustdoc::broken_intra_doc_links,
     rustdoc::private_intra_doc_links,
     trivial_casts,
-    trivial_numeric_casts,
-    unsafe_code
+    trivial_numeric_casts
 )]
 #![forbid(non_ascii_idents)]
 #![warn(
@@ -22,12 +21,4 @@
 )]
 
 #[cfg(feature = "es")]
-mod es;
-
-#[doc(inline)]
-#[cfg(feature = "es")]
-pub use es::{
-    Event, Initial as InitialEvent, Initialized as EventInitialized,
-    Name as EventName, Sourced as EventSourced, Version as EventVersion,
-    Versioned as VersionedEvent,
-};
+pub mod es;

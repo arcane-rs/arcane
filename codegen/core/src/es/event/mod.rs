@@ -1,6 +1,4 @@
-//! Definition of [`Event`] derive macro for enums.
-//!
-//! [`Event`]: arcana_core::Event
+//! `#[derive(Event)]` macro implementation.
 
 pub mod versioned;
 
@@ -26,7 +24,7 @@ use synthez::{ParseAttrs, ToTokens};
 /// - If failed to parse [`Attrs`].
 pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse2::<syn::DeriveInput>(input)?;
-    let definitions = Definitions::try_from(input)?;
+    let definitions = Definition::try_from(input)?;
 
     Ok(quote! { #definitions })
 }
@@ -107,7 +105,7 @@ impl Parse for Spanning<SkipAttr> {
 /// [`Event`]: arcana_core::Event
 #[derive(ToTokens)]
 #[to_tokens(append(impl_from, unique_event_name_and_ver))]
-struct Definitions {
+struct Definition {
     /// Enum's [`Ident`].
     ///
     /// [`Ident`]: syn::Ident
@@ -130,7 +128,48 @@ struct Definitions {
     attrs: Attrs,
 }
 
-impl Definitions {
+impl TryFrom<syn::DeriveInput> for Definition {
+    type Error = syn::Error;
+
+    fn try_from(input: syn::DeriveInput) -> syn::Result<Self> {
+        let data = if let syn::Data::Enum(data) = &input.data {
+            data
+        } else {
+            return Err(syn::Error::new(
+                input.span(),
+                "Expected enum. \
+                 Consider using arcana::VersionedEvent for structs",
+            ));
+        };
+
+        for variant in &data.variants {
+            if variant.fields.len() != 1 {
+                return Err(syn::Error::new(
+                    variant.span(),
+                    "Enum variants must have exactly 1 field",
+                ));
+            }
+        }
+
+        let attrs = Attrs::parse_attrs("event", &input)?;
+        let variants = data
+            .variants
+            .iter()
+            .map(|variant| {
+                Ok((variant.clone(), Attrs::parse_attrs("event", variant)?))
+            })
+            .collect::<syn::Result<_>>()?;
+
+        Ok(Self {
+            ident: input.ident,
+            generics: input.generics,
+            variants,
+            attrs,
+        })
+    }
+}
+
+impl Definition {
     /// Generates code to derive [`Event`] by simply matching over every enum
     /// variant, which is expected to be itself [`Event`] deriver.
     ///
@@ -280,47 +319,6 @@ impl Definitions {
                 )
             );
         }
-    }
-}
-
-impl TryFrom<syn::DeriveInput> for Definitions {
-    type Error = syn::Error;
-
-    fn try_from(input: syn::DeriveInput) -> syn::Result<Self> {
-        let data = if let syn::Data::Enum(data) = &input.data {
-            data
-        } else {
-            return Err(syn::Error::new(
-                input.span(),
-                "Expected enum. \
-                 Consider using arcana::VersionedEvent for structs",
-            ));
-        };
-
-        for variant in &data.variants {
-            if variant.fields.len() != 1 {
-                return Err(syn::Error::new(
-                    variant.span(),
-                    "Enum variants must have exactly 1 field",
-                ));
-            }
-        }
-
-        let attrs = Attrs::parse_attrs("event", &input)?;
-        let variants = data
-            .variants
-            .iter()
-            .map(|variant| {
-                Ok((variant.clone(), Attrs::parse_attrs("event", variant)?))
-            })
-            .collect::<syn::Result<_>>()?;
-
-        Ok(Self {
-            ident: input.ident,
-            generics: input.generics,
-            variants,
-            attrs,
-        })
     }
 }
 
