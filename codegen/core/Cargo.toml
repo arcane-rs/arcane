@@ -14,11 +14,8 @@ repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
 [dependencies]
+arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"] }
 proc-macro2 = { version = "1.0", default-features = false }
 quote = { version = "1.0", default-features = false }
-strum = { version = "0.21", features = ["derive"] }
 syn = { version = "1.0", features = ["derive", "extra-traits", "parsing", "printing"], default-features = false }
 synthez = { version = "0.1", default-features = false }
-
-[dev-dependencies]
-arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"] }

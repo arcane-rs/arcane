@@ -18,7 +18,5 @@ proc-macro = true
 
 [dependencies]
 arcana-codegen-core = { version = "0.1.0-dev", path = "../core" }
-syn = { version = "1.0.72", features = ["parsing", "proc-macro"], default-features = false }
-
-[dev-dependencies]
 arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"] }
+syn = { version = "1.0.72", features = ["parsing", "proc-macro"], default-features = false }

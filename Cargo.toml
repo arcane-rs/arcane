@@ -23,3 +23,7 @@ arcana-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
 
 [workspace]
 members = ["codegen", "codegen/core", "codegen/shim", "core"]
+
+[[example]]
+name = "event"
+required-features = ["derive", "es"]

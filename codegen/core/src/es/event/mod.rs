@@ -2,26 +2,20 @@
 
 pub mod versioned;
 
-use std::{convert::TryFrom, str::FromStr as _};
+use std::convert::TryFrom;
 
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
-use strum::{EnumString, EnumVariantNames, VariantNames as _};
-use syn::{
-    parse::{Parse, ParseStream},
-    spanned::Spanned,
-};
+use syn::spanned::Spanned;
 use synthez::{ParseAttrs, ToTokens};
 
-/// Derives [`Event`] for enum.
-///
-/// [`Event`]: arcana_core::Event
+/// Expands `#[derive(Event)]` macro.
 ///
 /// # Errors
 ///
 /// - If `input` isn't an `enum`;
 /// - If `enum` variant consist not from single event;
-/// - If failed to parse [`Attrs`].
+/// - If failed to parse [`VariantAttrs`].
 pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse2::<syn::DeriveInput>(input)?;
     let definitions = Definition::try_from(input)?;
@@ -29,103 +23,43 @@ pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     Ok(quote! { #definitions })
 }
 
-/// Attributes for [`Event`] derive macro.
+/// Attributes for enum variant deriving [`Event`].
 ///
-/// [`Event`]: arcana_core::Event
+/// [`Event`]: arcana_core::es::Event
 #[derive(Debug, Default, ParseAttrs)]
-pub struct Attrs {
-    /// `#[event(skip(...))` attribute.
-    #[parse(value)]
-    skip: Option<Spanning<SkipAttr>>,
-}
-
-impl Attrs {
-    /// Checks whether variant or whole container shouldn't be checked for
-    /// [`Event::name()`] and [`Event::ver()`] uniqueness.
+pub struct VariantAttrs {
+    /// If present, [`Event`] impl and uniqueness check will be skipped for
+    /// particular enum variant.
     ///
-    /// [`Event::name()`]: arcana_core::Event::name()
-    /// [`Event::ver()`]: arcana_core::Event::ver()
-    #[must_use]
-    pub fn skip_check_unique_name_and_ver(&self) -> bool {
-        matches!(
-            self.skip.as_ref().map(|sp| sp.item),
-            Some(SkipAttr::CheckUniqueNameAndVer),
-        )
-    }
-}
-
-/// Wrapper for storing [`Span`].
-///
-/// We don't use one from [`synthez`], as we can't derive [`Parse`] with our `T`
-/// inside.
-#[derive(Clone, Debug)]
-struct Spanning<T> {
-    item: T,
-    span: Span,
-}
-
-impl<T> Spanned for Spanning<T> {
-    fn span(&self) -> Span {
-        self.span
-    }
-}
-
-/// Inner value for `#[event(skip(...))]` attribute.
-#[derive(Clone, Copy, Debug, EnumString, EnumVariantNames)]
-#[strum(serialize_all = "snake_case")]
-pub enum SkipAttr {
-    /// Variant for skipping uniqueness check of [`Event::name()`] and
-    /// [`Event::ver()`].
-    ///
-    /// [`Event::name()`]: arcana_core::Event::name()
-    /// [`Event::ver()`]: arcana_core::Event::ver()
-    CheckUniqueNameAndVer,
-}
-
-impl Parse for Spanning<SkipAttr> {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let ident = syn::Ident::parse(input)?;
-        Ok(Spanning {
-            item: SkipAttr::from_str(&ident.to_string()).map_err(|_| {
-                syn::Error::new(
-                    ident.span(),
-                    &format!(
-                        "Unknown value. Allowed values: {}",
-                        SkipAttr::VARIANTS.join(", "),
-                    ),
-                )
-            })?,
-            span: ident.span(),
-        })
-    }
+    /// [`Event`]: arcana_core::es::Event
+    #[parse(ident, alias = ignore)]
+    pub skip: Option<syn::Ident>,
 }
 
 /// Definition of [`Event`] derive macro.
 ///
-/// [`Event`]: arcana_core::Event
-#[derive(ToTokens)]
+/// [`Event`]: arcana_core::es::Event
+#[derive(Debug, ToTokens)]
 #[to_tokens(append(impl_from, unique_event_name_and_ver))]
-struct Definition {
+pub struct Definition {
     /// Enum's [`Ident`].
     ///
-    /// [`Ident`]: syn::Ident
-    ident: syn::Ident,
+    /// [`Ident`]: struct@syn::Ident
+    pub ident: syn::Ident,
 
     /// Enum's [`Generics`].
     ///
     /// [`Generics`]: syn::Generics
-    generics: syn::Generics,
+    pub generics: syn::Generics,
 
-    /// Enum's [`Variant`]s alongside with parsed [`Attrs`].
+    /// Enum's [`Variant`]s alongside with parsed [`VariantAttrs`].
     ///
-    /// Every [`Variant`] has exactly 1 [`Field`].
+    /// Every [`Variant`] should have exactly 1 [`Field`] in case they are not
+    /// marked with `#[event(skip)]` attribute.
     ///
     /// [`Field`]: syn::Field
     /// [`Variant`]: syn::Variant
-    variants: Vec<(syn::Variant, Attrs)>,
-
-    /// Enum's top-level [`Attrs`].
-    attrs: Attrs,
+    pub variants: Vec<(syn::Variant, VariantAttrs)>,
 }
 
 impl TryFrom<syn::DeriveInput> for Definition {
@@ -137,26 +71,25 @@ impl TryFrom<syn::DeriveInput> for Definition {
         } else {
             return Err(syn::Error::new(
                 input.span(),
-                "Expected enum. \
-                 Consider using arcana::VersionedEvent for structs",
+                "expected enum only, \
+                 consider using `arcana::es::event::Versioned` for structs",
             ));
         };
 
-        for variant in &data.variants {
-            if variant.fields.len() != 1 {
-                return Err(syn::Error::new(
-                    variant.span(),
-                    "Enum variants must have exactly 1 field",
-                ));
-            }
-        }
-
-        let attrs = Attrs::parse_attrs("event", &input)?;
         let variants = data
             .variants
             .iter()
             .map(|variant| {
-                Ok((variant.clone(), Attrs::parse_attrs("event", variant)?))
+                let attrs = VariantAttrs::parse_attrs("event", variant)?;
+
+                if variant.fields.len() != 1 && attrs.skip.is_none() {
+                    return Err(syn::Error::new(
+                        variant.span(),
+                        "enum variants must have exactly 1 field",
+                    ));
+                }
+
+                Ok((variant.clone(), attrs))
             })
             .collect::<syn::Result<_>>()?;
 
@@ -164,7 +97,6 @@ impl TryFrom<syn::DeriveInput> for Definition {
             ident: input.ident,
             generics: input.generics,
             variants,
-            attrs,
         })
     }
 }
@@ -173,62 +105,78 @@ impl Definition {
     /// Generates code to derive [`Event`] by simply matching over every enum
     /// variant, which is expected to be itself [`Event`] deriver.
     ///
-    /// [`Event`]: arcana_core::Event
-    fn impl_from(&self) -> TokenStream {
+    /// # Panics
+    ///
+    /// If some enum [`Variant`]s don't have exactly 1 [`Field`] and not marked
+    /// with `#[event(skip)]`. Checked by [`TryFrom`] impl for [`Definition`].
+    ///
+    /// [`Event`]: arcana_core::es::event::Event
+    /// [`Field`]: syn::Field
+    /// [`Variant`]: syn::Variant
+    #[must_use]
+    pub fn impl_from(&self) -> TokenStream {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
             self.generics.split_for_impl();
         let (event_names, event_versions): (TokenStream, TokenStream) = self
             .variants
             .iter()
-            .map(|(variant, _)| {
+            .filter_map(|(variant, attrs)| {
+                if attrs.skip.is_some() {
+                    return None;
+                }
+
                 let name = &variant.ident;
 
                 let generate_variant = |func: TokenStream| match &variant.fields
                 {
                     syn::Fields::Named(named) => {
-                        // Unwrapping is safe here as we checked for
-                        // `.len() == 1` in TryFrom impl.
                         let field = &named.named.iter().next().unwrap().ident;
                         quote! {
                             Self::#name { #field } => {
-                                ::arcana::Event::#func(#field)
+                                ::arcana::es::Event::#func(#field)
                             }
                         }
                     }
                     syn::Fields::Unnamed(_) => {
                         quote! {
                             Self::#name(inner) => {
-                                ::arcana::Event::#func(inner)
+                                ::arcana::es::Event::#func(inner)
                             }
                         }
                     }
                     syn::Fields::Unit => unreachable!(),
                 };
 
-                (
+                Some((
                     generate_variant(quote! { name }),
-                    generate_variant(quote! { ver }),
-                )
+                    generate_variant(quote! { version }),
+                ))
             })
             .unzip();
 
+        let unreachable_for_skip = self
+            .variants
+            .iter()
+            .any(|(_, attr)| attr.skip.is_some())
+            .then(|| quote! { _ => unreachable!()});
+
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::arcana::Event for
+            impl #impl_generics ::arcana::es::Event for
                 #name #ty_generics #where_clause
             {
-                #[inline(always)]
-                fn name(&self) -> ::arcana::EventName {
+                fn name(&self) -> ::arcana::es::event::Name {
                     match self {
                         #event_names
+                        #unreachable_for_skip
                     }
                 }
 
-                #[inline(always)]
-                fn ver(&self) -> ::arcana::EventVersion {
+                fn version(&self) -> ::arcana::es::event::Version {
                     match self {
                         #event_versions
+                        #unreachable_for_skip
                     }
                 }
             }
@@ -236,17 +184,21 @@ impl Definition {
     }
 
     /// Generates functions, that returns array composed from arrays of all enum
-    /// variants. Resulting array size is count of all [`VersionedEvent`]s.
+    /// variants.
     ///
-    /// Checks uniqueness of all [`Event::name`]s and [`Event::ver`]s.
+    /// Checks uniqueness of all [`Event::name`][0]s and [`Event::version`][1]s.
     ///
-    /// [`Event::name`]: arcana_core::Event::name()
-    /// [`Event::ver`]: arcana_core::Event::ver()
-    fn unique_event_name_and_ver(&self) -> TokenStream {
-        if self.attrs.skip_check_unique_name_and_ver() {
-            return TokenStream::new();
-        }
-
+    /// # Panics
+    ///
+    /// If some enum [`Variant`]s don't have exactly 1 [`Field`] and not marked
+    /// with `#[event(skip)]`. Checked by [`TryFrom`] impl  for [`Definition`].
+    ///
+    /// [0]: arcana_core::es::event::Event::name()
+    /// [1]: arcana_core::es::event::Event::version()
+    /// [`Field`]: syn::Field
+    /// [`Variant`]: syn::Variant
+    #[must_use]
+    pub fn unique_event_name_and_ver(&self) -> TokenStream {
         let name = &self.ident;
         let (impl_generics, ty_generics, where_clause) =
             self.generics.split_for_impl();
@@ -257,9 +209,7 @@ impl Definition {
             .variants
             .iter()
             .filter_map(|(variant, attr)| {
-                (!attr.skip_check_unique_name_and_ver()).then(|| {
-                    // Unwrapping is safe here as we checked for `.len() == 1`
-                    // in TryFrom impl.
+                attr.skip.is_none().then(|| {
                     let ty = &variant.fields.iter().next().unwrap().ty;
                     (
                         quote! {
@@ -296,6 +246,7 @@ impl Definition {
 
             impl #impl_generics #name #ty_generics #where_clause {
                 #[automatically_derived]
+                #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
                     <Self as ::arcana::codegen::UniqueEvents>::COUNT
@@ -330,7 +281,7 @@ mod spec {
     fn derives_enum_impl() {
         let input = syn::parse_quote! {
             enum Event {
-                Event1(EventUnnamend),
+                Event1(EventUnnamed),
                 Event2 {
                     event: EventNamed,
                 }
@@ -339,27 +290,25 @@ mod spec {
 
         let output = quote! {
             #[automatically_derived]
-            impl ::arcana::Event for Event {
-                #[inline(always)]
-                fn name(&self) -> ::arcana::EventName {
+            impl ::arcana::es::Event for Event {
+                fn name(&self) -> ::arcana::es::event::Name {
                     match self {
                         Self::Event1(inner) => {
-                            ::arcana::Event::name(inner)
+                            ::arcana::es::Event::name(inner)
                         }
                         Self::Event2 { event } => {
-                            ::arcana::Event::name(event)
+                            ::arcana::es::Event::name(event)
                         }
                     }
                 }
 
-                #[inline(always)]
-                fn ver(&self) -> ::arcana::EventVersion {
+                fn version(&self) -> ::arcana::es::event::Version {
                     match self {
                         Self::Event1(inner) => {
-                            ::arcana::Event::ver(inner)
+                            ::arcana::es::Event::version(inner)
                         }
                         Self::Event2 { event } => {
-                            ::arcana::Event::ver(event)
+                            ::arcana::es::Event::version(event)
                         }
                     }
                 }
@@ -368,12 +317,13 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::codegen::UniqueEvents for Event {
                 const COUNT: usize =
-                    <EventUnnamend as ::arcana::codegen::UniqueEvents>::COUNT +
+                    <EventUnnamed as ::arcana::codegen::UniqueEvents>::COUNT +
                     <EventNamed as ::arcana::codegen::UniqueEvents>::COUNT;
             }
 
             impl Event {
                 #[automatically_derived]
+                #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
                     <Self as ::arcana::codegen::UniqueEvents>::COUNT
@@ -386,7 +336,7 @@ mod spec {
                     let mut global = 0;
 
                     {
-                        let ev = EventUnnamend::__arcana_events();
+                        let ev = EventUnnamed::__arcana_events();
                         let mut local = 0;
                         while local < ev.len() {
                             res[global] = ev[local];
@@ -414,50 +364,6 @@ mod spec {
                     Event::__arcana_events()
                 )
             );
-        };
-
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
-    }
-
-    #[test]
-    fn skip_unique_check_on_container() {
-        let input = syn::parse_quote! {
-            #[event(skip(check_unique_name_and_ver))]
-            enum Event {
-                Event1(EventUnnamend),
-                Event2 {
-                    event: EventNamed,
-                }
-            }
-        };
-
-        let output = quote! {
-            #[automatically_derived]
-            impl ::arcana::Event for Event {
-                #[inline(always)]
-                fn name(&self) -> ::arcana::EventName {
-                    match self {
-                        Self::Event1(inner) => {
-                            ::arcana::Event::name(inner)
-                        }
-                        Self::Event2 { event } => {
-                            ::arcana::Event::name(event)
-                        }
-                    }
-                }
-
-                #[inline(always)]
-                fn ver(&self) -> ::arcana::EventVersion {
-                    match self {
-                        Self::Event1(inner) => {
-                            ::arcana::Event::ver(inner)
-                        }
-                        Self::Event2 { event } => {
-                            ::arcana::Event::ver(event)
-                        }
-                    }
-                }
-            }
         };
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
@@ -465,40 +371,54 @@ mod spec {
 
     #[test]
     fn skip_unique_check_on_variant() {
-        let input = syn::parse_quote! {
+        let input_skip = syn::parse_quote! {
             enum Event {
-                #[event(skip(check_unique_name_and_ver))]
-                Event1(EventUnnamend),
+                Event1(EventUnnamed),
                 Event2 {
                     event: EventNamed,
-                }
+                },
+                #[event(skip)]
+                #[doc(hidden)]
+                _NonExhaustive
+            }
+        };
+
+        let input_ignore = syn::parse_quote! {
+            enum Event {
+                Event1(EventUnnamed),
+                Event2 {
+                    event: EventNamed,
+                },
+                #[event(ignore)]
+                #[doc(hidden)]
+                _NonExhaustive
             }
         };
 
         let output = quote! {
             #[automatically_derived]
-            impl ::arcana::Event for Event {
-                #[inline(always)]
-                fn name(&self) -> ::arcana::EventName {
+            impl ::arcana::es::Event for Event {
+                fn name(&self) -> ::arcana::es::event::Name {
                     match self {
                         Self::Event1(inner) => {
-                            ::arcana::Event::name(inner)
+                            ::arcana::es::Event::name(inner)
                         }
                         Self::Event2 { event } => {
-                            ::arcana::Event::name(event)
+                            ::arcana::es::Event::name(event)
                         }
+                        _ => unreachable!()
                     }
                 }
 
-                #[inline(always)]
-                fn ver(&self) -> ::arcana::EventVersion {
+                fn version(&self) -> ::arcana::es::event::Version {
                     match self {
                         Self::Event1(inner) => {
-                            ::arcana::Event::ver(inner)
+                            ::arcana::es::Event::version(inner)
                         }
                         Self::Event2 { event } => {
-                            ::arcana::Event::ver(event)
+                            ::arcana::es::Event::version(event)
                         }
+                        _ => unreachable!()
                     }
                 }
             }
@@ -506,11 +426,13 @@ mod spec {
             #[automatically_derived]
             impl ::arcana::codegen::UniqueEvents for Event {
                 const COUNT: usize =
+                    <EventUnnamed as ::arcana::codegen::UniqueEvents>::COUNT +
                     <EventNamed as ::arcana::codegen::UniqueEvents>::COUNT;
             }
 
             impl Event {
                 #[automatically_derived]
+                #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
                     <Self as ::arcana::codegen::UniqueEvents>::COUNT
@@ -521,6 +443,16 @@ mod spec {
                     ];
 
                     let mut global = 0;
+
+                    {
+                        let ev = EventUnnamed::__arcana_events();
+                        let mut local = 0;
+                        while local < ev.len() {
+                            res[global] = ev[local];
+                            local += 1;
+                            global += 1;
+                        }
+                    }
 
                     {
                         let ev = EventNamed::__arcana_events();
@@ -543,7 +475,10 @@ mod spec {
             );
         };
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
+        let input_skip = derive(input_skip).unwrap().to_string();
+        let input_ignore = derive(input_ignore).unwrap().to_string();
+        assert_eq!(input_skip, input_ignore);
+        assert_eq!(input_skip, output.to_string());
     }
 
     #[test]
@@ -562,24 +497,7 @@ mod spec {
 
         assert_eq!(
             format!("{}", error),
-            "Enum variants must have exactly 1 field",
-        );
-    }
-
-    #[test]
-    fn errors_on_unknown_attribute_value() {
-        let input = syn::parse_quote! {
-            enum Event {
-                #[event(skip(unknown))]
-                Event1(Event1),
-            }
-        };
-
-        let error = derive(input).unwrap_err();
-
-        assert_eq!(
-            format!("{}", error),
-            "Unknown value. Allowed values: check_unique_name_and_ver",
+            "enum variants must have exactly 1 field",
         );
     }
 
@@ -593,7 +511,8 @@ mod spec {
 
         assert_eq!(
             format!("{}", error),
-            "Expected enum. Consider using arcana::VersionedEvent for structs",
+            "expected enum only, \
+             consider using `arcana::es::event::Versioned` for structs",
         );
     }
 }

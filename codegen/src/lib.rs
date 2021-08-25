@@ -20,9 +20,8 @@
     unused_results
 )]
 
+pub mod es;
 pub mod unique_events;
 
-#[doc(inline)]
-pub use arcana_codegen_shim::{Event, VersionedEvent};
 #[doc(hidden)]
 pub use static_assertions as sa;

@@ -1,10 +1,10 @@
-use arcana::{Event, VersionedEvent};
+use arcana::es::{event, Event};
 
-#[derive(VersionedEvent)]
+#[derive(event::Versioned)]
 #[event(name = "chat", version = 1)]
 struct ChatEvent;
 
-#[derive(VersionedEvent)]
+#[derive(event::Versioned)]
 #[event(name = "file", version = 1)]
 struct FileEvent;
 

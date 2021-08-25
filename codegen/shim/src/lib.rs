@@ -28,7 +28,7 @@ use proc_macro::TokenStream;
 /// [`Event`]: arcana_core::es::Event
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
-    codegen::event::derive(input.into())
+    codegen::es::event::derive(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
@@ -38,7 +38,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// [`event::Versioned`]: arcana_core::es::event::Versioned
 #[proc_macro_derive(VersionedEvent, attributes(event))]
 pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
-    codegen::event::versioned::derive(input.into())
+    codegen::es::event::versioned::derive(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

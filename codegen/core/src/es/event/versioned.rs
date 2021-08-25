@@ -48,7 +48,9 @@ fn parses_as_non_zero_u16(val: &Required<syn::LitInt>) -> syn::Result<()> {
 #[derive(Debug, ToTokens)]
 #[to_tokens(append(impl_event_versioned, gen_uniqueness_glue_code))]
 pub struct Definition {
-    /// [`syn::Ident`] of this structure's type.
+    /// [`Ident`] of this structure's type.
+    ///
+    /// [`Ident`]: struct@syn::Ident
     pub ident: syn::Ident,
 
     /// [`syn::Generics`] of this structure's type.
@@ -95,6 +97,7 @@ impl Definition {
     /// Generates code to derive [`event::Versioned`][0] trait.
     ///
     /// [0]: arcana_core::es::event::Versioned
+    #[must_use]
     pub fn impl_event_versioned(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
@@ -125,6 +128,7 @@ impl Definition {
     ///
     /// [`Event::name`]: arcana_core::es::Event::name
     /// [`Event::version`]: arcana_core::es::Event::version
+    #[must_use]
     pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
@@ -190,6 +194,7 @@ mod spec {
             #[doc(hidden)]
             impl Event {
                 #[doc(hidden)]
+                #[inline]
                 pub const fn __arcana_events() -> [(&'static str, u16); 1] {
                     [("event", 1)]
                 }
