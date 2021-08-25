@@ -232,7 +232,7 @@ mod spec {
 
         assert_eq!(
             format!("{}", err),
-            "either `version` or `ver` argument of `#[event]` attribute is \
+            "either `ver` or `version` argument of `#[event]` attribute is \
              expected to be present, but is absent",
         );
     }
