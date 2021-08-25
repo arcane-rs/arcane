@@ -48,9 +48,7 @@ fn parses_as_non_zero_u16(val: &Required<syn::LitInt>) -> syn::Result<()> {
 #[derive(Debug, ToTokens)]
 #[to_tokens(append(impl_event_versioned, gen_uniqueness_glue_code))]
 pub struct Definition {
-    /// [`Ident`] of this structure's type.
-    ///
-    /// [`Ident`]: struct@syn::Ident
+    /// [`syn::Ident`](struct@syn::Ident) of this structure's type.
     pub ident: syn::Ident,
 
     /// [`syn::Generics`] of this structure's type.

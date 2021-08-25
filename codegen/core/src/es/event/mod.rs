@@ -13,53 +13,46 @@ use synthez::{ParseAttrs, ToTokens};
 ///
 /// # Errors
 ///
-/// - If `input` isn't an `enum`;
-/// - If `enum` variant consist not from single event;
+/// - If `input` isn't a Rust enum definition;
+/// - If some enum variant is not a single-field tuple struct;
 /// - If failed to parse [`VariantAttrs`].
 pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse2::<syn::DeriveInput>(input)?;
-    let definitions = Definition::try_from(input)?;
+    let definition = Definition::try_from(input)?;
 
-    Ok(quote! { #definitions })
+    Ok(quote! { #definition })
 }
 
-/// Attributes for enum variant deriving [`Event`].
-///
-/// [`Event`]: arcana_core::es::Event
+/// Helper attributes of `#[derive(Event)]` macro placed on an enum variant.
 #[derive(Debug, Default, ParseAttrs)]
 pub struct VariantAttrs {
-    /// If present, [`Event`] impl and uniqueness check will be skipped for
-    /// particular enum variant.
-    ///
-    /// [`Event`]: arcana_core::es::Event
-    #[parse(ident, alias = ignore)]
-    pub skip: Option<syn::Ident>,
+    /// Indicator whether to ignore this enum variant for code generation.
+    #[parse(ident, alias = skip)]
+    pub ignore: Option<syn::Ident>,
 }
 
-/// Definition of [`Event`] derive macro.
+/// Representation of an enum implementing [`Event`], used for code generation.
 ///
-/// [`Event`]: arcana_core::es::Event
+/// [`Event`]: arcana_core::es::event::Event
 #[derive(Debug, ToTokens)]
-#[to_tokens(append(impl_from, unique_event_name_and_ver))]
+#[to_tokens(append(impl_event, gen_uniqueness_glue_code))]
 pub struct Definition {
-    /// Enum's [`Ident`].
-    ///
-    /// [`Ident`]: struct@syn::Ident
+    /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
 
-    /// Enum's [`Generics`].
-    ///
-    /// [`Generics`]: syn::Generics
+    /// [`syn::Generics`] of this Enum's type.
     pub generics: syn::Generics,
 
-    /// Enum's [`Variant`]s alongside with parsed [`VariantAttrs`].
-    ///
-    /// Every [`Variant`] should have exactly 1 [`Field`] in case they are not
-    /// marked with `#[event(skip)]` attribute.
+    /// Single-[`Field`] [`Variant`]s of this enum to consider in code
+    /// generation.
     ///
     /// [`Field`]: syn::Field
     /// [`Variant`]: syn::Variant
-    pub variants: Vec<(syn::Variant, VariantAttrs)>,
+    pub variants: Vec<syn::Variant>,
+
+    /// Indicator whether this enum has variants marked with `#[event(ignore)]`
+    /// attribute.
+    pub has_ignored_variants: bool,
 }
 
 impl TryFrom<syn::DeriveInput> for Definition {
@@ -79,104 +72,83 @@ impl TryFrom<syn::DeriveInput> for Definition {
         let variants = data
             .variants
             .iter()
-            .map(|variant| {
-                let attrs = VariantAttrs::parse_attrs("event", variant)?;
-
-                if variant.fields.len() != 1 && attrs.skip.is_none() {
-                    return Err(syn::Error::new(
-                        variant.span(),
-                        "enum variants must have exactly 1 field",
-                    ));
-                }
-
-                Ok((variant.clone(), attrs))
-            })
+            .filter_map(|v| Self::parse_variant(v).transpose())
             .collect::<syn::Result<_>>()?;
+        let has_ignored_variants = variants.len() < data.variants.len();
 
         Ok(Self {
             ident: input.ident,
             generics: input.generics,
             variants,
+            has_ignored_variants,
         })
     }
 }
 
 impl Definition {
-    /// Generates code to derive [`Event`] by simply matching over every enum
-    /// variant, which is expected to be itself [`Event`] deriver.
+    /// Parses and validates [`syn::Variant`] its [`VariantAttrs`].
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// If some enum [`Variant`]s don't have exactly 1 [`Field`] and not marked
-    /// with `#[event(skip)]`. Checked by [`TryFrom`] impl for [`Definition`].
+    /// - If [`VariantAttrs`] failed to parse.
+    /// - If [`syn::Variant`] doesn't have exactly one unnamed 1 [`syn::Field`]
+    ///   and is not ignored.
+    fn parse_variant(
+        variant: &syn::Variant,
+    ) -> syn::Result<Option<syn::Variant>> {
+        let attrs = VariantAttrs::parse_attrs("event", variant)?;
+        if attrs.ignore.is_some() {
+            return Ok(None);
+        }
+
+        if variant.fields.len() != 1 {
+            return Err(syn::Error::new(
+                variant.span(),
+                "enum variants must have exactly 1 field",
+            ));
+        }
+        if !matches!(variant.fields, syn::Fields::Unnamed(_)) {
+            return Err(syn::Error::new(
+                variant.span(),
+                "only tuple struct enum variants allowed",
+            ));
+        }
+
+        Ok(Some(variant.clone()))
+    }
+
+    /// Generates code to derive [`Event`][0] trait, by simply matching over
+    /// each enum variant, which is expected to be itself an [`Event`]
+    /// implementer.
     ///
     /// [`Event`]: arcana_core::es::event::Event
-    /// [`Field`]: syn::Field
-    /// [`Variant`]: syn::Variant
     #[must_use]
-    pub fn impl_from(&self) -> TokenStream {
-        let name = &self.ident;
-        let (impl_generics, ty_generics, where_clause) =
-            self.generics.split_for_impl();
-        let (event_names, event_versions): (TokenStream, TokenStream) = self
-            .variants
-            .iter()
-            .filter_map(|(variant, attrs)| {
-                if attrs.skip.is_some() {
-                    return None;
-                }
+    pub fn impl_event(&self) -> TokenStream {
+        let ty = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-                let name = &variant.ident;
+        let var = self.variants.iter().map(|v| &v.ident);
 
-                let generate_variant = |func: TokenStream| match &variant.fields
-                {
-                    syn::Fields::Named(named) => {
-                        let field = &named.named.iter().next().unwrap().ident;
-                        quote! {
-                            Self::#name { #field } => {
-                                ::arcana::es::Event::#func(#field)
-                            }
-                        }
-                    }
-                    syn::Fields::Unnamed(_) => {
-                        quote! {
-                            Self::#name(inner) => {
-                                ::arcana::es::Event::#func(inner)
-                            }
-                        }
-                    }
-                    syn::Fields::Unit => unreachable!(),
-                };
-
-                Some((
-                    generate_variant(quote! { name }),
-                    generate_variant(quote! { version }),
-                ))
-            })
-            .unzip();
-
-        let unreachable_for_skip = self
-            .variants
-            .iter()
-            .any(|(_, attr)| attr.skip.is_some())
-            .then(|| quote! { _ => unreachable!()});
+        let unreachable_arm = self.has_ignored_variants.then(|| {
+            quote! {
+                _ => unreachable!(),
+            }
+        });
 
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::arcana::es::Event for
-                #name #ty_generics #where_clause
-            {
+            impl #impl_gens ::arcana::es::Event for #ty#ty_gens #where_clause {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        #event_names
-                        #unreachable_for_skip
+                        #( Self::#var(f) => ::arcana::es::Event::name(f), )*
+                        #unreachable_arm
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        #event_versions
-                        #unreachable_for_skip
+                        #( Self::#var(f) => ::arcana::es::Event::version(f), )*
+                        #unreachable_arm
                     }
                 }
             }
@@ -198,54 +170,27 @@ impl Definition {
     /// [`Field`]: syn::Field
     /// [`Variant`]: syn::Variant
     #[must_use]
-    pub fn unique_event_name_and_ver(&self) -> TokenStream {
-        let name = &self.ident;
-        let (impl_generics, ty_generics, where_clause) =
-            self.generics.split_for_impl();
-        let (event_sizes, event_array_population): (
-            Vec<TokenStream>,
-            TokenStream,
-        ) = self
-            .variants
-            .iter()
-            .filter_map(|(variant, attr)| {
-                attr.skip.is_none().then(|| {
-                    let ty = &variant.fields.iter().next().unwrap().ty;
-                    (
-                        quote! {
-                            <#ty as ::arcana::codegen::UniqueEvents>::COUNT
-                        },
-                        quote! {{
-                            let ev = #ty::__arcana_events();
-                            let mut local = 0;
-                            while local < ev.len() {
-                                res[global] = ev[local];
-                                local += 1;
-                                global += 1;
-                            }
-                        }},
-                    )
-                })
-            })
-            .unzip();
+    pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
+        let ty = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let event_sizes = event_sizes
-            .into_iter()
-            .fold(None, |acc, size| {
-                Some(acc.map(|acc| quote! { #acc + #size }).unwrap_or(size))
-            })
-            .unwrap_or(quote! { 1 });
+        let var_ty =
+            self.variants.iter().flat_map(|v| &v.fields).map(|f| &f.ty);
 
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::arcana::codegen::UniqueEvents for
-                #name #ty_generics #where_clause
+            #[doc(hidden)]
+            impl #impl_gens ::arcana::codegen::UniqueEvents for #ty#ty_gens
+                 #where_clause
             {
-                const COUNT: usize = #event_sizes;
+                #[doc(hidden)]
+                const COUNT: usize =
+                    #( <#var_ty as ::arcana::codegen::UniqueEvents>::COUNT )+*;
             }
 
-            impl #impl_generics #name #ty_generics #where_clause {
-                #[automatically_derived]
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl #impl_gens #ty#ty_gens #where_clause {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
@@ -253,22 +198,29 @@ impl Definition {
                 ] {
                     let mut res = [
                         ("", 0);
-                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                        <Self as ::arcana::codegen::UniqueEvents>::COUNT,
                     ];
 
-                    let mut global = 0;
-
-                    #event_array_population
+                    let mut i = 0;
+                    #({
+                        let events = <#var_ty>::__arcana_events();
+                        let mut j = 0;
+                        while j < events.len() {
+                            res[i] = events[j];
+                            j += 1;
+                            i += 1;
+                        }
+                    })*
 
                     res
                 }
-            }
 
-            ::arcana::codegen::sa::const_assert!(
-                !::arcana::codegen::unique_events::has_duplicates(
-                    #name::__arcana_events()
-                )
-            );
+                ::arcana::codegen::sa::const_assert!(
+                    !::arcana::codegen::unique_events::has_duplicates(
+                        Self::__arcana_events()
+                    )
+                );
+            }
         }
     }
 }
