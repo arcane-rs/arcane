@@ -17,7 +17,7 @@ readme = "README.md"
 proc-macro = true
 
 [features]
-doc = ["arcana-core", "arcana-codegen-core/doc"]
+doc = ["arcana-codegen-core/doc", "arcana-core"] # only for generating documentation
 
 [dependencies]
 arcana-codegen-core = { version = "0.1.0-dev", path = "../core" }

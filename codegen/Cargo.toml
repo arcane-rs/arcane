@@ -14,7 +14,7 @@ repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
 [features]
-doc = ["arcana-core", "arcana-codegen-shim/doc"]
+doc = ["arcana-codegen-shim/doc", "arcana-core"] # only for generating documentation
 
 [dependencies]
 arcana-codegen-shim = { version = "0.1.0-dev", path = "./shim"}
