@@ -16,7 +16,12 @@ readme = "README.md"
 [lib]
 proc-macro = true
 
+[features]
+doc = ["arcana-core", "arcana-codegen-core/doc"]
+
 [dependencies]
 arcana-codegen-core = { version = "0.1.0-dev", path = "../core" }
-arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"] }
 syn = { version = "1.0.72", features = ["parsing", "proc-macro"], default-features = false }
+
+# `doc` feature
+arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }
