@@ -11,13 +11,13 @@ struct FileEvent;
 #[derive(Event)]
 enum AnyEvent {
     Chat(ChatEvent),
-    File { event: FileEvent },
+    File(FileEvent),
 }
 
 fn main() {
     let ev = AnyEvent::Chat(ChatEvent);
     assert_eq!(ev.name(), "chat");
 
-    let ev = AnyEvent::File { event: FileEvent };
+    let ev = AnyEvent::File(FileEvent);
     assert_eq!(ev.name(), "file");
 }

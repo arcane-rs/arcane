@@ -73,7 +73,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
             .variants
             .iter()
             .filter_map(|v| Self::parse_variant(v).transpose())
-            .collect::<syn::Result<_>>()?;
+            .collect::<syn::Result<Vec<_>>>()?;
         let has_ignored_variants = variants.len() < data.variants.len();
 
         Ok(Self {
@@ -117,17 +117,79 @@ impl Definition {
         Ok(Some(variant.clone()))
     }
 
+    /// Replaces [`syn::Type`] generics with default values.
+    ///
+    /// - [`syn::Lifetime`] -> `'static`;
+    /// - [`syn::Type`] -> `()`;
+    /// - [`syn::Binding`] -> `Ident = ()`;
+    /// - `Fn(A, B) -> C` -> `Fn((), ()) -> ()`.
+    fn replace_type_generics_with_default_values(ty: &syn::Type) -> syn::Type {
+        match ty {
+            syn::Type::Path(path) => {
+                let mut path = path.clone();
+
+                for segment in &mut path.path.segments {
+                    match &mut segment.arguments {
+                        syn::PathArguments::AngleBracketed(generics) => {
+                            for arg in &mut generics.args {
+                                match arg {
+                                    syn::GenericArgument::Lifetime(l) => {
+                                        *l = syn::parse_quote!('static);
+                                    }
+                                    syn::GenericArgument::Type(ty) => {
+                                        *ty = syn::parse_quote!(());
+                                    }
+                                    syn::GenericArgument::Binding(bind) => {
+                                        bind.ty = syn::parse_quote!(());
+                                    }
+                                    syn::GenericArgument::Const(_)
+                                    | syn::GenericArgument::Constraint(_) => {}
+                                }
+                            }
+                        }
+                        syn::PathArguments::Parenthesized(paren) => {
+                            paren.output = syn::parse_quote!(());
+                            for input in &mut paren.inputs {
+                                *input = syn::parse_quote!(());
+                            }
+                        }
+                        syn::PathArguments::None => {}
+                    }
+                }
+
+                syn::Type::Path(path)
+            }
+            ty => ty.clone(),
+        }
+    }
+
+    /// Replaces [`syn::Generics`] with default values.
+    ///
+    /// - [`syn::Lifetime`] -> `'static`;
+    /// - [`syn::Type`] -> `()`.
+    fn replace_generics_with_default_values(
+        generics: &syn::Generics,
+    ) -> TokenStream {
+        let generics = generics.params.iter().map(|param| match param {
+            syn::GenericParam::Lifetime(_) => quote! { 'static },
+            syn::GenericParam::Type(_) => quote! { () },
+            syn::GenericParam::Const(c) => quote! { #c },
+        });
+
+        quote! { < #( #generics ),* > }
+    }
+
     /// Generates code to derive [`Event`][0] trait, by simply matching over
-    /// each enum variant, which is expected to be itself an [`Event`]
+    /// each enum variant, which is expected to be itself an [`Event`][0]
     /// implementer.
     ///
-    /// [`Event`]: arcana_core::es::event::Event
+    /// [0]: arcana_core::es::event::Event
     #[must_use]
     pub fn impl_event(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let var = self.variants.iter().map(|v| &v.ident);
+        let var = self.variants.iter().map(|v| &v.ident).collect::<Vec<_>>();
 
         let unreachable_arm = self.has_ignored_variants.then(|| {
             quote! {
@@ -163,7 +225,7 @@ impl Definition {
     /// # Panics
     ///
     /// If some enum [`Variant`]s don't have exactly 1 [`Field`] and not marked
-    /// with `#[event(skip)]`. Checked by [`TryFrom`] impl  for [`Definition`].
+    /// with `#[event(skip)]`. Checked by [`TryFrom`] impl for [`Definition`].
     ///
     /// [0]: arcana_core::es::event::Event::name()
     /// [1]: arcana_core::es::event::Event::version()
@@ -174,9 +236,23 @@ impl Definition {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let var_ty =
-            self.variants.iter().flat_map(|v| &v.fields).map(|f| &f.ty);
+        let default_generics =
+            Self::replace_generics_with_default_values(&self.generics);
 
+        let (var_ty, var_ty_with_default_generics): (Vec<_>, Vec<_>) = self
+            .variants
+            .iter()
+            .flat_map(|v| &v.fields)
+            .map(|f| {
+                (
+                    &f.ty,
+                    Self::replace_type_generics_with_default_values(&f.ty),
+                )
+            })
+            .unzip();
+
+        // TODO: use `Self::__arcana_events()` inside impl, once
+        //       https://github.com/rust-lang/rust/issues/57775 is resolved.
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
@@ -190,7 +266,7 @@ impl Definition {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens #ty#ty_gens #where_clause {
+            impl #ty #default_generics {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
@@ -198,12 +274,13 @@ impl Definition {
                 ] {
                     let mut res = [
                         ("", 0);
-                        <Self as ::arcana::codegen::UniqueEvents>::COUNT,
+                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
                     ];
 
                     let mut i = 0;
                     #({
-                        let events = <#var_ty>::__arcana_events();
+                        let events =
+                            <#var_ty_with_default_generics>::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -214,13 +291,13 @@ impl Definition {
 
                     res
                 }
-
-                ::arcana::codegen::sa::const_assert!(
-                    !::arcana::codegen::unique_events::has_duplicates(
-                        Self::__arcana_events()
-                    )
-                );
             }
+
+            ::arcana::codegen::sa::const_assert!(
+                !::arcana::codegen::unique_events::has_duplicates(
+                    #ty::#default_generics::__arcana_events()
+                )
+            );
         }
     }
 }
@@ -233,10 +310,8 @@ mod spec {
     fn derives_enum_impl() {
         let input = syn::parse_quote! {
             enum Event {
-                Event1(EventUnnamed),
-                Event2 {
-                    event: EventNamed,
-                }
+                File(FileEvent),
+                Chat(ChatEvent),
             }
         };
 
@@ -245,36 +320,31 @@ mod spec {
             impl ::arcana::es::Event for Event {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        Self::Event1(inner) => {
-                            ::arcana::es::Event::name(inner)
-                        }
-                        Self::Event2 { event } => {
-                            ::arcana::es::Event::name(event)
-                        }
+                        Self::File(f) => ::arcana::es::Event::name(f),
+                        Self::Chat(f) => ::arcana::es::Event::name(f),
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        Self::Event1(inner) => {
-                            ::arcana::es::Event::version(inner)
-                        }
-                        Self::Event2 { event } => {
-                            ::arcana::es::Event::version(event)
-                        }
+                        Self::File(f) => ::arcana::es::Event::version(f),
+                        Self::Chat(f) => ::arcana::es::Event::version(f),
                     }
                 }
             }
 
             #[automatically_derived]
+            #[doc(hidden)]
             impl ::arcana::codegen::UniqueEvents for Event {
+                #[doc(hidden)]
                 const COUNT: usize =
-                    <EventUnnamed as ::arcana::codegen::UniqueEvents>::COUNT +
-                    <EventNamed as ::arcana::codegen::UniqueEvents>::COUNT;
+                    <FileEvent as ::arcana::codegen::UniqueEvents>::COUNT +
+                    <ChatEvent as ::arcana::codegen::UniqueEvents>::COUNT;
             }
 
-            impl Event {
-                #[automatically_derived]
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl Event<> {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
@@ -285,25 +355,25 @@ mod spec {
                         <Self as ::arcana::codegen::UniqueEvents>::COUNT
                     ];
 
-                    let mut global = 0;
+                    let mut i = 0;
 
                     {
-                        let ev = EventUnnamed::__arcana_events();
-                        let mut local = 0;
-                        while local < ev.len() {
-                            res[global] = ev[local];
-                            local += 1;
-                            global += 1;
+                        let events = <FileEvent>::__arcana_events();
+                        let mut j = 0;
+                        while j < events.len() {
+                            res[i] = events[j];
+                            j += 1;
+                            i += 1;
                         }
                     }
 
                     {
-                        let ev = EventNamed::__arcana_events();
-                        let mut local = 0;
-                        while local < ev.len() {
-                            res[global] = ev[local];
-                            local += 1;
-                            global += 1;
+                        let events = <ChatEvent>::__arcana_events();
+                        let mut j = 0;
+                        while j < events.len() {
+                            res[i] = events[j];
+                            j += 1;
+                            i += 1;
                         }
                     }
 
@@ -313,7 +383,96 @@ mod spec {
 
             ::arcana::codegen::sa::const_assert!(
                 !::arcana::codegen::unique_events::has_duplicates(
-                    Event::__arcana_events()
+                    Event::<>::__arcana_events()
+                )
+            );
+        };
+
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
+    }
+
+    #[test]
+    fn derives_enum_with_generics_impl() {
+        let input = syn::parse_quote! {
+            enum Event<'a, F, C> {
+                File(FileEvent<'a, F>),
+                Chat(ChatEvent<'a, C>),
+            }
+        };
+
+        let output = quote! {
+            #[automatically_derived]
+            impl<'a, F, C> ::arcana::es::Event for Event<'a, F, C> {
+                fn name(&self) -> ::arcana::es::event::Name {
+                    match self {
+                        Self::File(f) => ::arcana::es::Event::name(f),
+                        Self::Chat(f) => ::arcana::es::Event::name(f),
+                    }
+                }
+
+                fn version(&self) -> ::arcana::es::event::Version {
+                    match self {
+                        Self::File(f) => ::arcana::es::Event::version(f),
+                        Self::Chat(f) => ::arcana::es::Event::version(f),
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl<'a, F, C> ::arcana::codegen::UniqueEvents for Event<'a, F, C> {
+                #[doc(hidden)]
+                const COUNT: usize =
+                    <FileEvent<'a, F> as ::arcana::codegen::UniqueEvents>
+                        ::COUNT +
+                    <ChatEvent<'a, C> as ::arcana::codegen::UniqueEvents>
+                        ::COUNT;
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl Event<'static, (), ()> {
+                #[doc(hidden)]
+                pub const fn __arcana_events() -> [
+                    (&'static str, u16);
+                    <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                ] {
+                    let mut res = [
+                        ("", 0);
+                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                    ];
+
+                    let mut i = 0;
+
+                    {
+                        let events =
+                            < FileEvent<'static, ()> >::__arcana_events();
+                        let mut j = 0;
+                        while j < events.len() {
+                            res[i] = events[j];
+                            j += 1;
+                            i += 1;
+                        }
+                    }
+
+                    {
+                        let events =
+                            < ChatEvent<'static, ()> >::__arcana_events();
+                        let mut j = 0;
+                        while j < events.len() {
+                            res[i] = events[j];
+                            j += 1;
+                            i += 1;
+                        }
+                    }
+
+                    res
+                }
+            }
+
+            ::arcana::codegen::sa::const_assert!(
+                !::arcana::codegen::unique_events::has_duplicates(
+                    Event::<'static, (), ()>::__arcana_events()
                 )
             );
         };
@@ -325,24 +484,18 @@ mod spec {
     fn skip_unique_check_on_variant() {
         let input_skip = syn::parse_quote! {
             enum Event {
-                Event1(EventUnnamed),
-                Event2 {
-                    event: EventNamed,
-                },
+                File(FileEvent),
+                Chat(ChatEvent),
                 #[event(skip)]
-                #[doc(hidden)]
                 _NonExhaustive
             }
         };
 
         let input_ignore = syn::parse_quote! {
             enum Event {
-                Event1(EventUnnamed),
-                Event2 {
-                    event: EventNamed,
-                },
+                File(FileEvent),
+                Chat(ChatEvent),
                 #[event(ignore)]
-                #[doc(hidden)]
                 _NonExhaustive
             }
         };
@@ -352,38 +505,33 @@ mod spec {
             impl ::arcana::es::Event for Event {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        Self::Event1(inner) => {
-                            ::arcana::es::Event::name(inner)
-                        }
-                        Self::Event2 { event } => {
-                            ::arcana::es::Event::name(event)
-                        }
-                        _ => unreachable!()
+                        Self::File(f) => ::arcana::es::Event::name(f),
+                        Self::Chat(f) => ::arcana::es::Event::name(f),
+                        _ => unreachable!(),
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        Self::Event1(inner) => {
-                            ::arcana::es::Event::version(inner)
-                        }
-                        Self::Event2 { event } => {
-                            ::arcana::es::Event::version(event)
-                        }
-                        _ => unreachable!()
+                        Self::File(f) => ::arcana::es::Event::version(f),
+                        Self::Chat(f) => ::arcana::es::Event::version(f),
+                        _ => unreachable!(),
                     }
                 }
             }
 
             #[automatically_derived]
+            #[doc(hidden)]
             impl ::arcana::codegen::UniqueEvents for Event {
+                #[doc(hidden)]
                 const COUNT: usize =
-                    <EventUnnamed as ::arcana::codegen::UniqueEvents>::COUNT +
-                    <EventNamed as ::arcana::codegen::UniqueEvents>::COUNT;
+                    <FileEvent as ::arcana::codegen::UniqueEvents>::COUNT +
+                    <ChatEvent as ::arcana::codegen::UniqueEvents>::COUNT;
             }
 
-            impl Event {
-                #[automatically_derived]
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl Event<> {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
@@ -394,25 +542,25 @@ mod spec {
                         <Self as ::arcana::codegen::UniqueEvents>::COUNT
                     ];
 
-                    let mut global = 0;
+                    let mut i = 0;
 
                     {
-                        let ev = EventUnnamed::__arcana_events();
-                        let mut local = 0;
-                        while local < ev.len() {
-                            res[global] = ev[local];
-                            local += 1;
-                            global += 1;
+                        let events = <FileEvent>::__arcana_events();
+                        let mut j = 0;
+                        while j < events.len() {
+                            res[i] = events[j];
+                            j += 1;
+                            i += 1;
                         }
                     }
 
                     {
-                        let ev = EventNamed::__arcana_events();
-                        let mut local = 0;
-                        while local < ev.len() {
-                            res[global] = ev[local];
-                            local += 1;
-                            global += 1;
+                        let events = <ChatEvent>::__arcana_events();
+                        let mut j = 0;
+                        while j < events.len() {
+                            res[i] = events[j];
+                            j += 1;
+                            i += 1;
                         }
                     }
 
@@ -422,7 +570,7 @@ mod spec {
 
             ::arcana::codegen::sa::const_assert!(
                 !::arcana::codegen::unique_events::has_duplicates(
-                    Event::__arcana_events()
+                    Event::<>::__arcana_events()
                 )
             );
         };

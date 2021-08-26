@@ -13,6 +13,9 @@ pub use arcana_core::es::event::{
 /// underlying [`Event`] or [`Versioned`](trait@Versioned) impls should be
 /// generated with proc macros.
 ///
+/// __Note__ may not work with complex generics with where clause because of
+/// internal code generation. Should be resolved with [#57775][issue].
+///
 /// # Attribute arguments
 ///
 /// - `#[event(skip)]` — optional
@@ -20,6 +23,7 @@ pub use arcana_core::es::event::{
 ///   Use this value on particular enum variant to skip [`Event`]  impl for it
 ///   and check for unique combination of [`Event::name()`][0] and
 ///   [`Event::version()`][1].
+///
 ///   __Note__: calling [`Event::name()`][0] or [`Event::version()`][1] on those
 ///   variants will result in [`unreachable!()`] panic.
 ///
@@ -39,7 +43,7 @@ pub use arcana_core::es::event::{
 /// #[derive(Event)]
 /// enum AnyEvent {
 ///     Chat(ChatEvent),
-///     File { event: FileEvent },
+///     File(FileEvent),
 /// }
 ///
 /// #[derive(Event)]
@@ -63,7 +67,7 @@ pub use arcana_core::es::event::{
 /// # #[derive(Event)]
 /// # enum AnyEvent {
 /// #     Chat(ChatEvent),
-/// #     File { event: FileEvent },
+/// #     File(FileEvent),
 /// # }
 /// #
 /// #[derive(Event)]
@@ -76,6 +80,7 @@ pub use arcana_core::es::event::{
 ///
 /// [0]: trait@Event::name()
 /// [1]: trait@Event::version()
+/// [issue]: https://github.com/rust-lang/rust/issues/57775
 /// [`Event`]: trait@Event
 #[cfg(feature = "derive")]
 pub use arcana_codegen::es::event::Event;
