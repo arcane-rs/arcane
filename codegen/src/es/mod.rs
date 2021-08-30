@@ -1,4 +1,4 @@
-//! Abstractions and tools for [Event Sourcing].
+//! Code generation related to [Event Sourcing].
 //!
 //! [Event Sourcing]: https://martinfowler.com/eaaDev/EventSourcing.html
 

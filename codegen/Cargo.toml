@@ -3,10 +3,10 @@ name = "arcana-codegen"
 version = "0.1.0-dev"
 edition = "2018"
 resolver = "2"
-description = "Code generation of `arcana` crate."
+description = "Code generation for `arcana` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
-    "Kai Ren <tyranron@gmail.com>"
+    "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcana-codegen"
 homepage = "https://github.com/arcana-rs/arcana/tree/master/codegen"
@@ -17,8 +17,12 @@ readme = "README.md"
 doc = ["arcana-codegen-shim/doc", "arcana-core"] # only for generating documentation
 
 [dependencies]
-arcana-codegen-shim = { version = "0.1.0-dev", path = "./shim"}
+arcana-codegen-shim = { version = "0.1.0-dev", path = "./shim" }
 static_assertions = { version = "1.1", default-features = false }
 
 # `doc` feature
 arcana-core = { version = "0.1.0-dev", path = "../core", features = ["es"], optional = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

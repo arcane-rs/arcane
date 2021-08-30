@@ -39,7 +39,7 @@ cargo.doc:
 ifeq ($(clean),yes)
 	@rm -rf target/doc/
 endif
-	cargo doc $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
+	cargo +nightly doc $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
 		--all-features \
 		$(if $(call eq,$(open),no),,--open)
 
@@ -50,7 +50,7 @@ endif
 #	make cargo.fmt [check=(no|yes)]
 
 cargo.fmt:
-	cargo fmt --all $(if $(call eq,$(check),yes),-- --check,)
+	cargo +nightly fmt --all $(if $(call eq,$(check),yes),-- --check,)
 
 
 # Lint Rust sources with Clippy.
@@ -59,7 +59,7 @@ cargo.fmt:
 #	make cargo.lint
 
 cargo.lint:
-	cargo clippy --workspace -- -D clippy::pedantic -D warnings
+	cargo +nightly clippy --workspace -- -D clippy::pedantic -D warnings
 
 
 
@@ -74,7 +74,7 @@ cargo.lint:
 #	make test [crate=<crate-name>]
 
 test:
-	cargo test $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
+	cargo +nightly test $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
 		--all-features
 
 

@@ -6,7 +6,7 @@ resolver = "2"
 description = "Core abstractions and implementations of `arcana` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
-    "Kai Ren <tyranron@gmail.com>"
+    "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcana-core"
 homepage = "https://github.com/arcana-rs/arcana/tree/master/core"
@@ -19,3 +19,7 @@ es = []
 [dependencies]
 derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false }
 ref-cast = "1.0"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

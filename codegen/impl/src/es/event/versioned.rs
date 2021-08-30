@@ -32,12 +32,12 @@ pub struct Attrs {
     /// Value to return by [`event::Versioned::version()`][0] method.
     ///
     /// [0]: arcana_core::es::event::Versioned::version
-    #[parse(value, alias = ver, validate = parses_as_non_zero_u16)]
+    #[parse(value, alias = ver, validate = can_parse_as_non_zero_u16)]
     pub version: Required<syn::LitInt>,
 }
 
-/// If `val` is [`Some`], checks if it can be parsed to [`NonZeroU16`].
-fn parses_as_non_zero_u16(val: &Required<syn::LitInt>) -> syn::Result<()> {
+/// Checks whether the given `value` can be parsed as [`NonZeroU16`].
+fn can_parse_as_non_zero_u16(val: &Required<syn::LitInt>) -> syn::Result<()> {
     syn::LitInt::base10_parse::<NonZeroU16>(&**val).map(drop)
 }
 
@@ -84,9 +84,8 @@ impl TryFrom<syn::DeriveInput> for Definition {
         Ok(Self {
             ident: input.ident,
             generics: input.generics,
-            // TODO: Use `.into_inner()` once available.
-            event_name: (*attrs.name).clone(),
-            event_version: (*attrs.version).clone(),
+            event_name: attrs.name.into_inner(),
+            event_version: attrs.version.into_inner(),
         })
     }
 }
@@ -121,7 +120,7 @@ impl Definition {
         }
     }
 
-    /// Generates hidden machinery code used to check uniqueness of
+    /// Generates hidden machinery code used to statically check uniqueness of
     /// [`Event::name`] and [`Event::version`].
     ///
     /// [`Event::name`]: arcana_core::es::Event::name
@@ -215,7 +214,7 @@ mod spec {
         let err = super::derive(input).unwrap_err();
 
         assert_eq!(
-            format!("{}", err),
+            err.to_string(),
             "`name` argument of `#[event]` attribute is expected to be \
              present, but is absent",
         );
@@ -231,7 +230,7 @@ mod spec {
         let err = super::derive(input).unwrap_err();
 
         assert_eq!(
-            format!("{}", err),
+            err.to_string(),
             "either `ver` or `version` argument of `#[event]` attribute is \
              expected to be present, but is absent",
         );
@@ -246,7 +245,7 @@ mod spec {
 
         let err = super::derive(input).unwrap_err();
 
-        assert_eq!(format!("{}", err), "invalid digit found in string");
+        assert_eq!(err.to_string(), "invalid digit found in string");
     }
 
     #[test]
@@ -258,10 +257,7 @@ mod spec {
 
         let err = super::derive(input).unwrap_err();
 
-        assert_eq!(
-            format!("{}", err),
-            "number would be zero for non-zero type",
-        );
+        assert_eq!(err.to_string(), "number would be zero for non-zero type",);
     }
 
     #[test]
@@ -273,10 +269,7 @@ mod spec {
 
         let err = super::derive(input).unwrap_err();
 
-        assert_eq!(
-            format!("{}", err),
-            "number too large to fit in target type",
-        );
+        assert_eq!(err.to_string(), "number too large to fit in target type",);
     }
 
     #[test]
@@ -291,7 +284,7 @@ mod spec {
         let err = super::derive(input).unwrap_err();
 
         assert_eq!(
-            format!("{}", err),
+            err.to_string(),
             "expected struct only, \
              consider using `arcana::es::Event` for enums",
         );

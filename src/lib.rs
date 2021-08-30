@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(
     nonstandard_style,
     rust_2018_idioms,
@@ -23,6 +24,5 @@
 #[cfg(feature = "es")]
 pub mod es;
 
-#[doc(hidden)]
 #[cfg(all(feature = "derive", feature = "es"))]
 pub mod codegen;

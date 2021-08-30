@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::spanned::Spanned;
+use syn::spanned::Spanned as _;
 use synthez::{ParseAttrs, ToTokens};
 
 /// Expands `#[derive(Event)]` macro.
@@ -40,7 +40,7 @@ pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
 
-    /// [`syn::Generics`] of this Enum's type.
+    /// [`syn::Generics`] of this enum's type.
     pub generics: syn::Generics,
 
     /// Single-[`Field`] [`Variant`]s of this enum to consider in code
@@ -50,8 +50,8 @@ pub struct Definition {
     /// [`Variant`]: syn::Variant
     pub variants: Vec<syn::Variant>,
 
-    /// Indicator whether this enum has variants marked with `#[event(ignore)]`
-    /// attribute.
+    /// Indicator whether this enum has any variants marked with
+    /// `#[event(ignore)]` attribute.
     pub has_ignored_variants: bool,
 }
 
@@ -74,6 +74,13 @@ impl TryFrom<syn::DeriveInput> for Definition {
             .iter()
             .filter_map(|v| Self::parse_variant(v).transpose())
             .collect::<syn::Result<Vec<_>>>()?;
+        if variants.is_empty() {
+            return Err(syn::Error::new(
+                input.span(),
+                "enum must have at least one non-ignored variant",
+            ));
+        }
+
         let has_ignored_variants = variants.len() < data.variants.len();
 
         Ok(Self {
@@ -86,7 +93,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
 }
 
 impl Definition {
-    /// Parses and validates [`syn::Variant`] its [`VariantAttrs`].
+    /// Validates the given [`syn::Variant`] and parses its [`VariantAttrs`].
     ///
     /// # Errors
     ///
@@ -117,63 +124,17 @@ impl Definition {
         Ok(Some(variant.clone()))
     }
 
-    /// Replaces [`syn::Type`] generics with default values.
-    ///
-    /// - [`syn::Lifetime`] -> `'static`;
-    /// - [`syn::Type`] -> `()`;
-    /// - [`syn::Binding`] -> `Ident = ()`;
-    /// - `Fn(A, B) -> C` -> `Fn((), ()) -> ()`.
-    fn replace_type_generics_with_default_values(ty: &syn::Type) -> syn::Type {
-        match ty {
-            syn::Type::Path(path) => {
-                let mut path = path.clone();
-
-                for segment in &mut path.path.segments {
-                    match &mut segment.arguments {
-                        syn::PathArguments::AngleBracketed(generics) => {
-                            for arg in &mut generics.args {
-                                match arg {
-                                    syn::GenericArgument::Lifetime(l) => {
-                                        *l = syn::parse_quote!('static);
-                                    }
-                                    syn::GenericArgument::Type(ty) => {
-                                        *ty = syn::parse_quote!(());
-                                    }
-                                    syn::GenericArgument::Binding(bind) => {
-                                        bind.ty = syn::parse_quote!(());
-                                    }
-                                    syn::GenericArgument::Const(_)
-                                    | syn::GenericArgument::Constraint(_) => {}
-                                }
-                            }
-                        }
-                        syn::PathArguments::Parenthesized(paren) => {
-                            paren.output = syn::parse_quote!(());
-                            for input in &mut paren.inputs {
-                                *input = syn::parse_quote!(());
-                            }
-                        }
-                        syn::PathArguments::None => {}
-                    }
-                }
-
-                syn::Type::Path(path)
-            }
-            ty => ty.clone(),
-        }
-    }
-
-    /// Replaces [`syn::Generics`] with default values.
+    /// Substitutes the given [`syn::Generics`] with trivial types.
     ///
     /// - [`syn::Lifetime`] -> `'static`;
     /// - [`syn::Type`] -> `()`.
-    fn replace_generics_with_default_values(
-        generics: &syn::Generics,
-    ) -> TokenStream {
-        let generics = generics.params.iter().map(|param| match param {
-            syn::GenericParam::Lifetime(_) => quote! { 'static },
-            syn::GenericParam::Type(_) => quote! { () },
-            syn::GenericParam::Const(c) => quote! { #c },
+    fn substitute_generics_trivially(generics: &syn::Generics) -> TokenStream {
+        use syn::GenericParam::{Const, Lifetime, Type};
+
+        let generics = generics.params.iter().map(|p| match p {
+            Lifetime(_) => quote! { 'static },
+            Type(_) => quote! { () },
+            Const(c) => quote! { #c },
         });
 
         quote! { < #( #generics ),* > }
@@ -192,9 +153,7 @@ impl Definition {
         let var = self.variants.iter().map(|v| &v.ident).collect::<Vec<_>>();
 
         let unreachable_arm = self.has_ignored_variants.then(|| {
-            quote! {
-                _ => unreachable!(),
-            }
+            quote! { _ => unreachable!(), }
         });
 
         quote! {
@@ -217,10 +176,9 @@ impl Definition {
         }
     }
 
-    /// Generates functions, that returns array composed from arrays of all enum
-    /// variants.
-    ///
-    /// Checks uniqueness of all [`Event::name`][0]s and [`Event::version`][1]s.
+    /// Generates hidden machinery code used to statically check uniqueness of
+    /// all the [`Event::name`][0]s and [`Event::version`][1]s pairs imposed by
+    /// enum variants.
     ///
     /// # Panics
     ///
@@ -236,23 +194,18 @@ impl Definition {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let default_generics =
-            Self::replace_generics_with_default_values(&self.generics);
-
-        let (var_ty, var_ty_with_default_generics): (Vec<_>, Vec<_>) = self
+        let var_ty = self
             .variants
             .iter()
             .flat_map(|v| &v.fields)
-            .map(|f| {
-                (
-                    &f.ty,
-                    Self::replace_type_generics_with_default_values(&f.ty),
-                )
-            })
-            .unzip();
+            .map(|f| &f.ty)
+            .collect::<Vec<_>>();
 
-        // TODO: use `Self::__arcana_events()` inside impl, once
-        //       https://github.com/rust-lang/rust/issues/57775 is resolved.
+        // TODO: Use `Self::__arcana_events()` inside impl instead of type
+        //       params substitution, once rust-lang/rust#57775 is resolved:
+        //       https://github.com/rust-lang/rust/issues/57775
+        let ty_subst_gens = Self::substitute_generics_trivially(&self.generics);
+
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
@@ -266,7 +219,7 @@ impl Definition {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl #ty #default_generics {
+            impl #ty#ty_gens {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
@@ -279,8 +232,7 @@ impl Definition {
 
                     let mut i = 0;
                     #({
-                        let events =
-                            <#var_ty_with_default_generics>::__arcana_events();
+                        let events = <#var_ty>::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -295,7 +247,7 @@ impl Definition {
 
             ::arcana::codegen::sa::const_assert!(
                 !::arcana::codegen::unique_events::has_duplicates(
-                    #ty::#default_generics::__arcana_events()
+                    #ty::#ty_subst_gens::__arcana_events()
                 )
             );
         }
@@ -304,11 +256,12 @@ impl Definition {
 
 #[cfg(test)]
 mod spec {
-    use super::{derive, quote};
+    use quote::quote;
+    use syn::parse_quote;
 
     #[test]
     fn derives_enum_impl() {
-        let input = syn::parse_quote! {
+        let input = parse_quote! {
             enum Event {
                 File(FileEvent),
                 Chat(ChatEvent),
@@ -344,7 +297,7 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl Event<> {
+            impl Event {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
@@ -356,7 +309,6 @@ mod spec {
                     ];
 
                     let mut i = 0;
-
                     {
                         let events = <FileEvent>::__arcana_events();
                         let mut j = 0;
@@ -366,7 +318,6 @@ mod spec {
                             i += 1;
                         }
                     }
-
                     {
                         let events = <ChatEvent>::__arcana_events();
                         let mut j = 0;
@@ -388,12 +339,15 @@ mod spec {
             );
         };
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
+        assert_eq!(
+            super::derive(input).unwrap().to_string(),
+            output.to_string(),
+        );
     }
 
     #[test]
     fn derives_enum_with_generics_impl() {
-        let input = syn::parse_quote! {
+        let input = parse_quote! {
             enum Event<'a, F, C> {
                 File(FileEvent<'a, F>),
                 Chat(ChatEvent<'a, C>),
@@ -431,7 +385,7 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl Event<'static, (), ()> {
+            impl Event<'a, F, C> {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
@@ -443,10 +397,8 @@ mod spec {
                     ];
 
                     let mut i = 0;
-
                     {
-                        let events =
-                            < FileEvent<'static, ()> >::__arcana_events();
+                        let events = < FileEvent<'a, F> >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -454,10 +406,8 @@ mod spec {
                             i += 1;
                         }
                     }
-
                     {
-                        let events =
-                            < ChatEvent<'static, ()> >::__arcana_events();
+                        let events = < ChatEvent<'a, C> >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -477,26 +427,28 @@ mod spec {
             );
         };
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
+        assert_eq!(
+            super::derive(input).unwrap().to_string(),
+            output.to_string(),
+        );
     }
 
     #[test]
-    fn skip_unique_check_on_variant() {
-        let input_skip = syn::parse_quote! {
-            enum Event {
-                File(FileEvent),
-                Chat(ChatEvent),
-                #[event(skip)]
-                _NonExhaustive
-            }
-        };
-
-        let input_ignore = syn::parse_quote! {
+    fn ignores_ignored_variant() {
+        let input_ignore = parse_quote! {
             enum Event {
                 File(FileEvent),
                 Chat(ChatEvent),
                 #[event(ignore)]
-                _NonExhaustive
+                _NonExhaustive,
+            }
+        };
+        let input_skip = parse_quote! {
+            enum Event {
+                File(FileEvent),
+                Chat(ChatEvent),
+                #[event(skip)]
+                _NonExhaustive,
             }
         };
 
@@ -531,7 +483,7 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl Event<> {
+            impl Event {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, u16);
@@ -543,7 +495,6 @@ mod spec {
                     ];
 
                     let mut i = 0;
-
                     {
                         let events = <FileEvent>::__arcana_events();
                         let mut j = 0;
@@ -553,7 +504,6 @@ mod spec {
                             i += 1;
                         }
                     }
-
                     {
                         let events = <ChatEvent>::__arcana_events();
                         let mut j = 0;
@@ -575,15 +525,16 @@ mod spec {
             );
         };
 
-        let input_skip = derive(input_skip).unwrap().to_string();
-        let input_ignore = derive(input_ignore).unwrap().to_string();
+        let input_ignore = super::derive(input_ignore).unwrap().to_string();
+        let input_skip = super::derive(input_skip).unwrap().to_string();
+
+        assert_eq!(input_ignore, output.to_string());
         assert_eq!(input_skip, input_ignore);
-        assert_eq!(input_skip, output.to_string());
     }
 
     #[test]
     fn errors_on_multiple_fields_in_variant() {
-        let input = syn::parse_quote! {
+        let input = parse_quote! {
             enum Event {
                 Event1(Event1),
                 Event2 {
@@ -593,26 +544,54 @@ mod spec {
             }
         };
 
-        let error = derive(input).unwrap_err();
+        let err = super::derive(input).unwrap_err();
 
-        assert_eq!(
-            format!("{}", error),
-            "enum variants must have exactly 1 field",
-        );
+        assert_eq!(err.to_string(), "enum variants must have exactly 1 field",);
     }
 
     #[test]
     fn errors_on_struct() {
-        let input = syn::parse_quote! {
+        let input = parse_quote! {
             struct Event;
         };
 
-        let error = derive(input).unwrap_err();
+        let err = super::derive(input).unwrap_err();
 
         assert_eq!(
-            format!("{}", error),
+            err.to_string(),
             "expected enum only, \
              consider using `arcana::es::event::Versioned` for structs",
+        );
+    }
+
+    #[test]
+    fn errors_on_empty_enum() {
+        let input = parse_quote! {
+            enum Event {}
+        };
+
+        let err = super::derive(input).unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            "enum must have at least one non-ignored variant",
+        );
+    }
+
+    #[test]
+    fn errors_on_enum_with_ignored_variant_only() {
+        let input = parse_quote! {
+            enum Event {
+                #[event(ignore)]
+                _NonExhaustive,
+            }
+        };
+
+        let err = super::derive(input).unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            "enum must have at least one non-ignored variant",
         );
     }
 }

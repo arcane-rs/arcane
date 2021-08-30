@@ -6,7 +6,7 @@ resolver = "2"
 description = "Opionated CQRS/ES framework with type magic."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
-    "Kai Ren <tyranron@gmail.com>"
+    "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcana-core"
 homepage = "https://github.com/arcana-rs/arcana"
@@ -14,6 +14,7 @@ repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
 [features]
+doc = ["arcana-codegen/doc"] # only for generating documentation
 derive = ["arcana-codegen"]
 es = ["arcana-core/es"]
 
@@ -21,9 +22,13 @@ es = ["arcana-core/es"]
 arcana-core = { version = "0.1.0-dev", path = "./core" }
 arcana-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
 
-[workspace]
-members = ["codegen", "codegen/core", "codegen/shim", "core"]
-
 [[example]]
 name = "event"
 required-features = ["derive", "es"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[workspace]
+members = ["codegen", "codegen/impl", "codegen/shim", "core"]

@@ -1,10 +1,12 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(
+    feature = "doc",
+    deny(rustdoc::broken_intra_doc_links, rustdoc::private_intra_doc_links)
+)]
 #![deny(
     nonstandard_style,
     rust_2018_idioms,
-    rustdoc::broken_intra_doc_links,
-    rustdoc::private_intra_doc_links,
     trivial_casts,
     trivial_numeric_casts
 )]
