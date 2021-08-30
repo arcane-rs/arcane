@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+    tags: ["arcana-*"]
+  pull_request:
+    branches: ["master"]
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+
+  ##########################
+  # Linting and formatting #
+  ##########################
+
+  clippy:
+    if: ${{ github.ref == 'refs/heads/master'
+            || startsWith(github.ref, 'refs/tags/arcana-')
+            || !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: clippy
+
+      - run: make cargo.lint
+
+  rustfmt:
+    if: ${{ github.ref == 'refs/heads/master'
+            || startsWith(github.ref, 'refs/tags/arcana-')
+            || !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: rustfmt
+
+      - run: make cargo.fmt check=yes
+
+
+
+
+  ###########
+  # Testing #
+  ###########
+
+  test:
+    if: ${{ github.ref == 'refs/heads/master'
+            || startsWith(github.ref, 'refs/tags/arcana-')
+            || !contains(github.event.head_commit.message, '[skip ci]') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - arcana-core
+          - arcana-codegen-impl
+          - arcana-codegen-shim
+          - arcana-codegen
+          - arcana
+        os:
+          - ubuntu
+          - macOS
+          - windows
+        toolchain:
+          - nightly
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+
+      - run: make test crate=${{ matrix.crate }}
+
+# TODO: MSRV currently has no sense since we sit on nightly Rust.
+#       Re-enable once again on stable Rust.
+#  msrv:
+#    name: MSRV
+#    if: ${{ github.ref == 'refs/heads/master'
+#            || startsWith(github.ref, 'refs/tags/v')
+#            || !contains(github.event.head_commit.message, '[skip ci]') }}
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        msrv: [ '1.54.0' ]
+#        os:
+#          - ubuntu
+#          - macOS
+#          - windows
+#    runs-on: ${{ matrix.os }}-latest
+#    steps:
+#      - uses: actions/checkout@v2
+#      - uses: actions-rs/toolchain@v1
+#        with:
+#          profile: minimal
+#          toolchain: nightly
+#      - uses: actions-rs/toolchain@v1
+#        with:
+#          profile: minimal
+#          toolchain: ${{ matrix.msrv }}
+#          override: true
+#
+#      - run: cargo +nightly update -Z minimal-versions
+#
+#      - run: make test
+
+
+
+
+  #################
+  # Documentation #
+  #################
+
+  rustdoc:
+    if: ${{ github.ref == 'refs/heads/master'
+            || startsWith(github.ref, 'refs/tags/arcana-')
+            || !contains(github.event.head_commit.message, '[skip ci]') }}
+    strategy:
+      matrix:
+        crate:
+          - arcana-core
+          - arcana-codegen-impl
+          - arcana-codegen-shim
+          - arcana-codegen
+          - arcana
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - run: make cargo.doc crate=${{ matrix.crate }} open=no
