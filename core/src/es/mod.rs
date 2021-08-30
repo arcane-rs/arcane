@@ -2,7 +2,11 @@
 //!
 //! [Event Sourcing]: https://martinfowler.com/eaaDev/EventSourcing.html
 
+pub mod adapter;
 pub mod event;
+
+#[doc(inline)]
+pub use self::adapter::Adapter;
 
 #[doc(inline)]
 pub use self::event::{

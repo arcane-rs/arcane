@@ -1,3 +1,4 @@
+#![feature(generic_associated_types)]
 #![doc = include_str!("../README.md")]
 #![deny(
     nonstandard_style,
