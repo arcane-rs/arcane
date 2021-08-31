@@ -42,3 +42,13 @@ pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
+
+/// Macro for deriving [`event::Versioned`].
+///
+/// [`event::Versioned`]: arcana_core::es::event::Versioned
+#[proc_macro_derive(EventTransformer, attributes(event))]
+pub fn derive_event_transformer(input: TokenStream) -> TokenStream {
+    codegen::es::adapter::derive(input.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}

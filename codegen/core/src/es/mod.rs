@@ -3,3 +3,4 @@
 //! [Event Sourcing]: https://martinfowler.com/eaaDev/EventSourcing.html
 
 pub mod event;
+pub mod adapter;

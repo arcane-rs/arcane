@@ -3,15 +3,12 @@
 use std::{any::Any, array, convert::Infallible};
 
 use arcana::es::{
-    adapter::{
-        transformer::{self, strategy},
-        Transformer,
-    },
-    Adapter as _,
+    adapter::transformer::{self, strategy},
+    EventAdapter as _, EventTransformer,
 };
 use derive_more::From;
 use either::Either;
-use futures::{future, stream, StreamExt as _, TryStreamExt as _};
+use futures::{stream, TryStreamExt as _};
 
 #[tokio::main]
 async fn main() {
@@ -47,6 +44,8 @@ async fn main() {
     println!("context: {}\nevents:{:#?}", ctx, collect);
 }
 
+// Events definitions
+
 #[derive(Debug)]
 struct EmailConfirmationSent;
 
@@ -66,7 +65,15 @@ struct EmailConfirmed {
     confirmed_by: String,
 }
 
-#[derive(Debug, From)]
+#[derive(Debug, From, EventTransformer)]
+#[event(
+    transformer(
+        adapter = Adapter,
+        into = EmailAddedOrConfirmed,
+        context = dyn Any,
+        err = Infallible,
+    )
+)]
 enum InputEmailEvents {
     ConfirmationSent(EmailConfirmationSent),
     AddedAndConfirmed(EmailAddedAndConfirmed),
@@ -80,6 +87,8 @@ enum EmailAddedOrConfirmed {
     Confirmed(EmailConfirmed),
 }
 
+// Adapter implementations
+
 struct Adapter;
 
 impl transformer::WithStrategy<EmailConfirmationSent> for Adapter {
@@ -91,6 +100,7 @@ impl transformer::WithStrategy<EmailAdded> for Adapter {
 }
 
 impl transformer::WithStrategy<EmailConfirmed> for Adapter {
+    // In this case can also be strategy::AsIs.
     type Strategy = strategy::Into<EmailAddedOrConfirmed>;
 }
 
@@ -133,122 +143,6 @@ impl From<Either<EmailAdded, EmailConfirmed>> for EmailAddedOrConfirmed {
         match val {
             Either::Left(added) => EmailAddedOrConfirmed::Added(added),
             Either::Right(conf) => EmailAddedOrConfirmed::Confirmed(conf),
-        }
-    }
-}
-
-// TODO: generate
-
-impl From<strategy::Unknown> for EmailAddedOrConfirmed {
-    fn from(u: strategy::Unknown) -> Self {
-        match u {}
-    }
-}
-
-macro_rules! transformed_stream {
-    (
-        $me: lifetime,
-        $ctx: lifetime,
-        $adapter: ty,
-        $from: ty,
-        $event: ty
-        $(,)?
-    ) => {
-        IntoTransformedStream<$me, $ctx, $adapter, $event, $from>
-    };
-    (
-        $me: lifetime,
-        $ctx: lifetime,
-        $adapter: ty,
-        $from: ty,
-        $event: ty,
-        $( $event_tail: ty ),+
-        $(,)?
-    ) => {
-        future::Either<
-            IntoTransformedStream<$me, $ctx, $adapter, $event, $from>,
-            transformed_stream!($me, $ctx, $adapter, $from, $( $event_tail ),+)
-        >
-    };
-}
-
-type IntoTransformedStream<'me, 'ctx, Adapter, Event, From> = stream::Map<
-    <Adapter as Transformer<Event>>::TransformedStream<'me, 'ctx>,
-    fn(
-        Result<
-            <Adapter as Transformer<Event>>::Transformed,
-            <Adapter as Transformer<Event>>::Error,
-        >,
-    ) -> Result<
-        <Adapter as Transformer<From>>::Transformed,
-        <Adapter as Transformer<From>>::Error,
-    >,
->;
-
-impl Transformer<InputEmailEvents> for Adapter {
-    type Context = dyn Any;
-    type Error = Infallible;
-    type Transformed = EmailAddedOrConfirmed;
-    type TransformedStream<'me, 'ctx> = transformed_stream!(
-        'me,
-        'ctx,
-        Adapter,
-        InputEmailEvents,
-        EmailConfirmationSent,
-        EmailAddedAndConfirmed,
-        EmailAdded,
-        EmailConfirmed,
-    );
-
-    fn transform<'me, 'ctx>(
-        &'me self,
-        event: InputEmailEvents,
-        context: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx> {
-        fn transform_result<Ok, Err, IntoOk, IntoErr>(
-            res: Result<Ok, Err>,
-        ) -> Result<IntoOk, IntoErr>
-        where
-            IntoOk: From<Ok>,
-            IntoErr: From<Err>,
-        {
-            res.map(Into::into).map_err(Into::into)
-        }
-
-        match event {
-            InputEmailEvents::ConfirmationSent(event) => {
-                <Adapter as Transformer<EmailConfirmationSent>>::transform(
-                    self, event, context,
-                )
-                .map(transform_result as fn(_) -> _)
-                .left_stream()
-            }
-            InputEmailEvents::AddedAndConfirmed(event) => {
-                <Adapter as Transformer<EmailAddedAndConfirmed>>::transform(
-                    self, event, context,
-                )
-                .map(transform_result as fn(_) -> _)
-                .left_stream()
-                .right_stream()
-            }
-            InputEmailEvents::Added(event) => {
-                <Adapter as Transformer<EmailAdded>>::transform(
-                    self, event, context,
-                )
-                .map(transform_result as fn(_) -> _)
-                .left_stream()
-                .right_stream()
-                .right_stream()
-            }
-            InputEmailEvents::Confirmed(event) => {
-                <Adapter as Transformer<EmailConfirmed>>::transform(
-                    self, event, context,
-                )
-                .map(transform_result as fn(_) -> _)
-                .right_stream()
-                .right_stream()
-                .right_stream()
-            }
         }
     }
 }

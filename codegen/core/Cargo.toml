@@ -20,7 +20,7 @@ doc = ["arcana-core"]  # only for generating documentation
 proc-macro2 = { version = "1.0.4", default-features = false }
 quote = { version = "1.0.9", default-features = false }
 syn = { version = "1.0.72", features = ["derive", "extra-traits", "parsing", "printing"], default-features = false }
-synthez = { version = "0.1.2", default-features = false }
+synthez = { version = "0.1.3", default-features = false }
 
 # `doc` feature
 arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }

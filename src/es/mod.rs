@@ -6,7 +6,9 @@ pub mod adapter;
 pub mod event;
 
 #[doc(inline)]
-pub use self::adapter::Adapter;
+pub use self::adapter::{
+    Adapter as EventAdapter, Transformer as EventTransformer,
+};
 
 #[doc(inline)]
 pub use self::event::{
