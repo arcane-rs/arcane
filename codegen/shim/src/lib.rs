@@ -48,7 +48,7 @@ pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
 /// [`event::Versioned`]: arcana_core::es::event::Versioned
 #[proc_macro_derive(EventTransformer, attributes(event))]
 pub fn derive_event_transformer(input: TokenStream) -> TokenStream {
-    codegen::es::adapter::derive(input.into())
+    codegen::es::event::transformer::derive(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

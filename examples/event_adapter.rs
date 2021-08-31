@@ -8,7 +8,7 @@ use arcana::es::{
 };
 use derive_more::From;
 use either::Either;
-use futures::{stream, TryStreamExt as _};
+use futures::{future, stream, TryStreamExt as _};
 
 #[tokio::main]
 async fn main() {
@@ -42,6 +42,28 @@ async fn main() {
         .unwrap();
 
     println!("context: {}\nevents:{:#?}", ctx, collect);
+
+    let events = stream::once(future::ready(
+        InputConfirmationSend::ConfirmationSent(EmailConfirmationSent),
+    ));
+    let collect = Adapter
+        .transform_all(events, &ctx)
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
+
+    println!("context: {}\nevents:{:#?}", ctx, collect);
+
+    let events = stream::once(future::ready(
+        InputConfirmationSend::ConfirmationSent(EmailConfirmationSent),
+    ));
+    let collect = SecondAdapter
+        .transform_all(events, &ctx)
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
+
+    println!("context: {}\nevents:{:#?}", ctx, collect);
 }
 
 // Events definitions
@@ -65,14 +87,14 @@ struct EmailConfirmed {
     confirmed_by: String,
 }
 
-#[derive(Debug, From, EventTransformer)]
+#[derive(Debug, EventTransformer, From)]
 #[event(
     transformer(
         adapter = Adapter,
         into = EmailAddedOrConfirmed,
         context = dyn Any,
-        err = Infallible,
-    )
+        error = Infallible,
+    ),
 )]
 enum InputEmailEvents {
     ConfirmationSent(EmailConfirmationSent),
@@ -81,17 +103,48 @@ enum InputEmailEvents {
     Confirmed(EmailConfirmed),
 }
 
+#[derive(Debug, EventTransformer, From)]
+#[event(
+    transformer(
+        adapter = Adapter,
+        into = EmailAddedOrConfirmed,
+        context = dyn Any,
+        err = Infallible,
+    ),
+    transformer(
+        adapter = SecondAdapter,
+        into = EmailAddedOrConfirmed,
+        context = dyn Any,
+        err = Infallible,
+    ),
+)]
+enum InputConfirmationSend {
+    ConfirmationSent(EmailConfirmationSent),
+}
+
 #[derive(Debug, From)]
 enum EmailAddedOrConfirmed {
     Added(EmailAdded),
     Confirmed(EmailConfirmed),
 }
 
+impl From<strategy::Unknown> for EmailAddedOrConfirmed {
+    fn from(u: strategy::Unknown) -> Self {
+        match u {}
+    }
+}
+
 // Adapter implementations
 
 struct Adapter;
 
+struct SecondAdapter;
+
 impl transformer::WithStrategy<EmailConfirmationSent> for Adapter {
+    type Strategy = strategy::Skip;
+}
+
+impl transformer::WithStrategy<EmailConfirmationSent> for SecondAdapter {
     type Strategy = strategy::Skip;
 }
 
