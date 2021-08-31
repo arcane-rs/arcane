@@ -125,6 +125,9 @@ impl Definition {
     ///
     /// [`Event::name`]: arcana_core::es::Event::name
     /// [`Event::version`]: arcana_core::es::Event::version
+    // TODO: replace `::std::concat!(...)` with `TypeId::of()` once it gets
+    //       constified.
+    //       https://github.com/rust-lang/rust/issues/77125
     #[must_use]
     pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
         let ty = &self.ident;
@@ -147,8 +150,20 @@ impl Definition {
             impl #impl_gens #ty#ty_gens #where_clause {
                 #[doc(hidden)]
                 #[inline]
-                pub const fn __arcana_events() -> [(&'static str, u16); 1] {
-                    [(#event_name, #event_ver)]
+                pub const fn __arcana_events() ->
+                    [(&'static str, &'static str, u16); 1]
+                {
+                    [(
+                        ::std::concat!(
+                            ::std::file!(),
+                            "_",
+                            ::std::line!(),
+                            "_",
+                            ::std::column!(),
+                        ),
+                        #event_name,
+                        #event_ver,
+                    )]
                 }
             }
         }
@@ -192,8 +207,20 @@ mod spec {
             impl Event {
                 #[doc(hidden)]
                 #[inline]
-                pub const fn __arcana_events() -> [(&'static str, u16); 1] {
-                    [("event", 1)]
+                pub const fn __arcana_events() ->
+                    [(&'static str, &'static str, u16); 1]
+                {
+                    [(
+                        ::std::concat!(
+                            ::std::file!(),
+                            "_",
+                            ::std::line!(),
+                            "_",
+                            ::std::column!(),
+                        ),
+                        "event",
+                        1,
+                    )]
                 }
             }
         };

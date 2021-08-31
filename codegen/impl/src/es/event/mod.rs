@@ -176,9 +176,9 @@ impl Definition {
         }
     }
 
-    /// Generates hidden machinery code used to statically check uniqueness of
-    /// all the [`Event::name`][0]s and [`Event::version`][1]s pairs imposed by
-    /// enum variants.
+    /// Generates hidden machinery code used to statically check that all the
+    /// [`Event::name`][0]s and [`Event::version`][1]s pairs are corresponding
+    /// to single Rust type.
     ///
     /// # Panics
     ///
@@ -222,11 +222,11 @@ impl Definition {
             impl #ty#ty_gens {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
-                    (&'static str, u16);
+                    (&'static str, &'static str, u16);
                     <Self as ::arcana::codegen::UniqueEvents>::COUNT
                 ] {
                     let mut res = [
-                        ("", 0);
+                        ("", "", 0);
                         <Self as ::arcana::codegen::UniqueEvents>::COUNT
                     ];
 
@@ -300,11 +300,11 @@ mod spec {
             impl Event {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
-                    (&'static str, u16);
+                    (&'static str, &'static str, u16);
                     <Self as ::arcana::codegen::UniqueEvents>::COUNT
                 ] {
                     let mut res = [
-                        ("", 0);
+                        ("", "", 0);
                         <Self as ::arcana::codegen::UniqueEvents>::COUNT
                     ];
 
@@ -388,11 +388,11 @@ mod spec {
             impl Event<'a, F, C> {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
-                    (&'static str, u16);
+                    (&'static str, &'static str, u16);
                     <Self as ::arcana::codegen::UniqueEvents>::COUNT
                 ] {
                     let mut res = [
-                        ("", 0);
+                        ("", "", 0);
                         <Self as ::arcana::codegen::UniqueEvents>::COUNT
                     ];
 
@@ -486,11 +486,11 @@ mod spec {
             impl Event {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
-                    (&'static str, u16);
+                    (&'static str, &'static str, u16);
                     <Self as ::arcana::codegen::UniqueEvents>::COUNT
                 ] {
                     let mut res = [
-                        ("", 0);
+                        ("", "", 0);
                         <Self as ::arcana::codegen::UniqueEvents>::COUNT
                     ];
 
@@ -546,7 +546,7 @@ mod spec {
 
         let err = super::derive(input).unwrap_err();
 
-        assert_eq!(err.to_string(), "enum variants must have exactly 1 field",);
+        assert_eq!(err.to_string(), "enum variants must have exactly 1 field");
     }
 
     #[test]
