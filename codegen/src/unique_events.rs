@@ -1,13 +1,17 @@
-//! Utils for ensuring in compile time that every [`Event`] variant has a unique
-//! combination of [`Event::name`] and [`Event::version`].
+//! Utils for ensuring in compile time that every [`Event`] variant's
+//! combination of [`Event::name`] and [`Event::version`] is corresponding to
+//! single Rust type.
 //!
 //! # Explanation
 //!
 //! Main idea is that every [`Event`] or [`event::Versioned`] deriving generates
-//! a hidden `const fn __arcana_events() -> [(&'static str, u16); size]` method.
-//! This array consists of [`event::Name`]s and [`event::Version`]s of all the
-//! [`Event`] variants. Uniqueness is checked then with [`const_assert`]ing the
-//! [`has_duplicates()`] function.
+//! a hidden
+//! `const fn __arcana_events() -> [(&'static str, &'static str, u16); size]`
+//! method.
+//! This array consists of unique Rust type identifiers, [`event::Name`]s and
+//! [`event::Version`]s of all the [`Event`] variants. Correctness is checked
+//! then with [`const_assert`]ing the
+//! [`has_different_types_with_same_name_and_ver()`] function.
 //!
 //! [`const_assert`]: static_assertions::const_assert
 //! [`Event`]: arcana_core::es::Event
@@ -16,6 +20,8 @@
 //! [`event::Name`]: arcana_core::es::event::Name
 //! [`event::Version`]: arcana_core::es::event::Version
 //! [`event::Versioned`]: arcana_core::es::event::Versioned
+
+use arcana_core::es::event;
 
 /// Tracking of number of [`VersionedEvent`]s.
 ///
@@ -28,16 +34,29 @@ pub trait UniqueEvents {
     const COUNT: usize;
 }
 
-/// Checks whether the given array of `events` combinations has duplicates.
+impl<Ev: UniqueEvents> UniqueEvents for event::Initial<Ev> {
+    const COUNT: usize = Ev::COUNT;
+}
+
+/// Checks whether the given array of `events` combinations of [`Event::name`]
+/// and [`Event::version`] corresponding to different Rust types.
+///
+/// [`Event::name`]: arcana_core::es::Event::name
+/// [`Event::version`]: arcana_core::es::Event::version
 #[must_use]
-pub const fn has_duplicates<const N: usize>(events: [(&str, u16); N]) -> bool {
+pub const fn has_different_types_with_same_name_and_ver<const N: usize>(
+    events: [(&str, &str, u16); N],
+) -> bool {
     let mut outer = 0;
     while outer < events.len() {
         let mut inner = outer + 1;
         while inner < events.len() {
-            let (inner_name, inner_ver) = events[inner];
-            let (outer_name, outer_ver) = events[outer];
-            if str_eq(inner_name, outer_name) && inner_ver == outer_ver {
+            let (inner_ty, inner_name, inner_ver) = events[inner];
+            let (outer_ty, outer_name, outer_ver) = events[outer];
+            if !str_eq(inner_ty, outer_ty)
+                && str_eq(inner_name, outer_name)
+                && inner_ver == outer_ver
+            {
                 return true;
             }
             inner += 1;

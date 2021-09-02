@@ -14,13 +14,14 @@ repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
 [features]
-es = ["derive_more", "futures", "pin-project", "ref-cast"]
+es = ["derive_more", "futures", "pin-project", "ref-cast", "sealed"]
 
 [dependencies]
 derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false, optional = true }
 futures = { version = "0.3", default-features = false, optional = true }
 pin-project = { version = "1.0", optional = true }
 ref-cast = { version = "1.0", optional = true }
+sealed = { version = "0.3", optional = true }
 
 [package.metadata.docs.rs]
 all-features = true
