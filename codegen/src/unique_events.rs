@@ -10,7 +10,8 @@
 //! method.
 //! This array consists of unique Rust type identifiers, [`event::Name`]s and
 //! [`event::Version`]s of all the [`Event`] variants. Correctness is checked
-//! then with [`const_assert`]ing the [`has_duplicates()`] function.
+//! then with [`const_assert`]ing the
+//! [`has_different_types_with_same_name_and_ver()`] function.
 //!
 //! [`const_assert`]: static_assertions::const_assert
 //! [`Event`]: arcana_core::es::Event

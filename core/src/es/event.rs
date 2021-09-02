@@ -127,6 +127,8 @@ impl<Ev: Event + ?Sized, S: Initialized<Ev>> Sourced<Initial<Ev>>
 
 /// [`Borrow`]-like trait for borrowing [`Event`]s as is or from [`Initial`].
 /// Used in codegen only.
+///
+/// [`Borrow`]: std::borrow::Borrow
 #[sealed]
 pub trait BorrowInitial<Borrowed: ?Sized> {
     /// Borrows [`Event`].
