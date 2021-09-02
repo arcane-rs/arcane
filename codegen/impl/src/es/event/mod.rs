@@ -547,7 +547,7 @@ mod spec {
 
         let err = super::derive(input).unwrap_err();
 
-        assert_eq!(err.to_string(), "enum variants must have exactly 1 field",);
+        assert_eq!(err.to_string(), "enum variants must have exactly 1 field");
     }
 
     #[test]
