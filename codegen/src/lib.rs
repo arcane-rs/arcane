@@ -24,7 +24,6 @@
 )]
 
 pub mod es;
-pub mod unique_events;
 
 pub use futures;
 

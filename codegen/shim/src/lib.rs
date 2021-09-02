@@ -31,9 +31,9 @@ use proc_macro::TokenStream;
 /// For structs consider using [`#[derive(Versioned)]`](macro@VersionedEvent).
 ///
 /// This macro ensures that every combination of [`Event::name`][0] and
-/// [`Event::version`][1] is corresponding to single Rust type. The only
-/// limitation is that all the underlying [`Event`] or [`Versioned`] impls
-/// should be derived too.
+/// [`Event::version`][1] corresponds to a single Rust type. The only limitation
+/// is that all the underlying [`Event`] or [`Versioned`] impls should be
+/// derived too.
 ///
 /// > __WARNING:__ Currently may not work with complex generics using where
 /// >              clause because of `const` evaluation limitations. Should be
@@ -62,14 +62,14 @@ use proc_macro::TokenStream;
 ///
 /// #[derive(event::Versioned)]
 /// #[event(name = "chat", version = 1)]
-/// struct AnotherChatEvent;
+/// struct DuplicateChatEvent;
 ///
-/// // This fails to compile as contains different Rust types with same
+/// // This fails to compile as contains different Rust types with the same
 /// // `event::Name` and `event::Version`.
 /// #[derive(Event)]
 /// enum AnyEvent {
 ///     Chat(ChatEvent),
-///     AnotherChat(AnotherChatEvent),
+///     DuplicateChat(DuplicateChatEvent),
 /// }
 /// ```
 ///
@@ -82,17 +82,17 @@ use proc_macro::TokenStream;
 /// #
 /// # #[derive(event::Versioned)]
 /// # #[event(name = "chat", version = 1)]
-/// # struct AnotherChatEvent;
+/// # struct DuplicateChatEvent;
 /// #
 /// #[derive(Event)]
 /// enum AnyEvent {
 ///     Chat(ChatEvent),
 ///     #[event(ignore)]
-///     AnotherChat(AnotherChatEvent),
+///     DuplicateChat(DuplicateChatEvent),
 /// }
 ///
-/// // This example doesn't need `#[event(ignore)]` attribute, as every
-/// // combination of `event::Name` and `event::Version` correspond to single
+/// // This example doesn't need `#[event(ignore)]` attribute, as each
+/// // combination of `event::Name` and `event::Version` corresponds to a single
 /// // Rust type.
 /// #[derive(Event)]
 /// enum MoreEvents {

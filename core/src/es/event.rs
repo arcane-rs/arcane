@@ -4,7 +4,6 @@ use std::{convert::TryFrom, num::NonZeroU16};
 
 use derive_more::{Deref, DerefMut, Display, Into};
 use ref_cast::RefCast;
-use sealed::sealed;
 
 /// Fully qualified name of an [`Event`].
 pub type Name = &'static str;
@@ -111,9 +110,11 @@ pub trait Initialized<Ev: ?Sized> {
 #[repr(transparent)]
 pub struct Initial<Ev: ?Sized>(pub Ev);
 
+// Manual implementation due to `derive_more::From` not being able to strip
+// `?Sized` trait bound.
 impl<Ev> From<Ev> for Initial<Ev> {
     fn from(ev: Ev) -> Self {
-        Initial(ev)
+        Self(ev)
     }
 }
 
@@ -125,43 +126,142 @@ impl<Ev: Event + ?Sized, S: Initialized<Ev>> Sourced<Initial<Ev>>
     }
 }
 
-/// [`Borrow`]-like trait for borrowing [`Event`]s as is or from [`Initial`].
-/// Used in codegen only.
-///
-/// [`Borrow`]: std::borrow::Borrow
-#[sealed]
-pub trait BorrowInitial<Borrowed: ?Sized> {
-    /// Borrows [`Event`].
-    fn borrow(&self) -> &Borrowed;
-}
+#[cfg(feature = "codegen")]
+pub mod codegen {
+    //! [`Event`] machinery aiding codegen.
 
-#[sealed]
-impl<Ev: Event + ?Sized> BorrowInitial<Ev> for Initial<Ev> {
-    fn borrow(&self) -> &Ev {
-        &self.0
+    use sealed::sealed;
+
+    use super::{Event, Initial};
+
+    /// Custom [`Borrow`] codegen aiding trait for borrowing an [`Event`] either
+    /// from itself or from an [`Initial`] wrapper.
+    ///
+    /// [`Borrow`]: std::borrow::Borrow
+    #[sealed]
+    pub trait Borrow {
+        /// Type of a borrowed [`Event`].
+        type Event: ?Sized;
+
+        /// Borrows an [`Event`].
+        fn borrow(&self) -> &Self::Event;
     }
-}
 
-#[sealed]
-impl<T: Event + ?Sized> BorrowInitial<T> for T {
-    fn borrow(&self) -> &T {
-        self
+    #[sealed]
+    impl<T: Event + ?Sized> Borrow for T {
+        type Event = T;
+
+        fn borrow(&self) -> &Self::Event {
+            self
+        }
     }
-}
 
-/// Trait for getting [`Event`] as is or from [`Initial`]. Used in codegen only.
-#[sealed]
-pub trait UnpackInitial {
-    /// [`Event`] type.
-    type Event: ?Sized;
-}
+    #[sealed]
+    impl<Ev: Event + ?Sized> Borrow for Initial<Ev> {
+        type Event = Ev;
 
-#[sealed]
-impl<Ev: Event + ?Sized> UnpackInitial for Initial<Ev> {
-    type Event = Ev;
-}
+        fn borrow(&self) -> &Self::Event {
+            &self.0
+        }
+    }
 
-#[sealed]
-impl<Ev: Event + ?Sized> UnpackInitial for Ev {
-    type Event = Ev;
+    /// Codegen aiding trait for retrieving a type of an [`Event`] either from
+    /// itself or from an [`Initial`] wrapper.
+    #[sealed]
+    pub trait Unpacked {
+        /// Type of [`Event`] to be retrieved.
+        type Type: ?Sized;
+    }
+
+    #[sealed]
+    impl<Ev: Event + ?Sized> Unpacked for Ev {
+        type Type = Ev;
+    }
+
+    #[sealed]
+    impl<Ev: Event + ?Sized> Unpacked for Initial<Ev> {
+        type Type = Ev;
+    }
+
+    /// Tracking of [`VersionedEvent`]s number.
+    ///
+    /// [`VersionedEvent`]: super::Versioned
+    pub trait Versioned {
+        /// Number of [`VersionedEvent`]s in this [`Event`].
+        ///
+        /// [`VersionedEvent`]: super::Versioned
+        const COUNT: usize;
+    }
+
+    impl<Ev: Versioned> Versioned for Initial<Ev> {
+        const COUNT: usize = Ev::COUNT;
+    }
+
+    /// Checks in compile time whether all the given combinations of
+    /// [`Event::name`] and [`Event::version`] correspond to different Rust
+    /// types.
+    ///
+    /// # Explanation
+    ///
+    /// Main idea is that every [`Event`] or [`event::Versioned`] deriving
+    /// generates a hidden method:
+    /// ```rust,ignore
+    /// const fn __arcana_events() -> [(&'static str, &'static str, u16); size]
+    /// ```
+    /// It returns an array consisting of unique Rust type identifiers,
+    /// [`event::Name`]s and [`event::Version`]s of all the [`Event`] variants.
+    /// Correctness is checked then with asserting this function at compile time
+    /// in `const` context.
+    ///
+    /// [`event::Name`]: super::Name
+    /// [`event::Version`]: super::Version
+    /// [`event::Versioned`]: super::Versioned
+    #[must_use]
+    pub const fn has_different_types_with_same_name_and_ver<const N: usize>(
+        events: [(&str, &str, u16); N],
+    ) -> bool {
+        let mut outer = 0;
+        while outer < events.len() {
+            let mut inner = outer + 1;
+            while inner < events.len() {
+                let (inner_ty, inner_name, inner_ver) = events[inner];
+                let (outer_ty, outer_name, outer_ver) = events[outer];
+                if !str_eq(inner_ty, outer_ty)
+                    && str_eq(inner_name, outer_name)
+                    && inner_ver == outer_ver
+                {
+                    return true;
+                }
+                inner += 1;
+            }
+            outer += 1;
+        }
+
+        false
+    }
+
+    /// Compares strings in `const` context.
+    ///
+    /// As there is no `const impl Trait` and `l == r` calls [`Eq`], we have to
+    /// write custom comparison function.
+    ///
+    /// [`Eq`]: std::cmp::Eq
+    // TODO: Remove once `Eq` trait is allowed in `const` context.
+    #[must_use]
+    const fn str_eq(l: &str, r: &str) -> bool {
+        if l.len() != r.len() {
+            return false;
+        }
+
+        let (l, r) = (l.as_bytes(), r.as_bytes());
+        let mut i = 0;
+        while i < l.len() {
+            if l[i] != r[i] {
+                return false;
+            }
+            i += 1;
+        }
+
+        true
+    }
 }

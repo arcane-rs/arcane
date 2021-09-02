@@ -14,7 +14,8 @@ repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
 [features]
-es = ["derive_more", "futures", "pin-project", "ref-cast", "sealed"]
+codegen = ["sealed"] # only enables codegen glue
+es = ["derive_more", "futures", "pin-project", "ref-cast"]
 
 [dependencies]
 derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false, optional = true }
