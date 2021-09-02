@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{spanned::Spanned as _, parse_quote};
+use syn::{parse_quote, spanned::Spanned as _};
 use synthez::{ParseAttrs, ToTokens};
 
 /// Expands `#[derive(Event)]` macro.
@@ -35,7 +35,7 @@ pub struct VariantAttrs {
 ///
 /// [`Event`]: arcana_core::es::event::Event
 #[derive(Debug, ToTokens)]
-#[to_tokens(append(impl_event, gen_uniqueness_glue_code))]
+#[to_tokens(append(impl_event, impl_event_sourced, gen_uniqueness_glue_code))]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
@@ -194,18 +194,17 @@ impl Definition {
         let ty = &self.ident;
         let (_, ty_gens, _) = self.generics.split_for_impl();
 
-        let var_ty = self
-            .variants
-            .iter()
-            .flat_map(|v| &v.fields)
-            .map(|f| &f.ty);
+        let var_ty =
+            self.variants.iter().flat_map(|v| &v.fields).map(|f| &f.ty);
 
         let mut ext_gens = self.generics.clone();
         ext_gens.params.push(parse_quote! { __S });
         ext_gens.make_where_clause().predicates.push(parse_quote! {
-            Option<__S>: #( ::arcana::es::event::Sourced<#var_ty> )+*
+            Self: #( ::arcana::es::event::Sourced<#var_ty> )+*
         });
         let (impl_gens, _, where_clause) = ext_gens.split_for_impl();
+
+        let turbofish_gens = ty_gens.as_turbofish();
 
         let var = self.variants.iter().map(|v| &v.ident);
 
@@ -220,11 +219,9 @@ impl Definition {
             {
                 fn apply(&mut self, event: &#ty#ty_gens) {
                     match event {
-                        #(
-                            Self::#var(f) => :arcana::es::event::Sourced::apply(
-                                self, f,
-                            ),
-                        )*
+                        #(#ty#turbofish_gens::#var(f) => {
+                            ::arcana::es::event::Sourced::apply(self, f)
+                        },)*
                         #unreachable_arm
                     }
                 }
@@ -318,6 +315,7 @@ mod spec {
     use quote::quote;
     use syn::parse_quote;
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn derives_enum_impl() {
         let input = parse_quote! {
@@ -349,6 +347,24 @@ mod spec {
                         Self::Chat(f) => ::arcana::es::Event::version(
                             ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            impl<__S> ::arcana::es::event::Sourced<Event> for Option<__S>
+            where
+                Self: ::arcana::es::event::Sourced<FileEvent> +
+                      ::arcana::es::event::Sourced<ChatEvent>
+            {
+                fn apply(&mut self, event: &Event) {
+                    match event {
+                        Event::File(f) => {
+                            ::arcana::es::event::Sourced::apply(self, f)
+                        },
+                        Event::Chat(f) => {
+                            ::arcana::es::event::Sourced::apply(self, f)
+                        },
                     }
                 }
             }
@@ -422,6 +438,7 @@ mod spec {
         );
     }
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn derives_enum_with_generics_impl() {
         let input = parse_quote! {
@@ -453,6 +470,25 @@ mod spec {
                         Self::Chat(f) => ::arcana::es::Event::version(
                             ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            impl<'a, F, C, __S> ::arcana::es::event::Sourced<Event<'a, F, C> >
+                for Option<__S>
+            where
+                Self: ::arcana::es::event::Sourced<FileEvent<'a, F> > +
+                      ::arcana::es::event::Sourced<ChatEvent<'a, C> >
+            {
+                fn apply(&mut self, event: &Event<'a, F, C>) {
+                    match event {
+                        Event::<'a, F, C>::File(f) => {
+                            ::arcana::es::event::Sourced::apply(self, f)
+                        },
+                        Event::<'a, F, C>::Chat(f) => {
+                            ::arcana::es::event::Sourced::apply(self, f)
+                        },
                     }
                 }
             }
@@ -571,6 +607,25 @@ mod spec {
                         Self::Chat(f) => ::arcana::es::Event::version(
                             ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
+                        _ => unreachable!(),
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            impl<__S> ::arcana::es::event::Sourced<Event> for Option<__S>
+            where
+                Self: ::arcana::es::event::Sourced<FileEvent> +
+                      ::arcana::es::event::Sourced<ChatEvent>
+            {
+                fn apply(&mut self, event: &Event) {
+                    match event {
+                        Event::File(f) => {
+                            ::arcana::es::event::Sourced::apply(self, f)
+                        },
+                        Event::Chat(f) => {
+                            ::arcana::es::event::Sourced::apply(self, f)
+                        },
                         _ => unreachable!(),
                     }
                 }

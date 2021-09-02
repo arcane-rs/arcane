@@ -1,4 +1,4 @@
-use arcana::es::event::{self, Event, Initial};
+use arcana::es::event::{self, Event, Initial, Sourced as _};
 
 #[derive(event::Versioned)]
 #[event(name = "chat.created", version = 1)]
@@ -14,15 +14,6 @@ enum ChatEvent {
     MessagePosted(MessagePosted),
 }
 
-impl<T> event::Sourced<ChatEvent> for Option<T>
-where Self: event::Sourced<Initial<ChatCreated>> +
-            event::Sourced<MessagePosted>
-{
-    fn apply(&mut self, event: &ChatEvent) {
-        unimplemented!()
-    }
-}
-
 #[derive(Event)]
 enum MessageEvent {
     MessagePosted(Initial<MessagePosted>),
@@ -34,6 +25,15 @@ enum AnyEvent {
     Message(MessageEvent),
 }
 
+#[derive(Debug, Eq, PartialEq)]
+struct Message;
+
+impl event::Initialized<MessagePosted> for Message {
+    fn init(_: &MessagePosted) -> Self {
+        Self
+    }
+}
+
 fn main() {
     let ev = ChatEvent::Created(ChatCreated.into());
     assert_eq!(ev.name(), "chat.created");
@@ -42,6 +42,9 @@ fn main() {
     assert_eq!(ev.name(), "message.posted");
 
     let ev = MessageEvent::MessagePosted(MessagePosted.into());
+    let mut msg: Option<Message> = None;
+    msg.apply(&ev);
+    assert_eq!(msg, Some(Message));
     assert_eq!(ev.name(), "message.posted");
 
     let ev = AnyEvent::Chat(ChatEvent::Created(ChatCreated.into()));
