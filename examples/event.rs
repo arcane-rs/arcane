@@ -1,23 +1,44 @@
-use arcana::es::{event, Event};
+use arcana::es::event::{self, Event, Initial};
 
 #[derive(event::Versioned)]
-#[event(name = "chat", version = 1)]
-struct ChatEvent;
+#[event(name = "chat.created", version = 1)]
+struct ChatCreated;
 
 #[derive(event::Versioned)]
-#[event(name = "file", version = 1)]
-struct FileEvent;
+#[event(name = "message.posted", version = 1)]
+struct MessagePosted;
+
+#[derive(Event)]
+enum ChatEvent {
+    Created(Initial<ChatCreated>),
+    MessagePosted(MessagePosted),
+}
+
+#[derive(Event)]
+enum MessageEvent {
+    MessagePosted(Initial<MessagePosted>),
+}
 
 #[derive(Event)]
 enum AnyEvent {
     Chat(ChatEvent),
-    File(FileEvent),
+    Message(MessageEvent),
 }
 
 fn main() {
-    let ev = AnyEvent::Chat(ChatEvent);
-    assert_eq!(ev.name(), "chat");
+    let ev = ChatEvent::Created(ChatCreated.into());
+    assert_eq!(ev.name(), "chat.created");
 
-    let ev = AnyEvent::File(FileEvent);
-    assert_eq!(ev.name(), "file");
+    let ev = ChatEvent::MessagePosted(MessagePosted);
+    assert_eq!(ev.name(), "message.posted");
+
+    let ev = MessageEvent::MessagePosted(MessagePosted.into());
+    assert_eq!(ev.name(), "message.posted");
+
+    let ev = AnyEvent::Chat(ChatEvent::Created(ChatCreated.into()));
+    assert_eq!(ev.name(), "chat.created");
+
+    let ev =
+        AnyEvent::Message(MessageEvent::MessagePosted(MessagePosted.into()));
+    assert_eq!(ev.name(), "message.posted");
 }

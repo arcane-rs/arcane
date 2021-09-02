@@ -132,11 +132,14 @@ impl Definition {
 
         let (event_name, event_ver) = (&self.event_name, &self.event_version);
 
+        // TODO: Replace `::std::concat!(...)` with `TypeId::of()` once it gets
+        //       `const`ified.
+        //       https://github.com/rust-lang/rust/issues/77125
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens ::arcana::codegen::UniqueEvents for #ty#ty_gens
-                 #where_clause
+            impl #impl_gens ::arcana::es::event::codegen::Versioned for
+                 #ty#ty_gens #where_clause
             {
                 #[doc(hidden)]
                 const COUNT: usize = 1;
@@ -147,8 +150,20 @@ impl Definition {
             impl #impl_gens #ty#ty_gens #where_clause {
                 #[doc(hidden)]
                 #[inline]
-                pub const fn __arcana_events() -> [(&'static str, u16); 1] {
-                    [(#event_name, #event_ver)]
+                pub const fn __arcana_events() ->
+                    [(&'static str, &'static str, u16); 1]
+                {
+                    [(
+                        ::std::concat!(
+                            ::std::file!(),
+                            "_",
+                            ::std::line!(),
+                            "_",
+                            ::std::column!(),
+                        ),
+                        #event_name,
+                        #event_ver,
+                    )]
                 }
             }
         }
@@ -182,7 +197,7 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcana::codegen::UniqueEvents for Event {
+            impl ::arcana::es::event::codegen::Versioned for Event {
                 #[doc(hidden)]
                 const COUNT: usize = 1;
             }
@@ -192,8 +207,20 @@ mod spec {
             impl Event {
                 #[doc(hidden)]
                 #[inline]
-                pub const fn __arcana_events() -> [(&'static str, u16); 1] {
-                    [("event", 1)]
+                pub const fn __arcana_events() ->
+                    [(&'static str, &'static str, u16); 1]
+                {
+                    [(
+                        ::std::concat!(
+                            ::std::file!(),
+                            "_",
+                            ::std::line!(),
+                            "_",
+                            ::std::column!(),
+                        ),
+                        "event",
+                        1,
+                    )]
                 }
             }
         };

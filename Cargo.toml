@@ -15,7 +15,7 @@ readme = "README.md"
 
 [features]
 doc = ["arcana-codegen/doc"] # only for generating documentation
-derive = ["arcana-codegen"]
+derive = ["arcana-codegen", "arcana-core/codegen"]
 es = ["arcana-core/es"]
 
 [dependencies]
