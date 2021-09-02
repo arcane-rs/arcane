@@ -6,10 +6,10 @@ resolver = "2"
 description = "Internal proc macro shim of `arcana-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
-    "Kai Ren <tyranron@gmail.com>"
+    "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcana-codegen"
-homepage = "https://github.com/arcana-rs/arcana/tree/master/codegen"
+homepage = "https://github.com/arcana-rs/arcana/tree/master/codegen/shim"
 repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
@@ -17,11 +17,18 @@ readme = "README.md"
 proc-macro = true
 
 [features]
-doc = ["arcana-codegen-core/doc", "arcana-core"] # only for generating documentation
+doc = ["arcana-codegen-impl/doc", "arcana-core"] # only for generating documentation
 
 [dependencies]
-arcana-codegen-core = { version = "0.1.0-dev", path = "../core" }
-syn = { version = "1.0.72", features = ["parsing", "proc-macro"], default-features = false }
+arcana-codegen-impl = { version = "0.1.0-dev", path = "../impl" }
+syn = { version = "1.0.72", features = ["proc-macro"], default-features = false }
 
 # `doc` feature
 arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }
+
+[dev-dependencies]
+arcana = { path = "../..", features = ["derive", "es"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

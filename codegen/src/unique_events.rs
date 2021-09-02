@@ -28,7 +28,7 @@ pub trait UniqueEvents {
     const COUNT: usize;
 }
 
-/// Checks the given array of `events` combinations has duplicates.
+/// Checks whether the given array of `events` combinations has duplicates.
 #[must_use]
 pub const fn has_duplicates<const N: usize>(events: [(&str, u16); N]) -> bool {
     let mut outer = 0;
