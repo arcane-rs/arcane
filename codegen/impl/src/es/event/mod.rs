@@ -163,7 +163,7 @@ impl Definition {
                     match self {
                         #(
                             Self::#var(f) => ::arcana::es::Event::name(
-                                ::arcana::es::event::BorrowInitial::borrow(f)
+                                ::arcana::es::event::codegen::Borrow::borrow(f),
                             ),
                         )*
                         #unreachable_arm
@@ -174,7 +174,7 @@ impl Definition {
                     match self {
                         #(
                             Self::#var(f) => ::arcana::es::Event::version(
-                                ::arcana::es::event::BorrowInitial::borrow(f)
+                                ::arcana::es::event::codegen::Borrow::borrow(f),
                             ),
                         )*
                         #unreachable_arm
@@ -186,7 +186,7 @@ impl Definition {
 
     /// Generates hidden machinery code used to statically check that all the
     /// [`Event::name`][0]s and [`Event::version`][1]s pairs are corresponding
-    /// to single Rust type.
+    /// to a single Rust type.
     ///
     /// # Panics
     ///
@@ -214,16 +214,16 @@ impl Definition {
         //       https://github.com/rust-lang/rust/issues/57775
         let ty_subst_gens = Self::substitute_generics_trivially(&self.generics);
 
-        #[rustfmt::skip]
+        let glue = quote! { ::arcana::es::event::codegen };
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens ::arcana::codegen::UniqueEvents for #ty#ty_gens
+            impl #impl_gens #glue::Versioned for #ty#ty_gens
                  #where_clause
             {
                 #[doc(hidden)]
                 const COUNT: usize =
-                    #( <#var_ty as ::arcana::codegen::UniqueEvents>::COUNT )+*;
+                    #( <#var_ty as #glue::Versioned>::COUNT )+*;
             }
 
             #[automatically_derived]
@@ -232,18 +232,17 @@ impl Definition {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                    <Self as #glue::Versioned>::COUNT
                 ] {
                     let mut res = [
-                        ("", "", 0);
-                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                        ("", "", 0); <Self as #glue::Versioned>::COUNT
                     ];
 
                     let mut i = 0;
                     #({
-                        let events = <<#var_ty as
-                                ::arcana::es::event::UnpackInitial>::Event
-                            >::__arcana_events();
+                        let events = <
+                            <#var_ty as #glue::Unpacked>::Type
+                        >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -256,12 +255,11 @@ impl Definition {
                 }
             }
 
-            ::arcana::codegen::
-    every_combination_of_event_name_and_version_must_correspond_to_single_type!(
-                !::arcana::codegen::unique_events::
-                    has_different_types_with_same_name_and_ver(
-                        #ty::#ty_subst_gens::__arcana_events()
-                    )
+            ::arcana::es::event::
+           each_combination_of_name_and_version_must_correspond_to_single_type!(
+                !#glue::has_different_types_with_same_name_and_ver(
+                    #ty::#ty_subst_gens::__arcana_events()
+                )
             );
         }
     }
@@ -281,17 +279,16 @@ mod spec {
             }
         };
 
-        #[rustfmt::skip]
         let output = quote! {
             #[automatically_derived]
             impl ::arcana::es::Event for Event {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
                         Self::File(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                         Self::Chat(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                     }
                 }
@@ -299,10 +296,10 @@ mod spec {
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
                         Self::File(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                         Self::Chat(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                     }
                 }
@@ -310,11 +307,13 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcana::codegen::UniqueEvents for Event {
+            impl ::arcana::es::event::codegen::Versioned for Event {
                 #[doc(hidden)]
                 const COUNT: usize =
-                    <FileEvent as ::arcana::codegen::UniqueEvents>::COUNT +
-                    <ChatEvent as ::arcana::codegen::UniqueEvents>::COUNT;
+                    <FileEvent
+                     as ::arcana::es::event::codegen::Versioned>::COUNT +
+                    <ChatEvent
+                     as ::arcana::es::event::codegen::Versioned>::COUNT;
             }
 
             #[automatically_derived]
@@ -323,18 +322,19 @@ mod spec {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                    <Self as ::arcana::es::event::codegen::Versioned>::COUNT
                 ] {
                     let mut res = [
                         ("", "", 0);
-                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                        <Self as ::arcana::es::event::codegen::Versioned>::COUNT
                     ];
 
                     let mut i = 0;
                     {
-                        let events = <<FileEvent as
-                                ::arcana::es::event::UnpackInitial>::Event
-                            >::__arcana_events();
+                        let events = <
+                            <FileEvent
+                             as ::arcana::es::event::codegen::Unpacked>::Type
+                        >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -343,9 +343,10 @@ mod spec {
                         }
                     }
                     {
-                        let events = <<ChatEvent as
-                                ::arcana::es::event::UnpackInitial>::Event
-                            >::__arcana_events();
+                        let events = <
+                            <ChatEvent
+                             as ::arcana::es::event::codegen::Unpacked>::Type
+                        >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -358,9 +359,9 @@ mod spec {
                 }
             }
 
-            ::arcana::codegen::
-    every_combination_of_event_name_and_version_must_correspond_to_single_type!(
-                !::arcana::codegen::unique_events::
+            ::arcana::es::event::
+           each_combination_of_name_and_version_must_correspond_to_single_type!(
+                !::arcana::es::event::codegen::
                     has_different_types_with_same_name_and_ver(
                         Event::<>::__arcana_events()
                     )
@@ -382,17 +383,16 @@ mod spec {
             }
         };
 
-        #[rustfmt::skip]
         let output = quote! {
             #[automatically_derived]
             impl<'a, F, C> ::arcana::es::Event for Event<'a, F, C> {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
                         Self::File(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                         Self::Chat(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                     }
                 }
@@ -400,10 +400,10 @@ mod spec {
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
                         Self::File(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                         Self::Chat(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                     }
                 }
@@ -411,13 +411,15 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl<'a, F, C> ::arcana::codegen::UniqueEvents for Event<'a, F, C> {
+            impl<'a, F, C> ::arcana::es::event::codegen::Versioned
+                for Event<'a, F, C>
+            {
                 #[doc(hidden)]
                 const COUNT: usize =
-                    <FileEvent<'a, F> as ::arcana::codegen::UniqueEvents>
-                        ::COUNT +
-                    <ChatEvent<'a, C> as ::arcana::codegen::UniqueEvents>
-                        ::COUNT;
+                    <FileEvent<'a, F>
+                     as ::arcana::es::event::codegen::Versioned>::COUNT +
+                    <ChatEvent<'a, C>
+                     as ::arcana::es::event::codegen::Versioned>::COUNT;
             }
 
             #[automatically_derived]
@@ -426,18 +428,19 @@ mod spec {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                    <Self as ::arcana::es::event::codegen::Versioned>::COUNT
                 ] {
                     let mut res = [
                         ("", "", 0);
-                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                        <Self as ::arcana::es::event::codegen::Versioned>::COUNT
                     ];
 
                     let mut i = 0;
                     {
-                        let events = << FileEvent<'a, F> as
-                                ::arcana::es::event::UnpackInitial>::Event
-                            >::__arcana_events();
+                        let events = <
+                            <FileEvent<'a, F>
+                             as ::arcana::es::event::codegen::Unpacked>::Type
+                        >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -446,9 +449,10 @@ mod spec {
                         }
                     }
                     {
-                        let events = << ChatEvent<'a, C> as
-                                ::arcana::es::event::UnpackInitial>::Event
-                            >::__arcana_events();
+                        let events = <
+                            <ChatEvent<'a, C>
+                             as ::arcana::es::event::codegen::Unpacked>::Type
+                        >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -461,9 +465,9 @@ mod spec {
                 }
             }
 
-            ::arcana::codegen::
-    every_combination_of_event_name_and_version_must_correspond_to_single_type!(
-                !::arcana::codegen::unique_events::
+            ::arcana::es::event::
+           each_combination_of_name_and_version_must_correspond_to_single_type!(
+                !::arcana::es::event::codegen::
                     has_different_types_with_same_name_and_ver(
                         Event::<'static, (), ()>::__arcana_events()
                     )
@@ -496,17 +500,16 @@ mod spec {
             }
         };
 
-        #[rustfmt::skip]
         let output = quote! {
             #[automatically_derived]
             impl ::arcana::es::Event for Event {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
                         Self::File(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                         Self::Chat(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                         _ => unreachable!(),
                     }
@@ -515,10 +518,10 @@ mod spec {
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
                         Self::File(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                         Self::Chat(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::BorrowInitial::borrow(f)
+                            ::arcana::es::event::codegen::Borrow::borrow(f),
                         ),
                         _ => unreachable!(),
                     }
@@ -527,11 +530,13 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcana::codegen::UniqueEvents for Event {
+            impl ::arcana::es::event::codegen::Versioned for Event {
                 #[doc(hidden)]
                 const COUNT: usize =
-                    <FileEvent as ::arcana::codegen::UniqueEvents>::COUNT +
-                    <ChatEvent as ::arcana::codegen::UniqueEvents>::COUNT;
+                    <FileEvent
+                     as ::arcana::es::event::codegen::Versioned>::COUNT +
+                    <ChatEvent
+                     as ::arcana::es::event::codegen::Versioned>::COUNT;
             }
 
             #[automatically_derived]
@@ -540,18 +545,19 @@ mod spec {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                    <Self as ::arcana::es::event::codegen::Versioned>::COUNT
                 ] {
                     let mut res = [
                         ("", "", 0);
-                        <Self as ::arcana::codegen::UniqueEvents>::COUNT
+                        <Self as ::arcana::es::event::codegen::Versioned>::COUNT
                     ];
 
                     let mut i = 0;
                     {
-                        let events = << FileEvent as
-                                ::arcana::es::event::UnpackInitial>::Event
-                            >::__arcana_events();
+                        let events = <
+                            <FileEvent
+                             as ::arcana::es::event::codegen::Unpacked>::Type
+                        >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -560,9 +566,10 @@ mod spec {
                         }
                     }
                     {
-                        let events = << ChatEvent as
-                                ::arcana::es::event::UnpackInitial>::Event
-                            >::__arcana_events();
+                        let events = <
+                            <ChatEvent
+                             as ::arcana::es::event::codegen::Unpacked>::Type
+                        >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -575,9 +582,9 @@ mod spec {
                 }
             }
 
-            ::arcana::codegen::
-    every_combination_of_event_name_and_version_must_correspond_to_single_type!(
-                !::arcana::codegen::unique_events::
+            ::arcana::es::event::
+           each_combination_of_name_and_version_must_correspond_to_single_type!(
+                !::arcana::es::event::codegen::
                     has_different_types_with_same_name_and_ver(
                         Event::<>::__arcana_events()
                     )

@@ -1,4 +1,4 @@
-use arcana::es::{event, Event};
+use arcana::es::event::{self, Event, Initial};
 
 #[derive(event::Versioned)]
 #[event(name = "chat.created", version = 1)]
@@ -10,13 +10,13 @@ struct MessagePosted;
 
 #[derive(Event)]
 enum ChatEvent {
-    Created(event::Initial<ChatCreated>),
+    Created(Initial<ChatCreated>),
     MessagePosted(MessagePosted),
 }
 
 #[derive(Event)]
 enum MessageEvent {
-    MessagePosted(event::Initial<MessagePosted>),
+    MessagePosted(Initial<MessagePosted>),
 }
 
 #[derive(Event)]

@@ -125,9 +125,6 @@ impl Definition {
     ///
     /// [`Event::name`]: arcana_core::es::Event::name
     /// [`Event::version`]: arcana_core::es::Event::version
-    // TODO: replace `::std::concat!(...)` with `TypeId::of()` once it gets
-    //       constified.
-    //       https://github.com/rust-lang/rust/issues/77125
     #[must_use]
     pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
         let ty = &self.ident;
@@ -135,11 +132,14 @@ impl Definition {
 
         let (event_name, event_ver) = (&self.event_name, &self.event_version);
 
+        // TODO: Replace `::std::concat!(...)` with `TypeId::of()` once it gets
+        //       `const`ified.
+        //       https://github.com/rust-lang/rust/issues/77125
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens ::arcana::codegen::UniqueEvents for #ty#ty_gens
-                 #where_clause
+            impl #impl_gens ::arcana::es::event::codegen::Versioned for
+                 #ty#ty_gens #where_clause
             {
                 #[doc(hidden)]
                 const COUNT: usize = 1;
@@ -197,7 +197,7 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcana::codegen::UniqueEvents for Event {
+            impl ::arcana::es::event::codegen::Versioned for Event {
                 #[doc(hidden)]
                 const COUNT: usize = 1;
             }

@@ -23,6 +23,3 @@
 
 #[cfg(feature = "es")]
 pub mod es;
-
-#[cfg(all(feature = "derive", feature = "es"))]
-pub mod codegen;

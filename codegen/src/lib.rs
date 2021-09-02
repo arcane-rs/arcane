@@ -24,6 +24,5 @@
 )]
 
 pub mod es;
-pub mod unique_events;
 
 pub use static_assertions as sa;
