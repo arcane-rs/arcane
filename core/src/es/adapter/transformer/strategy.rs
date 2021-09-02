@@ -8,7 +8,9 @@ use std::{
     marker::PhantomData,
 };
 
-use futures::{future, stream, Stream, StreamExt as _};
+use futures::{future, stream, Stream, StreamExt as _, TryStreamExt as _};
+
+use crate::es::event;
 
 use super::{Transformer, WithStrategy};
 
@@ -71,7 +73,38 @@ where
     }
 }
 
-/// Strategy for skipping [`Event`]s.
+/// [`Strategy`] for wrapping [`Event`]s in [`Initial`].
+///
+/// [`Event`]: crate::es::Event
+/// [`Initial`]: event::Initial
+#[derive(Clone, Debug)]
+pub struct Initialized<S>(PhantomData<S>);
+
+impl<Adapter, Event, InnerStrategy> Strategy<Adapter, Event>
+    for Initialized<InnerStrategy>
+where
+    InnerStrategy: Strategy<Adapter, Event>,
+{
+    type Context = InnerStrategy::Context;
+    type Error = InnerStrategy::Error;
+    type Transformed = event::Initial<InnerStrategy::Transformed>;
+    type TransformedStream<'me, 'ctx> = stream::MapOk<
+        InnerStrategy::TransformedStream<'me, 'ctx>,
+        WrapInitial<InnerStrategy::Transformed>,
+    >;
+
+    fn transform<'me, 'ctx>(
+        adapter: &'me Adapter,
+        event: Event,
+        context: &'ctx Self::Context,
+    ) -> Self::TransformedStream<'me, 'ctx> {
+        InnerStrategy::transform(adapter, event, context).map_ok(event::Initial)
+    }
+}
+
+type WrapInitial<Event> = fn(Event) -> event::Initial<Event>;
+
+/// [`Strategy`] for skipping [`Event`]s.
 ///
 /// Until [never] is stabilized, [`Adapter::Transformed`] must implement
 /// [`From`] [`Unknown`].
@@ -106,7 +139,7 @@ impl<Adapter, Event> Strategy<Adapter, Event> for Skip {
     }
 }
 
-/// Just passes [`Event`] as is, without any conversions.
+/// [`Strategy`] for passing [`Event`]s as is, without any conversions.
 ///
 /// [`Event`]: crate::es::Event
 #[derive(Clone, Copy, Debug)]
@@ -128,7 +161,7 @@ impl<Adapter, Event: 'static> Strategy<Adapter, Event> for AsIs {
     }
 }
 
-/// Converts [`Event`] using [`From`] impl.
+/// [`Strategy`] for converting [`Event`]s using [`From`] impl.
 ///
 /// [`Event`]: crate::es::Event
 pub struct Into<Into>(PhantomData<Into>);

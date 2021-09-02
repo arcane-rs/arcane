@@ -28,17 +28,9 @@ either = "1"
 futures = "0.3"
 tokio = { version = "1", features = ["full"] }
 
-[[example]]
-name = "event"
-required-features = ["derive", "es"]
-
-[[example]]
-name = "event_adapter"
-required-features = ["derive", "es"]
-
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace]
-members = ["codegen", "codegen/impl", "codegen/shim", "core"]
+members = ["codegen", "codegen/impl", "codegen/shim", "core", "examples/chat"]
