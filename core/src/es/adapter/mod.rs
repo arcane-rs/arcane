@@ -175,3 +175,12 @@ where
         }
     }
 }
+
+#[cfg(feature = "codegen")]
+pub mod codegen {
+    //! Re-exports for [`Transformer`] derive macro.
+    //!
+    //! [`Transformer`]: crate::es::adapter::Transformer
+
+    pub use futures;
+}

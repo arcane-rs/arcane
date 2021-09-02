@@ -5,7 +5,7 @@ mod storage;
 
 use std::array;
 
-use arcana::es::adapter::Adapter as _;
+use arcana::es::EventAdapter as _;
 use futures::{stream, Stream, TryStreamExt as _};
 
 #[allow(clippy::semicolon_if_nothing_returned)]
