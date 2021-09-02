@@ -21,15 +21,12 @@ es = ["arcana-core/es"]
 [dependencies]
 arcana-core = { version = "0.1.0-dev", path = "./core" }
 arcana-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
-futures = "0.3"
 
 [dev-dependencies]
 derive_more = "0.99"
 either = "1"
+futures = "0.3"
 tokio = { version = "1", features = ["full"] }
-
-[workspace]
-members = ["codegen", "codegen/core", "codegen/shim", "core"]
 
 [[example]]
 name = "event"

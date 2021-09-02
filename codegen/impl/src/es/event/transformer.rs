@@ -24,7 +24,7 @@ pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
 /// Helper attributes of `#[derive(adapter::Transformer)]` macro.
 #[derive(Debug, Default, ParseAttrs)]
 pub struct Attrs {
-    /// [`InnerAttrs`] for generating [`Transformer`][0] trait impls.
+    /// [`Vec`] of [`InnerAttrs`] for generating [`Transformer`][0] trait impls.
     ///
     /// [0]: arcana_core::es::adapter::Transformer
     #[parse(nested)]
@@ -61,6 +61,23 @@ pub struct InnerAttrs {
     /// [0]: arcana_core::es::adapter::Transformer::Error
     #[parse(value, alias = err)]
     pub error: Required<syn::Type>,
+}
+
+impl From<InnerAttrs> for ImplDefinition {
+    fn from(attrs: InnerAttrs) -> Self {
+        let InnerAttrs {
+            adapter,
+            transformed,
+            context,
+            error,
+        } = attrs;
+        Self {
+            adapter: adapter.into_inner(),
+            transformed: transformed.into_inner(),
+            context: context.into_inner(),
+            error: error.into_inner(),
+        }
+    }
 }
 
 // TODO: add PartialEq impls in synthez
@@ -153,20 +170,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
         let transformers = attrs
             .transformer
             .into_iter()
-            .map(|tr| {
-                let InnerAttrs {
-                    adapter,
-                    transformed,
-                    context,
-                    error,
-                } = tr.into_inner();
-                ImplDefinition {
-                    adapter: adapter.into_inner(),
-                    transformed: transformed.into_inner(),
-                    context: context.into_inner(),
-                    error: error.into_inner(),
-                }
-            })
+            .map(|tr| tr.into_inner().into())
             .collect();
 
         Ok(Self {
@@ -255,7 +259,7 @@ impl Definition {
 
     /// Generates code of [`Transformer::Transformed`][0] associated type.
     ///
-    /// This type is basically a recursive type
+    /// This is basically a recursive type
     /// [`Either`]`<Var1, `[`Either`]`<Var2, ...>>`, where every `VarN` is an
     /// enum variant's [`Transformer::TransformedStream`][1] wrapped in a
     /// [`stream::Map`] with a function that uses [`From`] impl to transform
@@ -270,7 +274,7 @@ impl Definition {
     pub fn transformed_stream(&self, adapter: &syn::Type) -> TokenStream {
         let from = &self.event;
 
-        let transformed_stream = |event: TokenStream| {
+        let transformed_stream = |event: &syn::Type| {
             quote! {
                 ::arcana::codegen::futures::stream::Map<
                     <#adapter as ::arcana::es::adapter::Transformer<#event >>::
@@ -296,8 +300,7 @@ impl Definition {
             .iter()
             .rev()
             .fold(None, |acc, (_, var_ty)| {
-                let variant_stream =
-                    transformed_stream(var_ty.into_token_stream());
+                let variant_stream = transformed_stream(var_ty);
                 Some(
                     acc.map(|acc| {
                         quote! {

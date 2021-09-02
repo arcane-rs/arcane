@@ -14,7 +14,7 @@ repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
 [features]
-doc = ["arcana-core"] # only for generating documentation
+doc = ["arcana-core", "futures"] # only for generating documentation
 
 [dependencies]
 proc-macro2 = { version = "1.0.4", default-features = false }
@@ -24,6 +24,7 @@ synthez = { version = "0.1.3", default-features = false }
 
 # `doc` feature
 arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }
+futures = { version = "0.3", default-features = false, optional = true }
 
 [package.metadata.docs.rs]
 all-features = true

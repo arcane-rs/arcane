@@ -1,5 +1,6 @@
 //! `#[derive(Event)]` macro implementation.
 
+pub mod transformer;
 pub mod versioned;
 
 use std::convert::TryFrom;

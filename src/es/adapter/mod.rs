@@ -3,6 +3,7 @@
 pub mod transformer;
 
 #[doc(inline)]
-pub use arcana_core::es::adapter::{Adapter, TransformedStream, Transformer};
+pub use self::transformer::Transformer;
 
-pub use arcana_codegen::es::adapter::EventTransformer as Transformer;
+#[doc(inline)]
+pub use arcana_core::es::adapter::{Adapter, TransformedStream};

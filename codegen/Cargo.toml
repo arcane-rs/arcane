@@ -18,6 +18,7 @@ doc = ["arcana-codegen-shim/doc", "arcana-core"] # only for generating documenta
 
 [dependencies]
 arcana-codegen-shim = { version = "0.1.0-dev", path = "./shim" }
+futures = { version = "0.3", default-features = false }
 static_assertions = { version = "1.1", default-features = false }
 
 # `doc` feature

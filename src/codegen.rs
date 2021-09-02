@@ -2,9 +2,6 @@
 
 #[doc(hidden)]
 pub use arcana_codegen::{
-    sa,
+    futures, sa,
     unique_events::{self, UniqueEvents},
 };
-
-#[doc(hidden)]
-pub use futures;

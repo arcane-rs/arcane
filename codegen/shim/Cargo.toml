@@ -28,6 +28,7 @@ arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], o
 
 [dev-dependencies]
 arcana = { path = "../..", features = ["derive", "es"] }
+derive_more = { version = "0.99", features = ["from"], default-features = false }
 
 [package.metadata.docs.rs]
 all-features = true
