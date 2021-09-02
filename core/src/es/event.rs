@@ -90,8 +90,16 @@ pub trait Sourced<Ev: ?Sized> {
     fn apply(&mut self, event: &Ev);
 }
 
-impl<Ev: Event + ?Sized, S: Sourced<Ev>> Sourced<Ev> for Option<S> {
+impl<Ev: Versioned + ?Sized, S: Sourced<Ev>> Sourced<Ev> for Option<S> {
     fn apply(&mut self, event: &Ev) {
+        if let Some(state) = self {
+            state.apply(event);
+        }
+    }
+}
+
+impl<'e, S: Sourced<dyn Event + 'e>> Sourced<dyn Event + 'e> for Option<S> {
+    fn apply(&mut self, event: &(dyn Event + 'e)) {
         if let Some(state) = self {
             state.apply(event);
         }
@@ -101,6 +109,7 @@ impl<Ev: Event + ?Sized, S: Sourced<Ev>> Sourced<Ev> for Option<S> {
 /// Before a state can be [`Sourced`] it needs to be [`Initialized`].
 pub trait Initialized<Ev: ?Sized> {
     /// Creates an initial state from the given [`Event`].
+    #[must_use]
     fn init(event: &Ev) -> Self;
 }
 
@@ -247,7 +256,6 @@ pub mod codegen {
     ///
     /// [`Eq`]: std::cmp::Eq
     // TODO: Remove once `Eq` trait is allowed in `const` context.
-    #[must_use]
     const fn str_eq(l: &str, r: &str) -> bool {
         if l.len() != r.len() {
             return false;

@@ -14,6 +14,15 @@ enum ChatEvent {
     MessagePosted(MessagePosted),
 }
 
+impl<T> event::Sourced<ChatEvent> for Option<T>
+where Self: event::Sourced<Initial<ChatCreated>> +
+            event::Sourced<MessagePosted>
+{
+    fn apply(&mut self, event: &ChatEvent) {
+        unimplemented!()
+    }
+}
+
 #[derive(Event)]
 enum MessageEvent {
     MessagePosted(Initial<MessagePosted>),

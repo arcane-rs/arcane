@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::spanned::Spanned as _;
+use syn::{spanned::Spanned as _, parse_quote};
 use synthez::{ParseAttrs, ToTokens};
 
 /// Expands `#[derive(Event)]` macro.
@@ -175,6 +175,54 @@ impl Definition {
                         #(
                             Self::#var(f) => ::arcana::es::Event::version(
                                 ::arcana::es::event::codegen::Borrow::borrow(f),
+                            ),
+                        )*
+                        #unreachable_arm
+                    }
+                }
+            }
+        }
+    }
+
+    /// Generates code to derive [`event::Sourced`][0] trait, by simply matching
+    /// each enum variant, which is expected to have itself
+    /// [`event::Sourced`][0] implementation.
+    ///
+    /// [0]: arcana_core::es::event::Sourced
+    #[must_use]
+    pub fn impl_event_sourced(&self) -> TokenStream {
+        let ty = &self.ident;
+        let (_, ty_gens, _) = self.generics.split_for_impl();
+
+        let var_ty = self
+            .variants
+            .iter()
+            .flat_map(|v| &v.fields)
+            .map(|f| &f.ty);
+
+        let mut ext_gens = self.generics.clone();
+        ext_gens.params.push(parse_quote! { __S });
+        ext_gens.make_where_clause().predicates.push(parse_quote! {
+            Option<__S>: #( ::arcana::es::event::Sourced<#var_ty> )+*
+        });
+        let (impl_gens, _, where_clause) = ext_gens.split_for_impl();
+
+        let var = self.variants.iter().map(|v| &v.ident);
+
+        let unreachable_arm = self.has_ignored_variants.then(|| {
+            quote! { _ => unreachable!(), }
+        });
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_gens ::arcana::es::event::Sourced<#ty#ty_gens>
+                for Option<__S> #where_clause
+            {
+                fn apply(&mut self, event: &#ty#ty_gens) {
+                    match event {
+                        #(
+                            Self::#var(f) => :arcana::es::event::Sourced::apply(
+                                self, f,
                             ),
                         )*
                         #unreachable_arm
