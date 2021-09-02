@@ -4,6 +4,7 @@ use std::{convert::TryFrom, num::NonZeroU16};
 
 use derive_more::{Deref, DerefMut, Display, Into};
 use ref_cast::RefCast;
+use sealed::sealed;
 
 /// Fully qualified name of an [`Event`].
 pub type Name = &'static str;
@@ -110,10 +111,55 @@ pub trait Initialized<Ev: ?Sized> {
 #[repr(transparent)]
 pub struct Initial<Ev: ?Sized>(pub Ev);
 
+impl<Ev> From<Ev> for Initial<Ev> {
+    fn from(ev: Ev) -> Self {
+        Initial(ev)
+    }
+}
+
 impl<Ev: Event + ?Sized, S: Initialized<Ev>> Sourced<Initial<Ev>>
     for Option<S>
 {
     fn apply(&mut self, event: &Initial<Ev>) {
         *self = Some(S::init(&event.0));
     }
+}
+
+/// [`Borrow`]-like trait for borrowing [`Event`]s as is or from [`Initial`].
+/// Used in codegen only.
+#[sealed]
+pub trait BorrowInitial<Borrowed: ?Sized> {
+    /// Borrows [`Event`].
+    fn borrow(&self) -> &Borrowed;
+}
+
+#[sealed]
+impl<Ev: Event + ?Sized> BorrowInitial<Ev> for Initial<Ev> {
+    fn borrow(&self) -> &Ev {
+        &self.0
+    }
+}
+
+#[sealed]
+impl<T: Event + ?Sized> BorrowInitial<T> for T {
+    fn borrow(&self) -> &T {
+        self
+    }
+}
+
+/// Trait for getting [`Event`] as is or from [`Initial`]. Used in codegen only.
+#[sealed]
+pub trait UnpackInitial {
+    /// [`Event`] type.
+    type Event: ?Sized;
+}
+
+#[sealed]
+impl<Ev: Event + ?Sized> UnpackInitial for Initial<Ev> {
+    type Event = Ev;
+}
+
+#[sealed]
+impl<Ev: Event + ?Sized> UnpackInitial for Ev {
+    type Event = Ev;
 }

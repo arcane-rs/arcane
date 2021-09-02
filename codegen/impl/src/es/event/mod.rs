@@ -161,14 +161,22 @@ impl Definition {
             impl #impl_gens ::arcana::es::Event for #ty#ty_gens #where_clause {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        #( Self::#var(f) => ::arcana::es::Event::name(f), )*
+                        #(
+                            Self::#var(f) => ::arcana::es::Event::name(
+                                ::arcana::es::event::BorrowInitial::borrow(f)
+                            ),
+                        )*
                         #unreachable_arm
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        #( Self::#var(f) => ::arcana::es::Event::version(f), )*
+                        #(
+                            Self::#var(f) => ::arcana::es::Event::version(
+                                ::arcana::es::event::BorrowInitial::borrow(f)
+                            ),
+                        )*
                         #unreachable_arm
                     }
                 }
@@ -206,6 +214,7 @@ impl Definition {
         //       https://github.com/rust-lang/rust/issues/57775
         let ty_subst_gens = Self::substitute_generics_trivially(&self.generics);
 
+        #[rustfmt::skip]
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
@@ -232,7 +241,9 @@ impl Definition {
 
                     let mut i = 0;
                     #({
-                        let events = <#var_ty>::__arcana_events();
+                        let events = <<#var_ty as
+                                ::arcana::es::event::UnpackInitial>::Event
+                            >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -245,10 +256,12 @@ impl Definition {
                 }
             }
 
-            ::arcana::codegen::sa::const_assert!(
-                !::arcana::codegen::unique_events::has_duplicates(
-                    #ty::#ty_subst_gens::__arcana_events()
-                )
+            ::arcana::codegen::
+    every_combination_of_event_name_and_version_must_correspond_to_single_type!(
+                !::arcana::codegen::unique_events::
+                    has_different_types_with_same_name_and_ver(
+                        #ty::#ty_subst_gens::__arcana_events()
+                    )
             );
         }
     }
@@ -268,20 +281,29 @@ mod spec {
             }
         };
 
+        #[rustfmt::skip]
         let output = quote! {
             #[automatically_derived]
             impl ::arcana::es::Event for Event {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::name(f),
-                        Self::Chat(f) => ::arcana::es::Event::name(f),
+                        Self::File(f) => ::arcana::es::Event::name(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
+                        Self::Chat(f) => ::arcana::es::Event::name(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::version(f),
-                        Self::Chat(f) => ::arcana::es::Event::version(f),
+                        Self::File(f) => ::arcana::es::Event::version(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
+                        Self::Chat(f) => ::arcana::es::Event::version(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
                     }
                 }
             }
@@ -310,7 +332,9 @@ mod spec {
 
                     let mut i = 0;
                     {
-                        let events = <FileEvent>::__arcana_events();
+                        let events = <<FileEvent as
+                                ::arcana::es::event::UnpackInitial>::Event
+                            >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -319,7 +343,9 @@ mod spec {
                         }
                     }
                     {
-                        let events = <ChatEvent>::__arcana_events();
+                        let events = <<ChatEvent as
+                                ::arcana::es::event::UnpackInitial>::Event
+                            >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -332,10 +358,12 @@ mod spec {
                 }
             }
 
-            ::arcana::codegen::sa::const_assert!(
-                !::arcana::codegen::unique_events::has_duplicates(
-                    Event::<>::__arcana_events()
-                )
+            ::arcana::codegen::
+    every_combination_of_event_name_and_version_must_correspond_to_single_type!(
+                !::arcana::codegen::unique_events::
+                    has_different_types_with_same_name_and_ver(
+                        Event::<>::__arcana_events()
+                    )
             );
         };
 
@@ -354,20 +382,29 @@ mod spec {
             }
         };
 
+        #[rustfmt::skip]
         let output = quote! {
             #[automatically_derived]
             impl<'a, F, C> ::arcana::es::Event for Event<'a, F, C> {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::name(f),
-                        Self::Chat(f) => ::arcana::es::Event::name(f),
+                        Self::File(f) => ::arcana::es::Event::name(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
+                        Self::Chat(f) => ::arcana::es::Event::name(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::version(f),
-                        Self::Chat(f) => ::arcana::es::Event::version(f),
+                        Self::File(f) => ::arcana::es::Event::version(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
+                        Self::Chat(f) => ::arcana::es::Event::version(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
                     }
                 }
             }
@@ -398,7 +435,9 @@ mod spec {
 
                     let mut i = 0;
                     {
-                        let events = < FileEvent<'a, F> >::__arcana_events();
+                        let events = << FileEvent<'a, F> as
+                                ::arcana::es::event::UnpackInitial>::Event
+                            >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -407,7 +446,9 @@ mod spec {
                         }
                     }
                     {
-                        let events = < ChatEvent<'a, C> >::__arcana_events();
+                        let events = << ChatEvent<'a, C> as
+                                ::arcana::es::event::UnpackInitial>::Event
+                            >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -420,10 +461,12 @@ mod spec {
                 }
             }
 
-            ::arcana::codegen::sa::const_assert!(
-                !::arcana::codegen::unique_events::has_duplicates(
-                    Event::<'static, (), ()>::__arcana_events()
-                )
+            ::arcana::codegen::
+    every_combination_of_event_name_and_version_must_correspond_to_single_type!(
+                !::arcana::codegen::unique_events::
+                    has_different_types_with_same_name_and_ver(
+                        Event::<'static, (), ()>::__arcana_events()
+                    )
             );
         };
 
@@ -433,6 +476,7 @@ mod spec {
         );
     }
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn ignores_ignored_variant() {
         let input_ignore = parse_quote! {
@@ -452,21 +496,30 @@ mod spec {
             }
         };
 
+        #[rustfmt::skip]
         let output = quote! {
             #[automatically_derived]
             impl ::arcana::es::Event for Event {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::name(f),
-                        Self::Chat(f) => ::arcana::es::Event::name(f),
+                        Self::File(f) => ::arcana::es::Event::name(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
+                        Self::Chat(f) => ::arcana::es::Event::name(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
                         _ => unreachable!(),
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::version(f),
-                        Self::Chat(f) => ::arcana::es::Event::version(f),
+                        Self::File(f) => ::arcana::es::Event::version(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
+                        Self::Chat(f) => ::arcana::es::Event::version(
+                            ::arcana::es::event::BorrowInitial::borrow(f)
+                        ),
                         _ => unreachable!(),
                     }
                 }
@@ -496,7 +549,9 @@ mod spec {
 
                     let mut i = 0;
                     {
-                        let events = <FileEvent>::__arcana_events();
+                        let events = << FileEvent as
+                                ::arcana::es::event::UnpackInitial>::Event
+                            >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -505,7 +560,9 @@ mod spec {
                         }
                     }
                     {
-                        let events = <ChatEvent>::__arcana_events();
+                        let events = << ChatEvent as
+                                ::arcana::es::event::UnpackInitial>::Event
+                            >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -518,10 +575,12 @@ mod spec {
                 }
             }
 
-            ::arcana::codegen::sa::const_assert!(
-                !::arcana::codegen::unique_events::has_duplicates(
-                    Event::<>::__arcana_events()
-                )
+            ::arcana::codegen::
+    every_combination_of_event_name_and_version_must_correspond_to_single_type!(
+                !::arcana::codegen::unique_events::
+                    has_different_types_with_same_name_and_ver(
+                        Event::<>::__arcana_events()
+                    )
             );
         };
 

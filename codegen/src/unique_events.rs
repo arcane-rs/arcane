@@ -20,6 +20,8 @@
 //! [`event::Version`]: arcana_core::es::event::Version
 //! [`event::Versioned`]: arcana_core::es::event::Versioned
 
+use arcana_core::es::event;
+
 /// Tracking of number of [`VersionedEvent`]s.
 ///
 /// [`VersionedEvent`]: arcana_core::es::VersionedEvent
@@ -31,13 +33,17 @@ pub trait UniqueEvents {
     const COUNT: usize;
 }
 
+impl<Ev: UniqueEvents> UniqueEvents for event::Initial<Ev> {
+    const COUNT: usize = Ev::COUNT;
+}
+
 /// Checks whether the given array of `events` combinations of [`Event::name`]
 /// and [`Event::version`] corresponding to different Rust types.
 ///
 /// [`Event::name`]: arcana_core::es::Event::name
 /// [`Event::version`]: arcana_core::es::Event::version
 #[must_use]
-pub const fn has_duplicates<const N: usize>(
+pub const fn has_different_types_with_same_name_and_ver<const N: usize>(
     events: [(&str, &str, u16); N],
 ) -> bool {
     let mut outer = 0;
