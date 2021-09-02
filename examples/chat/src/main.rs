@@ -19,12 +19,12 @@ async fn main() {
     println!("{:?}", events);
 }
 
-fn incoming_events() -> impl Stream<Item = storage::Events> {
+fn incoming_events() -> impl Stream<Item = storage::Event> {
     stream::iter(array::IntoIter::new([
-        storage::ChatEvents::Created(event::chat::v1::Created).into(),
-        storage::ChatEvents::PrivateCreated(event::chat::private::Created)
+        storage::ChatEvent::Created(event::chat::v1::Created).into(),
+        storage::ChatEvent::PrivateCreated(event::chat::private::Created)
             .into(),
-        storage::ChatEvents::PublicCreated(event::chat::public::Created).into(),
-        storage::MessageEvents::Posted(event::message::Posted).into(),
+        storage::ChatEvent::PublicCreated(event::chat::public::Created).into(),
+        storage::MessageEvent::Posted(event::message::Posted).into(),
     ]))
 }

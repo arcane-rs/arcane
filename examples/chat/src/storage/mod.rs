@@ -16,9 +16,9 @@ use crate::event;
         err = Infallible,
     ),
 )]
-pub enum Events {
-    Chat(ChatEvents),
-    Message(MessageEvents),
+pub enum Event {
+    Chat(ChatEvent),
+    Message(MessageEvent),
 }
 
 #[derive(Debug, From, Transformer)]
@@ -30,7 +30,7 @@ pub enum Events {
         err = Infallible,
     ),
 )]
-pub enum ChatEvents {
+pub enum ChatEvent {
     Created(event::chat::v1::Created),
     PublicCreated(event::chat::public::Created),
     PrivateCreated(event::chat::private::Created),
@@ -45,6 +45,6 @@ pub enum ChatEvents {
         err = Infallible,
     ),
 )]
-pub enum MessageEvents {
+pub enum MessageEvent {
     Posted(event::message::Posted),
 }
