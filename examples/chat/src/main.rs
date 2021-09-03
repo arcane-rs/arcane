@@ -14,6 +14,7 @@ use futures::{stream, Stream, TryStreamExt as _};
 async fn main() {
     let mut chat = Option::<domain::Chat>::None;
     let mut message = Option::<domain::Message>::None;
+    let mut email = Option::<domain::Email>::None;
 
     let chat_events = storage::chat::Adapter
         .transform_all(incoming_events(), &())
@@ -29,6 +30,22 @@ async fn main() {
             visibility: domain::chat::Visibility::Public,
             message_count: 1
         }),
+    );
+
+    let email_events = storage::email::Adapter
+        .transform_all(incoming_events(), &())
+        .inspect_ok(|ev| email.apply(ev))
+        .try_collect::<Vec<event::Email>>()
+        .await
+        .unwrap();
+    println!("{:?}", email_events);
+
+    assert_eq!(
+        email,
+        Some(domain::Email {
+            value: "hello@world.com".to_owned(),
+            confirmed_by: Some("Test".to_owned()),
+        })
     );
 
     let message_events = storage::message::Adapter
@@ -49,5 +66,12 @@ fn incoming_events() -> impl Stream<Item = storage::Event> {
             .into(),
         storage::ChatEvent::PublicCreated(event::chat::public::Created).into(),
         storage::MessageEvent::Posted(event::message::Posted).into(),
+        storage::EmailEvent::AddedAndConfirmed(
+            event::email::v1::AddedAndConfirmed {
+                email: "hello@world.com".to_owned(),
+                confirmed_by: Some("Test".to_owned()),
+            },
+        )
+        .into(),
     ]))
 }

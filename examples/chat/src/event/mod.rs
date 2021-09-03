@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod email;
 pub mod message;
 
 use arcana::es::{event, Event};
@@ -9,6 +10,12 @@ pub enum Chat {
     PrivateCreated(event::Initial<chat::private::Created>),
     PublicCreated(event::Initial<chat::public::Created>),
     MessagePosted(message::Posted),
+}
+
+#[derive(Debug, Event, From)]
+pub enum Email {
+    Added(event::Initial<email::Added>),
+    Confirmed(email::Confirmed),
 }
 
 #[derive(Debug, Event, From)]

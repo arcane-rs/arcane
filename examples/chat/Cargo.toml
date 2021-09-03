@@ -13,5 +13,6 @@ publish = false
 [dependencies]
 arcana = { version = "0.1.0-dev", path = "../..", features = ["derive", "es"] }
 derive_more = "0.99"
+either = "1"
 futures = "0.3"
 tokio = { version = "1", features = ["full"] }

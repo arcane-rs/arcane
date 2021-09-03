@@ -21,6 +21,10 @@ impl transformer::WithStrategy<event::chat::v1::Created> for Adapter {
         strategy::Initialized<strategy::Into<event::chat::private::Created>>;
 }
 
+impl transformer::WithStrategy<super::EmailEvent> for Adapter {
+    type Strategy = strategy::Skip;
+}
+
 impl<Ev> transformer::WithStrategy<Ev> for Adapter
 where
     Ev: Sourcing<domain::Chat>,
