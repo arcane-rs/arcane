@@ -90,7 +90,7 @@ pub trait Sourced<Ev: ?Sized> {
     fn apply(&mut self, event: &Ev);
 }
 
-impl<Ev: Event + ?Sized, S: Sourced<Ev>> Sourced<Ev> for Option<S> {
+impl<Ev: Versioned + ?Sized, S: Sourced<Ev>> Sourced<Ev> for Option<S> {
     fn apply(&mut self, event: &Ev) {
         if let Some(state) = self {
             state.apply(event);
@@ -98,9 +98,100 @@ impl<Ev: Event + ?Sized, S: Sourced<Ev>> Sourced<Ev> for Option<S> {
     }
 }
 
+impl<'e, S: Sourced<dyn Event + 'e>> Sourced<dyn Event + 'e> for Option<S> {
+    fn apply(&mut self, event: &(dyn Event + 'e)) {
+        if let Some(state) = self {
+            state.apply(event);
+        }
+    }
+}
+
+impl<'e, S: Sourced<dyn Event + Send + 'e>> Sourced<dyn Event + Send + 'e>
+    for Option<S>
+{
+    fn apply(&mut self, event: &(dyn Event + Send + 'e)) {
+        if let Some(state) = self {
+            state.apply(event);
+        }
+    }
+}
+
+impl<'e, S: Sourced<dyn Event + Send + Sync + 'e>>
+    Sourced<dyn Event + Send + Sync + 'e> for Option<S>
+{
+    fn apply(&mut self, event: &(dyn Event + Send + Sync + 'e)) {
+        if let Some(state) = self {
+            state.apply(event);
+        }
+    }
+}
+
+/// [`Event`] sourcing the specified state.
+///
+/// This is a reversed version of [`Sourced`] trait intended to simplify usage
+/// of trait objects describing sets of [`Event`]s. Shouldn't be implemented
+/// manually, but rather used as blanket impl.
+///
+/// # Example
+///
+/// ```rust
+/// # use arcana::es::event::{self, Sourced as _};
+/// #
+/// #[derive(Debug, Eq, PartialEq)]
+/// struct Chat;
+///
+/// #[derive(event::Versioned)]
+/// #[event(name = "chat", version = 1)]
+/// struct ChatEvent;
+///
+/// impl event::Initialized<ChatEvent> for Chat {
+///     fn init(_: &ChatEvent) -> Self {
+///         Self
+///     }
+/// }
+///
+/// let mut chat = Option::<Chat>::None;
+/// let ev = event::Initial(ChatEvent);
+/// let ev: &dyn event::Sourcing<Option<Chat>> = &ev;
+/// chat.apply(ev);
+/// assert_eq!(chat, Some(Chat));
+/// ```
+pub trait Sourcing<S: ?Sized> {
+    /// Applies this [`Event`] to the specified `state`.
+    fn apply_to(&self, state: &mut S);
+}
+
+impl<Ev, S: ?Sized> Sourcing<S> for Ev
+where
+    S: Sourced<Ev>,
+{
+    fn apply_to(&self, state: &mut S) {
+        state.apply(self);
+    }
+}
+
+impl<'e, S> Sourced<dyn Sourcing<S> + 'e> for S {
+    fn apply(&mut self, event: &(dyn Sourcing<S> + 'e)) {
+        event.apply_to(self);
+    }
+}
+
+impl<'e, S> Sourced<dyn Sourcing<S> + Send + 'e> for S {
+    fn apply(&mut self, event: &(dyn Sourcing<S> + Send + 'e)) {
+        event.apply_to(self);
+    }
+}
+
+impl<'e, S> Sourced<dyn Sourcing<S> + Send + Sync + 'e> for S {
+    fn apply(&mut self, event: &(dyn Sourcing<S> + Send + Sync + 'e)) {
+        event.apply_to(self);
+    }
+}
+
 /// Before a state can be [`Sourced`] it needs to be [`Initialized`].
 pub trait Initialized<Ev: ?Sized> {
     /// Creates an initial state from the given [`Event`].
+    #[must_use]
     fn init(event: &Ev) -> Self;
 }
 
@@ -247,7 +338,6 @@ pub mod codegen {
     ///
     /// [`Eq`]: std::cmp::Eq
     // TODO: Remove once `Eq` trait is allowed in `const` context.
-    #[must_use]
     const fn str_eq(l: &str, r: &str) -> bool {
         if l.len() != r.len() {
             return false;
