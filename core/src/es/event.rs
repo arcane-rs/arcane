@@ -106,6 +106,53 @@ impl<'e, S: Sourced<dyn Event + 'e>> Sourced<dyn Event + 'e> for Option<S> {
     }
 }
 
+/// [`Event`] that can source state `S`. Shouldn't be implemented manually,
+/// rather used as blanket impl.
+///
+/// # Example
+///
+/// ```rust
+/// # use arcana::es::event::{self, Sourced as _};
+/// #
+/// #[derive(Debug, Eq, PartialEq)]
+/// struct Chat;
+///
+/// #[derive(event::Versioned)]
+/// #[event(name = "chat", version = 1)]
+/// struct ChatEvent;
+///
+/// impl event::Initialized<ChatEvent> for Chat {
+///     fn init(_: &ChatEvent) -> Self {
+///         Self
+///     }
+/// }
+///
+/// let mut chat = Option::<Chat>::None;
+/// let ev = event::Initial(ChatEvent);
+/// let ev: &dyn event::Sourcing<Option<Chat>> = &ev;
+/// chat.apply(ev);
+/// assert_eq!(chat, Some(Chat));
+/// ```
+pub trait Sourcing<S: ?Sized> {
+    /// Applies the specified [`Event`] to the current state.
+    fn apply_to(&self, state: &mut S);
+}
+
+impl<Ev, S: ?Sized> Sourcing<S> for Ev
+where
+    S: Sourced<Ev>,
+{
+    fn apply_to(&self, state: &mut S) {
+        state.apply(self);
+    }
+}
+
+impl<'e, S> Sourced<dyn Sourcing<S> + 'e> for S {
+    fn apply(&mut self, event: &(dyn Sourcing<S> + 'e)) {
+        event.apply_to(self);
+    }
+}
+
 /// Before a state can be [`Sourced`] it needs to be [`Initialized`].
 pub trait Initialized<Ev: ?Sized> {
     /// Creates an initial state from the given [`Event`].

@@ -22,6 +22,9 @@ derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "
 ref-cast = "1.0"
 sealed = { version = "0.3", optional = true }
 
+[dev-dependencies]
+arcana = { version = "0.1.0-dev", path = "..", features = ["derive", "es"] }
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

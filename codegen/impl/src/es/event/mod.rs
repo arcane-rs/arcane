@@ -193,6 +193,7 @@ impl Definition {
     pub fn impl_event_sourced(&self) -> TokenStream {
         let ty = &self.ident;
         let (_, ty_gens, _) = self.generics.split_for_impl();
+        let turbofish_gens = ty_gens.as_turbofish();
 
         let var_ty =
             self.variants.iter().flat_map(|v| &v.fields).map(|f| &f.ty);
@@ -203,8 +204,6 @@ impl Definition {
             Self: #( ::arcana::es::event::Sourced<#var_ty> )+*
         });
         let (impl_gens, _, where_clause) = ext_gens.split_for_impl();
-
-        let turbofish_gens = ty_gens.as_turbofish();
 
         let var = self.variants.iter().map(|v| &v.ident);
 
