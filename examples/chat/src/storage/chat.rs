@@ -1,6 +1,9 @@
-use arcana::es::adapter::transformer::{self, strategy};
+use arcana::es::{
+    adapter::transformer::{self, strategy},
+    event::Sourcing,
+};
 
-use crate::event;
+use crate::{domain, event};
 
 #[derive(Debug)]
 pub struct Adapter;
@@ -13,13 +16,16 @@ impl transformer::WithStrategy<event::chat::private::Created> for Adapter {
     type Strategy = strategy::Initialized<strategy::AsIs>;
 }
 
-impl transformer::WithStrategy<event::message::Posted> for Adapter {
-    type Strategy = strategy::AsIs;
-}
-
 impl transformer::WithStrategy<event::chat::v1::Created> for Adapter {
     type Strategy =
         strategy::Initialized<strategy::Into<event::chat::private::Created>>;
+}
+
+impl<Ev> transformer::WithStrategy<Ev> for Adapter
+where
+    Ev: Sourcing<domain::Chat>,
+{
+    type Strategy = strategy::AsIs;
 }
 
 // Chats are private by default.
