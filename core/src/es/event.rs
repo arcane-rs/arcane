@@ -161,28 +161,25 @@ pub trait Sourcing<S: ?Sized> {
     fn apply_to(&self, state: &mut S);
 }
 
-impl<Ev, S: ?Sized> Sourcing<S> for Ev
-where
-    S: Sourced<Ev>,
-{
+impl<Ev: ?Sized, S: Sourced<Ev> + ?Sized> Sourcing<S> for Ev {
     fn apply_to(&self, state: &mut S) {
         state.apply(self);
     }
 }
 
-impl<'e, S> Sourced<dyn Sourcing<S> + 'e> for S {
+impl<'e, S: ?Sized> Sourced<dyn Sourcing<S> + 'e> for S {
     fn apply(&mut self, event: &(dyn Sourcing<S> + 'e)) {
         event.apply_to(self);
     }
 }
 
-impl<'e, S> Sourced<dyn Sourcing<S> + Send + 'e> for S {
+impl<'e, S: ?Sized> Sourced<dyn Sourcing<S> + Send + 'e> for S {
     fn apply(&mut self, event: &(dyn Sourcing<S> + Send + 'e)) {
         event.apply_to(self);
     }
 }
 
-impl<'e, S> Sourced<dyn Sourcing<S> + Send + Sync + 'e> for S {
+impl<'e, S: ?Sized> Sourced<dyn Sourcing<S> + Send + Sync + 'e> for S {
     fn apply(&mut self, event: &(dyn Sourcing<S> + Send + Sync + 'e)) {
         event.apply_to(self);
     }
