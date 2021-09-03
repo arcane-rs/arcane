@@ -105,6 +105,7 @@ use proc_macro::TokenStream;
 /// ```
 ///
 /// [`Event`]: arcana_core::es::Event
+/// [`Sourced`]: arcana_core::es::event::Sourced
 /// [`Versioned`]: arcana_core::es::event::Versioned
 /// [0]: arcana_core::es::Event::name()
 /// [1]: arcana_core::es::Event::version()
