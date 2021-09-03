@@ -35,6 +35,9 @@ use proc_macro::TokenStream;
 /// is that all the underlying [`Event`] or [`Versioned`] impls should be
 /// derived too.
 ///
+/// Also provides [`Sourced`] impl for every state, which can be sourced from
+/// all variants.
+///
 /// > __WARNING:__ Currently may not work with complex generics using where
 /// >              clause because of `const` evaluation limitations. Should be
 /// >              lifted once [rust-lang/rust#57775] is resolved.
@@ -87,7 +90,7 @@ use proc_macro::TokenStream;
 /// #[derive(Event)]
 /// enum AnyEvent {
 ///     Chat(ChatEvent),
-///     #[event(ignore)]
+///     #[event(ignore)] // Not recommended for real usage.
 ///     DuplicateChat(DuplicateChatEvent),
 /// }
 ///
@@ -102,6 +105,7 @@ use proc_macro::TokenStream;
 /// ```
 ///
 /// [`Event`]: arcana_core::es::Event
+/// [`Sourced`]: arcana_core::es::event::Sourced
 /// [`Versioned`]: arcana_core::es::event::Versioned
 /// [0]: arcana_core::es::Event::name()
 /// [1]: arcana_core::es::Event::version()

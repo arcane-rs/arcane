@@ -24,6 +24,9 @@ pin-project = { version = "1.0", optional = true }
 ref-cast = { version = "1.0", optional = true }
 sealed = { version = "0.3", optional = true }
 
+[dev-dependencies]
+arcana = { version = "0.1.0-dev", path = "..", features = ["derive", "es"] }
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

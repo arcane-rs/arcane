@@ -13,6 +13,6 @@ pub use self::adapter::{
 #[doc(inline)]
 pub use self::event::{
     Event, Initial as InitialEvent, Initialized as EventInitialized,
-    Name as EventName, Sourced as EventSourced, Version as EventVersion,
-    Versioned as VersionedEvent,
+    Name as EventName, Sourced as EventSourced, Sourcing as EventSourcing,
+    Version as EventVersion, Versioned as VersionedEvent,
 };
