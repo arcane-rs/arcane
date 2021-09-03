@@ -35,8 +35,8 @@ use proc_macro::TokenStream;
 /// is that all the underlying [`Event`] or [`Versioned`] impls should be
 /// derived too.
 ///
-/// Also provides [`Sourced`] impl for every state, which can be sourced from
-/// all variants.
+/// Also, provides a blanket [`Sourced`] implementation for every state, which
+/// can be sourced from all the enum variants.
 ///
 /// > __WARNING:__ Currently may not work with complex generics using where
 /// >              clause because of `const` evaluation limitations. Should be
@@ -90,7 +90,7 @@ use proc_macro::TokenStream;
 /// #[derive(Event)]
 /// enum AnyEvent {
 ///     Chat(ChatEvent),
-///     #[event(ignore)] // Not recommended for real usage.
+///     #[event(ignore)] // not recommended for real usage
 ///     DuplicateChat(DuplicateChatEvent),
 /// }
 ///

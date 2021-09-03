@@ -106,8 +106,31 @@ impl<'e, S: Sourced<dyn Event + 'e>> Sourced<dyn Event + 'e> for Option<S> {
     }
 }
 
-/// [`Event`] that can source state `S`. Shouldn't be implemented manually,
-/// rather used as blanket impl.
+impl<'e, S: Sourced<dyn Event + Send + 'e>> Sourced<dyn Event + Send + 'e>
+    for Option<S>
+{
+    fn apply(&mut self, event: &(dyn Event + Send + 'e)) {
+        if let Some(state) = self {
+            state.apply(event);
+        }
+    }
+}
+
+impl<'e, S: Sourced<dyn Event + Send + Sync + 'e>>
+    Sourced<dyn Event + Send + Sync + 'e> for Option<S>
+{
+    fn apply(&mut self, event: &(dyn Event + Send + Sync + 'e)) {
+        if let Some(state) = self {
+            state.apply(event);
+        }
+    }
+}
+
+/// [`Event`] sourcing the specified state.
+///
+/// This is a reversed version of [`Sourced`] trait intended to simplify usage
+/// of trait objects describing sets of [`Event`]s. Shouldn't be implemented
+/// manually, but rather used as blanket impl.
 ///
 /// # Example
 ///
@@ -134,7 +157,7 @@ impl<'e, S: Sourced<dyn Event + 'e>> Sourced<dyn Event + 'e> for Option<S> {
 /// assert_eq!(chat, Some(Chat));
 /// ```
 pub trait Sourcing<S: ?Sized> {
-    /// Applies the specified [`Event`] to the current state.
+    /// Applies this [`Event`] to the specified `state`.
     fn apply_to(&self, state: &mut S);
 }
 
@@ -149,6 +172,18 @@ where
 
 impl<'e, S> Sourced<dyn Sourcing<S> + 'e> for S {
     fn apply(&mut self, event: &(dyn Sourcing<S> + 'e)) {
+        event.apply_to(self);
+    }
+}
+
+impl<'e, S> Sourced<dyn Sourcing<S> + Send + 'e> for S {
+    fn apply(&mut self, event: &(dyn Sourcing<S> + Send + 'e)) {
+        event.apply_to(self);
+    }
+}
+
+impl<'e, S> Sourced<dyn Sourcing<S> + Send + Sync + 'e> for S {
+    fn apply(&mut self, event: &(dyn Sourcing<S> + Send + Sync + 'e)) {
         event.apply_to(self);
     }
 }
