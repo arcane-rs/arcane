@@ -23,15 +23,15 @@ pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
 /// Helper attributes of `#[derive(event::Versioned)]` macro.
 #[derive(Debug, Default, ParseAttrs)]
 pub struct Attrs {
-    /// Value to return by [`event::Versioned::name()`][0] method.
+    /// Value of [`event::Versioned::NAME`][0] constant.
     ///
-    /// [0]: arcana_core::es::event::Versioned::name
+    /// [0]: arcana_core::es::event::Versioned::NAME
     #[parse(value)]
     pub name: Required<syn::LitStr>,
 
-    /// Value to return by [`event::Versioned::version()`][0] method.
+    /// Value of [`event::Versioned::VERSION`][0] constant.
     ///
-    /// [0]: arcana_core::es::event::Versioned::version
+    /// [0]: arcana_core::es::event::Versioned::VERSION
     #[parse(value, alias = ver, validate = can_parse_as_non_zero_u16)]
     pub version: Required<syn::LitInt>,
 }
@@ -54,16 +54,15 @@ pub struct Definition {
     /// [`syn::Generics`] of this structure's type.
     pub generics: syn::Generics,
 
-    /// Value to return by [`event::Versioned::name()`][0] method in the
-    /// generated code.
+    /// Value of [`event::Versioned::NAME`][0] constant in the generated code.
     ///
-    /// [0]: arcana_core::es::event::Versioned::name
+    /// [0]: arcana_core::es::event::Versioned::NAME
     pub event_name: syn::LitStr,
 
-    /// Value to return by [`event::Versioned::version()`][0] method in the
-    /// generated code.
+    /// Value of [`event::Versioned::VERSION`][0] constant in the generated
+    /// code.
     ///
-    /// [0]: arcana_core::es::event::Versioned::version
+    /// [0]: arcana_core::es::event::Versioned::VERSION
     pub event_version: syn::LitInt,
 }
 
@@ -106,16 +105,12 @@ impl Definition {
             impl #impl_gens ::arcana::es::event::Versioned for #ty#ty_gens
                  #where_clause
             {
-                fn name() -> ::arcana::es::event::Name {
-                    #event_name
-                }
+                const NAME: ::arcana::es::event::Name = #event_name;
 
-                fn version() -> ::arcana::es::event::Version {
-                    // SAFETY: Safe, as checked by proc macro in compile time.
-                    unsafe {
-                        ::arcana::es::event::Version::new_unchecked(#event_ver)
-                    }
-                }
+                // SAFETY: Safe, as checked by proc macro in compile time.
+                const VERSION: ::arcana::es::event::Version = unsafe {
+                    ::arcana::es::event::Version::new_unchecked(#event_ver)
+                };
             }
         }
     }
@@ -129,8 +124,6 @@ impl Definition {
     pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
-
-        let (event_name, event_ver) = (&self.event_name, &self.event_version);
 
         // TODO: Replace `::std::concat!(...)` with `TypeId::of()` once it gets
         //       `const`ified.
@@ -161,8 +154,8 @@ impl Definition {
                             "_",
                             ::std::column!(),
                         ),
-                        #event_name,
-                        #event_ver,
+                        <Self as ::arcana::es::event::Versioned>::NAME,
+                        <Self as ::arcana::es::event::Versioned>::VERSION.get(),
                     )]
                 }
             }
@@ -185,14 +178,12 @@ mod spec {
         let output = quote! {
             #[automatically_derived]
             impl ::arcana::es::event::Versioned for Event {
-                fn name() -> ::arcana::es::event::Name {
-                    "event"
-                }
+                const NAME: ::arcana::es::event::Name = "event";
 
-                fn version() -> ::arcana::es::event::Version {
-                    // SAFETY: Safe, as checked by proc macro in compile time.
-                    unsafe { ::arcana::es::event::Version::new_unchecked(1) }
-                }
+                // SAFETY: Safe, as checked by proc macro in compile time.
+                const VERSION: ::arcana::es::event::Version = unsafe {
+                    ::arcana::es::event::Version::new_unchecked(1)
+                };
             }
 
             #[automatically_derived]
@@ -218,8 +209,8 @@ mod spec {
                             "_",
                             ::std::column!(),
                         ),
-                        "event",
-                        1,
+                        <Self as ::arcana::es::event::Versioned>::NAME,
+                        <Self as ::arcana::es::event::Versioned>::VERSION.get(),
                     )]
                 }
             }

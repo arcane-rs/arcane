@@ -12,7 +12,6 @@ pub type Name = &'static str;
 #[derive(
     Clone, Copy, Debug, Display, Eq, Hash, Into, Ord, PartialEq, PartialOrd,
 )]
-// TODO: Should it be bigger? Allow to abstract over it?
 pub struct Version(NonZeroU16);
 
 impl Version {
@@ -38,23 +37,22 @@ impl Version {
     pub const unsafe fn new_unchecked(value: u16) -> Self {
         Self(NonZeroU16::new_unchecked(value))
     }
+
+    /// Returns the value of this [`Version`] as a primitive type.
+    #[inline]
+    #[must_use]
+    pub const fn get(self) -> u16 {
+        self.0.get()
+    }
 }
 
 /// [`Event`] of a concrete [`Version`].
 pub trait Versioned {
-    /// Returns [`Name`] of this [`Event`].
-    ///
-    /// _Note:_ This should effectively be a constant value, and should never
-    /// change.
-    #[must_use]
-    fn name() -> Name;
+    /// [`Name`] of this [`Event`].
+    const NAME: Name;
 
-    /// Returns [`Version`] of this [`Event`].
-    ///
-    /// _Note:_ This should effectively be a constant value, and should never
-    /// change.
-    #[must_use]
-    fn version() -> Version;
+    /// [`Version`] of this [`Event`].
+    const VERSION: Version;
 }
 
 /// [Event Sourcing] event describing something that has occurred (happened
@@ -76,11 +74,11 @@ pub trait Event {
 
 impl<Ev: Versioned + ?Sized> Event for Ev {
     fn name(&self) -> Name {
-        <Self as Versioned>::name()
+        <Self as Versioned>::NAME
     }
 
     fn version(&self) -> Version {
-        <Self as Versioned>::version()
+        <Self as Versioned>::VERSION
     }
 }
 
