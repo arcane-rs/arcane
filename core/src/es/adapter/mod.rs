@@ -12,7 +12,7 @@ use futures::{future, stream, Stream, StreamExt as _};
 use pin_project::pin_project;
 
 #[doc(inline)]
-pub use self::transformer::Transformer;
+pub use self::transformer::{TransformedBy, Transformer};
 
 /// Facility to convert [`Event`]s.
 /// Typical use cases include (but are not limited to):

@@ -3,7 +3,7 @@
 pub mod transformer;
 pub mod versioned;
 
-use std::convert::TryFrom;
+use std::{convert::TryFrom, iter};
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -36,7 +36,12 @@ pub struct VariantAttrs {
 ///
 /// [`Event`]: arcana_core::es::event::Event
 #[derive(Debug, ToTokens)]
-#[to_tokens(append(impl_event, impl_event_sourced, gen_uniqueness_glue_code))]
+#[to_tokens(append(
+    impl_event,
+    impl_event_sourced,
+    unpack_enum_impl,
+    gen_uniqueness_glue_code
+))]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
@@ -229,6 +234,58 @@ impl Definition {
         }
     }
 
+    /// TODO
+    #[must_use]
+    pub fn unpack_enum_impl(&self) -> TokenStream {
+        let ty = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
+        let path =
+            quote! { ::arcana::es::adapter::transformer::specialization };
+
+        let variants_len = self.variants.len();
+        let var_ty = self
+            .variants
+            .iter()
+            .flat_map(|v| &v.fields)
+            .map(|f| &f.ty)
+            .collect::<Vec<_>>();
+        let variants_matrix =
+            self.variants.iter().enumerate().map(|(i, var)| {
+                let before_none = iter::repeat(quote! { None }).take(i);
+                let after_none =
+                    iter::repeat(quote! { None }).take(variants_len - i - 1);
+                let var_ident = &var.ident;
+
+                quote! {
+                    Self::#var_ident(e) => {
+                        ( #( #before_none, )* Some(e), #( #after_none ),* )
+                    },
+                }
+            });
+        let unreachable_arm = self.has_ignored_variants.then(|| {
+            quote! { _ => unreachable!(), }
+        });
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_gens #path::UnpackEnum for #ty#ty_gens #where_clause {
+                const TUPLE_SIZE: usize = #variants_len;
+
+                #[allow(clippy::type_complexity)]
+                type Tuple = (
+                    #( Option<#var_ty>, )*
+                );
+
+                fn unpack(self) -> Self::Tuple {
+                    match self {
+                        #( #variants_matrix )*
+                        #unreachable_arm
+                    }
+                }
+            }
+        }
+    }
+
     /// Generates hidden machinery code used to statically check that all the
     /// [`Event::name`][0]s and [`Event::version`][1]s pairs are corresponding
     /// to a single Rust type.
@@ -370,6 +427,30 @@ mod spec {
             }
 
             #[automatically_derived]
+            impl ::arcana::es::adapter::transformer::specialization::UnpackEnum
+                for Event
+            {
+                const TUPLE_SIZE: usize = 2usize;
+
+                #[allow(clippy::type_complexity)]
+                type Tuple = (
+                    Option<FileEvent>,
+                    Option<ChatEvent>
+                );
+
+                fn unpack(self) -> Self::Tuple {
+                    match self {
+                        Self::File(e) => {
+                            (Some(e), None)
+                        },
+                        Self::Chat(e) => {
+                            (None, Some(e),)
+                        },
+                    }
+                }
+            }
+
+            #[automatically_derived]
             #[doc(hidden)]
             impl ::arcana::es::event::codegen::Versioned for Event {
                 #[doc(hidden)]
@@ -488,6 +569,31 @@ mod spec {
                         },
                         Event::<'a, F, C>::Chat(f) => {
                             ::arcana::es::event::Sourced::apply(self, f)
+                        },
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            impl<'a, F, C>
+                ::arcana::es::adapter::transformer::specialization::UnpackEnum
+                for Event<'a, F, C>
+            {
+                const TUPLE_SIZE: usize = 2usize;
+
+                #[allow(clippy::type_complexity)]
+                type Tuple = (
+                    Option<FileEvent<'a, F> >,
+                    Option<ChatEvent<'a, C> >
+                );
+
+                fn unpack(self) -> Self::Tuple {
+                    match self {
+                        Self::File(e) => {
+                            (Some(e), None)
+                        },
+                        Self::Chat(e) => {
+                            (None, Some(e),)
                         },
                     }
                 }
@@ -625,6 +731,31 @@ mod spec {
                         },
                         Event::Chat(f) => {
                             ::arcana::es::event::Sourced::apply(self, f)
+                        },
+                        _ => unreachable!(),
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            impl ::arcana::es::adapter::transformer::specialization::UnpackEnum
+                for Event
+            {
+                const TUPLE_SIZE: usize = 2usize;
+
+                #[allow(clippy::type_complexity)]
+                type Tuple = (
+                    Option<FileEvent>,
+                    Option<ChatEvent>
+                );
+
+                fn unpack(self) -> Self::Tuple {
+                    match self {
+                        Self::File(e) => {
+                            (Some(e), None)
+                        },
+                        Self::Chat(e) => {
+                            (None, Some(e),)
                         },
                         _ => unreachable!(),
                     }

@@ -1,11 +1,26 @@
-use arcana::es::{
-    adapter::transformer::{self, strategy},
-    event::Sourcing,
+use std::{any::Any, convert::Infallible};
+
+use arcana::es::adapter::{
+    transformer::{self, strategy},
+    Transformer,
 };
 
-use crate::{domain, event};
+use crate::event;
 
-#[derive(Debug)]
+#[derive(Debug, Transformer)]
+#[event(
+    transformer(
+        from(
+            (super::Event, number_of_events = 3),
+            (super::ChatEvent, number_of_events = 3),
+            (super::MessageEvent, number_of_events = 1),
+            (super::EmailEvent, number_of_events = 3),
+        ),
+        into = event::Chat,
+        context = dyn Any,
+        error = Infallible,
+    ),
+)]
 pub struct Adapter;
 
 impl transformer::WithStrategy<event::chat::public::Created> for Adapter {
@@ -19,17 +34,6 @@ impl transformer::WithStrategy<event::chat::private::Created> for Adapter {
 impl transformer::WithStrategy<event::chat::v1::Created> for Adapter {
     type Strategy =
         strategy::Initialized<strategy::Into<event::chat::private::Created>>;
-}
-
-impl transformer::WithStrategy<super::EmailEvent> for Adapter {
-    type Strategy = strategy::Skip;
-}
-
-impl<Ev> transformer::WithStrategy<Ev> for Adapter
-where
-    Ev: Sourcing<domain::Chat>,
-{
-    type Strategy = strategy::AsIs;
 }
 
 // Chats are private by default.

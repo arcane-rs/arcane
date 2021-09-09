@@ -28,7 +28,7 @@ async fn main() {
         chat,
         Some(domain::Chat {
             visibility: domain::chat::Visibility::Public,
-            message_count: 1
+            message_count: 1,
         }),
     );
 

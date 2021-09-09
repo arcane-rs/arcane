@@ -3,7 +3,7 @@
 pub mod transformer;
 
 #[doc(inline)]
-pub use self::transformer::Transformer;
+pub use self::transformer::{TransformedBy, Transformer};
 
 #[doc(inline)]
 pub use arcana_core::es::adapter::{Adapter, TransformedStream};
