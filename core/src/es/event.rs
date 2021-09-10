@@ -174,6 +174,21 @@ impl<Ev> From<Ev> for Initial<Ev> {
     }
 }
 
+/// TODO
+pub trait TransparentFrom<F> {
+    /// TODO
+    fn from(_: F) -> Self;
+}
+
+impl<L, R> TransparentFrom<Initial<L>> for Initial<R>
+where
+    R: From<L>,
+{
+    fn from(ev: Initial<L>) -> Self {
+        Initial(ev.0.into())
+    }
+}
+
 impl<Ev: Event + ?Sized, S: Initialized<Ev>> Sourced<Initial<Ev>>
     for Option<S>
 {

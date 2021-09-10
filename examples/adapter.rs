@@ -105,7 +105,6 @@ enum EmailAddedOrConfirmed {
         into = EmailAddedOrConfirmed,
         ctx = dyn Any,
         err = Infallible,
-        number_of_events = 3,
     ),
 )]
 struct EmailAdapter;

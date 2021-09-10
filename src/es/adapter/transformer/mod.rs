@@ -17,4 +17,4 @@ pub use arcana_codegen::es::transformer::Transformer;
 #[doc(hidden)]
 // TODO: Replace with panic once `const_panic` is stabilized.
 //       https://github.com/rust-lang/rust/issues/51999
-pub use arcana_codegen::sa::const_assert as wrong_number_of_events;
+pub use arcana_codegen::sa::const_assert as too_many_variants_in_enum;

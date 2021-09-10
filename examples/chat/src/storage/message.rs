@@ -8,10 +8,10 @@ use crate::event;
 #[event(
     transformer(
         from(
-            (super::Event, number_of_events = 3),
-            (super::MessageEvent, number_of_events = 1),
-            (super::ChatEvent, number_of_events = 3),
-            (super::EmailEvent, number_of_events = 3),
+            super::Event,
+            super::MessageEvent,
+            super::ChatEvent,
+            super::EmailEvent,
         ),
         into = event::Message,
         context = dyn Any,

@@ -1,16 +1,12 @@
 //! `#[derive(adapter::Transformer)]` macro implementation.
 
-use std::{convert::TryFrom, iter, num::NonZeroUsize};
+use std::{convert::TryFrom, iter};
 
+use either::Either;
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use std::ops::Deref;
-use syn::{
-    parse::{Parse, ParseStream},
-    parse_quote,
-    spanned::Spanned,
-    token,
-};
+use std::{num::NonZeroUsize, ops::Deref};
+use syn::{parse_quote, spanned::Spanned};
 use synthez::{ParseAttrs, Required, Spanning, ToTokens};
 
 /// Expands `#[derive(adapter::Transformer)]` macro.
@@ -46,7 +42,7 @@ pub struct Attrs {
 pub struct InnerAttrs {
     /// TODO
     #[parse(value, alias = from)]
-    pub event: Vec<EventAttrs>,
+    pub event: Vec<syn::Type>,
 
     /// [`Transformer::Transformed`][0] type.
     ///
@@ -67,8 +63,8 @@ pub struct InnerAttrs {
     pub error: Required<syn::Type>,
 
     /// TODO
-    #[parse(value, alias = ver, validate = can_parse_as_non_zero_usize)]
-    pub number_of_events: Option<syn::LitInt>,
+    #[parse(value, alias = max, validate = can_parse_as_non_zero_usize)]
+    pub max_number_of_variants: Option<syn::LitInt>,
 }
 
 /// Checks whether the given `value` can be parsed as [`NonZeroUsize`].
@@ -90,42 +86,30 @@ impl InnerAttrs {
             transformed,
             context,
             error,
-            number_of_events,
+            max_number_of_variants,
         } = self;
 
-        event.into_iter().map(move |ev| {
-            let event = ev
-                .event
-                .as_ref()
-                .ok_or_else(|| syn::Error::new(Span::call_site(), "todo"))?;
-            let num = ev
-                .number_of_events
-                .as_ref()
-                .xor(number_of_events.as_ref())
-                .ok_or_else(|| {
-                    let span = if let (Some(l), Some(r)) = (
-                        ev.number_of_events.as_ref(),
-                        number_of_events.as_ref(),
-                    ) {
-                        l.span().join(r.span())
-                    } else {
-                        None
-                    };
+        if event.is_empty() {
+            return Either::Left(iter::once(Err(syn::Error::new(
+                transformed.span(),
+                "expected at least 1 `event` or `from` attribute",
+            ))));
+        }
 
-                    syn::Error::new(
-                        span.unwrap_or_else(|| event.span()),
-                        "exactly 1 'number_of_events' attribute expected",
-                    )
-                })?;
-
+        Either::Right(event.into_iter().map(move |ev| {
             Ok(ImplDefinition {
-                event: event.clone(),
+                event: ev,
                 transformed: transformed.deref().clone(),
                 context: context.deref().clone(),
                 error: error.deref().clone(),
-                number_of_events: num.base10_parse()?,
+                max_number_of_variants: max_number_of_variants
+                    .as_ref()
+                    .map_or(Ok(Definition::MAX_NUMBER_OF_VARIANTS), |max| {
+                        max.base10_parse::<NonZeroUsize>()
+                            .map(NonZeroUsize::get)
+                    })?,
             })
-        })
+        }))
     }
 }
 
@@ -136,88 +120,6 @@ impl PartialEq for InnerAttrs {
             && *self.transformed == *other.transformed
             && *self.context == *other.context
             && *self.error == *other.error
-            && self.number_of_events == other.number_of_events
-    }
-}
-
-/// TODO
-#[derive(Debug, Default)]
-pub struct EventAttrs {
-    event: Option<syn::Type>,
-    number_of_events: Option<syn::LitInt>,
-}
-
-#[allow(dead_code)]
-struct EventAttrsParse {
-    event: syn::Type,
-    comma: Option<syn::Token![,]>,
-    ident: Option<syn::Ident>,
-    equal: Option<syn::Token![=]>,
-    number: Option<syn::LitInt>,
-}
-
-impl Parse for EventAttrs {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        input
-            .peek(token::Paren)
-            .then(|| {
-                let content;
-                syn::parenthesized!(content in input);
-                Ok(content)
-            })
-            .transpose()?
-            .map_or_else(
-                || {
-                    Ok(EventAttrs {
-                        event: Some(input.parse::<syn::Type>()?),
-                        number_of_events: None,
-                    })
-                },
-                |input| {
-                    let parsed = EventAttrsParse {
-                        event: input.parse()?,
-                        comma: input.parse()?,
-                        ident: input.parse()?,
-                        equal: input.parse()?,
-                        number: input.parse()?,
-                    };
-
-                    if let Some(ident) = &parsed.ident {
-                        if ident != "number_of_events" {
-                            return Err(syn::Error::new(
-                                parsed.ident.span(),
-                                "expected number_of_events",
-                            ));
-                        }
-                    }
-
-                    Ok(EventAttrs {
-                        event: Some(parsed.event),
-                        number_of_events: parsed.number,
-                    })
-                },
-            )
-    }
-}
-
-impl ToTokens for EventAttrs {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let event = &self.event;
-        let attr = if let Some(num) = &self.number_of_events {
-            quote! { (#event, number_of_events = #num) }
-        } else {
-            quote! { #event }
-        };
-
-        attr.to_tokens(tokens);
-    }
-}
-
-// TODO: add PartialEq impls in synthez
-impl PartialEq for EventAttrs {
-    fn eq(&self, other: &Self) -> bool {
-        self.event == other.event
-            && self.number_of_events == other.number_of_events
     }
 }
 
@@ -265,7 +167,7 @@ pub struct ImplDefinition {
     pub error: syn::Type,
 
     /// TODO
-    pub number_of_events: NonZeroUsize,
+    pub max_number_of_variants: usize,
 }
 
 impl TryFrom<syn::DeriveInput> for Definition {
@@ -296,12 +198,29 @@ impl TryFrom<syn::DeriveInput> for Definition {
 }
 
 impl Definition {
+    /// TODO
+    pub const MAX_NUMBER_OF_VARIANTS: usize = 256;
+
     /// Generates code to derive [`Transformer`][0] trait.
     ///
     /// [0]: arcana_core::es::adapter::Transformer
     #[must_use]
     pub fn derive_transformer(&self) -> TokenStream {
         let adapter = &self.adapter;
+        let (impl_gen, type_gen, where_clause) = self.generics.split_for_impl();
+        let codegen_path = quote! { ::arcana::es::adapter::codegen };
+        let specialization_path = quote! {
+            ::arcana::es::adapter::transformer::specialization
+        };
+        let assert_fn = Self::assert_impl_any(
+            &syn::Ident::new("event", Span::call_site()),
+            [
+                parse_quote! {  ::arcana::es::event::Versioned },
+                parse_quote! {
+                    ::arcana::es::adapter::TransformedBy<#adapter>
+                },
+            ],
+        );
 
         self.transformers.iter().map(|tr| {
             let ImplDefinition {
@@ -309,23 +228,41 @@ impl Definition {
                 transformed,
                 context,
                 error,
-                number_of_events,
+                max_number_of_variants,
             } = tr;
-            let inner_match = self.inner_match(transformed, *number_of_events);
-            let (impl_gen, type_gen, where_clause) =
-                self.generics.split_for_impl();
 
-            let number_of_events = number_of_events.get();
-            let codegen_path = quote! { ::arcana::es::adapter::codegen };
-            let specialization_path = quote! {
-                arcana::es::adapter::transformer::specialization
+            let max = *max_number_of_variants;
+            let id = 0..max;
+            let gets = quote! {
+                #( if ::std::option::Option::is_some(
+                    &#specialization_path::Get::<{
+                        #id % <#event as #specialization_path::EnumSize>::SIZE
+                    }>::get(&event)
+                ) {
+                    let event = #specialization_path::Get::<{
+                        #id % <#event as #specialization_path::EnumSize>::SIZE
+                    }>::unwrap(event);
+                    let check = #assert_fn;
+                    let event = check();
+
+                    return ::std::boxed::Box::pin(
+                        (&&&&&Wrap::<&#adapter, _, #transformed>(
+                            self,
+                            &event,
+                            ::std::marker::PhantomData,
+                        ))
+                            .get_tag()
+                            .transform_event(self, event, ctx),
+                    );
+                } else )*
+                {
+                    unreachable!()
+                }
             };
 
-
             quote! {
-                ::arcana::es::adapter::transformer::wrong_number_of_events!(
-                    #number_of_events ==
-                    <#event as #specialization_path::UnpackEnum>::TUPLE_SIZE,
+                ::arcana::es::adapter::transformer::too_many_variants_in_enum!(
+                    <#event as #specialization_path::EnumSize>::SIZE < #max
                 );
 
                 #[automatically_derived]
@@ -349,9 +286,10 @@ impl Definition {
                         >;
 
                     #[allow(
+                        clippy::modulo_one,
+                        clippy::needless_borrow,
                         clippy::too_many_lines,
-                        clippy::unused_self,
-                        clippy::needless_borrow
+                        clippy::unused_self
                     )]
                     fn transform<'me, 'ctx>(
                         &'me self,
@@ -368,63 +306,12 @@ impl Definition {
                             Wrap,
                         };
 
-                        match #specialization_path::UnpackEnum::unpack(event) {
-                            #inner_match
-                        }
+                        #gets
                     }
                 }
             }
         })
             .collect()
-    }
-
-    /// TODO
-    #[must_use]
-    pub fn inner_match(
-        &self,
-        transformed: &syn::Type,
-        number_of_events: NonZeroUsize,
-    ) -> TokenStream {
-        let number_of_events = number_of_events.get();
-        let adapter = &self.adapter;
-
-        let matches = (0..).take(number_of_events).map(|i| {
-            let before_none = iter::repeat(quote! { None }).take(i);
-            let after_none =
-                iter::repeat(quote! { None }).take(number_of_events - i - 1);
-
-            let assert_fn = Self::assert_impl_any(
-                &syn::Ident::new("event", Span::call_site()),
-                [
-                    parse_quote! {  ::arcana::es::event::Versioned },
-                    parse_quote! {
-                        ::arcana::es::adapter::TransformedBy<#adapter>
-                    },
-                ],
-            );
-
-            quote! {
-                ( #( #before_none, )* Some(event), #( #after_none ),* ) => {
-                    let check = #assert_fn;
-                    let event = check();
-
-                    ::std::boxed::Box::pin(
-                        (&&&&&Wrap::<&#adapter, _, #transformed>(
-                            self,
-                            &event,
-                            ::std::marker::PhantomData,
-                        ))
-                            .get_tag()
-                            .transform_event(self, event, ctx),
-                    )
-                }
-            }
-        });
-
-        quote! {
-            #( #matches )*
-            _ => unreachable!(),
-        }
     }
 
     /// TODO

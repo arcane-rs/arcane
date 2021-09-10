@@ -11,10 +11,10 @@ use crate::event;
 #[event(
     transformer(
         from(
-            (super::Event, number_of_events = 3),
-            (super::ChatEvent, number_of_events = 3),
-            (super::MessageEvent, number_of_events = 1),
-            (super::EmailEvent, number_of_events = 3),
+            super::Event,
+            super::ChatEvent,
+            super::MessageEvent,
+            super::EmailEvent,
         ),
         into = event::Chat,
         context = dyn Any,
@@ -22,14 +22,6 @@ use crate::event;
     ),
 )]
 pub struct Adapter;
-
-impl transformer::WithStrategy<event::chat::public::Created> for Adapter {
-    type Strategy = strategy::Initialized<strategy::AsIs>;
-}
-
-impl transformer::WithStrategy<event::chat::private::Created> for Adapter {
-    type Strategy = strategy::Initialized<strategy::AsIs>;
-}
 
 impl transformer::WithStrategy<event::chat::v1::Created> for Adapter {
     type Strategy =

@@ -85,15 +85,21 @@ pub mod specialization {
     use futures::{future, stream, StreamExt as _};
 
     /// TODO
-    pub trait UnpackEnum {
+    pub trait Get<const N: usize> {
         /// TODO
-        const TUPLE_SIZE: usize;
+        type Out;
 
         /// TODO
-        type Tuple;
+        fn get(&self) -> Option<&Self::Out>;
 
         /// TODO
-        fn unpack(self) -> Self::Tuple;
+        fn unwrap(self) -> Self::Out;
+    }
+
+    /// TODO
+    pub trait EnumSize {
+        /// TODO
+        const SIZE: usize;
     }
 
     /// TODO

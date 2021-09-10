@@ -39,7 +39,7 @@ pub struct VariantAttrs {
 #[to_tokens(append(
     impl_event,
     impl_event_sourced,
-    unpack_enum_impl,
+    get_impl,
     gen_uniqueness_glue_code
 ))]
 pub struct Definition {
@@ -236,53 +236,46 @@ impl Definition {
 
     /// TODO
     #[must_use]
-    pub fn unpack_enum_impl(&self) -> TokenStream {
+    pub fn get_impl(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
-        let path =
+        let spec_path =
             quote! { ::arcana::es::adapter::transformer::specialization };
 
-        let variants_len = self.variants.len();
-        let var_ty = self
+        let (id, (var_ident, var_ty)): (Vec<_>, (Vec<_>, Vec<_>)) = self
             .variants
             .iter()
-            .flat_map(|v| &v.fields)
-            .map(|f| &f.ty)
-            .collect::<Vec<_>>();
-        let variants_matrix =
-            self.variants.iter().enumerate().map(|(i, var)| {
-                let before_none = iter::repeat(quote! { None }).take(i);
-                let after_none =
-                    iter::repeat(quote! { None }).take(variants_len - i - 1);
-                let var_ident = &var.ident;
-
-                quote! {
-                    Self::#var_ident(e) => {
-                        ( #( #before_none, )* Some(e), #( #after_none ),* )
-                    },
-                }
-            });
-        let unreachable_arm = self.has_ignored_variants.then(|| {
-            quote! { _ => unreachable!(), }
-        });
+            .flat_map(|v| v.fields.iter().zip(iter::once(&v.ident)))
+            .enumerate()
+            .map(|(id, (field, ident))| (id, (ident, &field.ty)))
+            .unzip();
+        let number_of_variants = id.len();
 
         quote! {
-            #[automatically_derived]
-            impl #impl_gens #path::UnpackEnum for #ty#ty_gens #where_clause {
-                const TUPLE_SIZE: usize = #variants_len;
-
-                #[allow(clippy::type_complexity)]
-                type Tuple = (
-                    #( Option<#var_ty>, )*
-                );
-
-                fn unpack(self) -> Self::Tuple {
-                    match self {
-                        #( #variants_matrix )*
-                        #unreachable_arm
-                    }
-                }
+            impl#impl_gens #spec_path::EnumSize for #ty#ty_gens
+            #where_clause
+            {
+                const SIZE: usize = #number_of_variants;
             }
+
+            #( impl#impl_gens #spec_path::Get<#id> for #ty#ty_gens #where_clause
+            {
+                type Out = #var_ty;
+
+                fn get(&self) -> ::std::option::Option<&Self::Out> {
+                    if let Self::#var_ident(v) = self {
+                        return Some(v);
+                    }
+                    None
+                }
+
+                fn unwrap(self) -> Self::Out {
+                    if let Self::#var_ident(v) = self {
+                        return v;
+                    }
+                    panic!("called `Option::unwrap()` on a `None` value")
+                }
+            } )*
         }
     }
 
