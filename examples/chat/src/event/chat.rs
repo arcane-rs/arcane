@@ -22,4 +22,14 @@ pub mod v1 {
     #[derive(Debug, event::Versioned)]
     #[event(name = "chat.created", version = 1)]
     pub struct Created;
+
+    impl From<Created> for super::private::Created {
+        fn from(_: Created) -> Self {
+            Self
+        }
+    }
+
+    impl event::Upcast for Created {
+        type Into = super::private::Created;
+    }
 }

@@ -2,7 +2,7 @@ pub mod chat;
 pub mod email;
 pub mod message;
 
-use arcana::es::{self, adapter::transformer::strategy};
+use arcana::es;
 use derive_more::From;
 
 use crate::event;
@@ -31,22 +31,4 @@ pub enum EmailEvent {
     Added(event::email::Added),
     Confirmed(event::email::Confirmed),
     AddedAndConfirmed(event::email::v1::AddedAndConfirmed),
-}
-
-impl From<strategy::Unknown> for event::Chat {
-    fn from(u: strategy::Unknown) -> Self {
-        match u {}
-    }
-}
-
-impl From<strategy::Unknown> for event::Email {
-    fn from(u: strategy::Unknown) -> Self {
-        match u {}
-    }
-}
-
-impl From<strategy::Unknown> for event::Message {
-    fn from(u: strategy::Unknown) -> Self {
-        match u {}
-    }
 }

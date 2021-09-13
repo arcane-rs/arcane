@@ -39,19 +39,22 @@ pub trait Transformer<Event> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    type TransformedStream<'me, 'ctx>: Stream<
-        Item = Result<Self::Transformed, Self::Error>,
-    >;
+    #[rustfmt::skip]
+    type TransformedStream<'out>:
+        Stream<Item = Result<Self::Transformed, Self::Error>> + 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    fn transform<'me, 'ctx>(
+    fn transform<'me, 'ctx, 'out>(
         &'me self,
         event: Event,
         context: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx>;
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out;
 }
 
 /// Instead of implementing [`Transformer`] manually, you can use this trait
@@ -80,7 +83,7 @@ pub mod specialization {
             transformer::{strategy, WithStrategy},
             Transformer,
         },
-        event,
+        event::{self, Upcast},
     };
     use futures::{future, stream, StreamExt as _};
 
@@ -122,7 +125,7 @@ pub mod specialization {
     }
 
     impl<Adapter, Event, TransformedEvent> TransformedBySkipAdapter
-        for &&&&Wrap<&Adapter, &Event, TransformedEvent>
+        for &&&&&&Wrap<&Adapter, &Event, TransformedEvent>
     where
         Adapter: WithStrategy<Event, Strategy = strategy::Skip>,
     {
@@ -159,7 +162,7 @@ pub mod specialization {
     }
 
     impl<Adapter, Event, TransformedEvent> TransformedByAdapter
-        for &&&Wrap<&Adapter, &Event, TransformedEvent>
+        for &&&&&Wrap<&Adapter, &Event, TransformedEvent>
     where
         Adapter: Transformer<Event>,
     {
@@ -174,34 +177,35 @@ pub mod specialization {
 
     impl AdapterTag {
         /// TODO
-        pub fn transform_event<'me, 'ctx, Adapter, Event, TrEvent, Ctx, Err>(
+        pub fn transform_event<'me, 'ctx, 'out, Adapter, Ev, TrEv, Ctx, Err>(
             self,
             adapter: &'me Adapter,
-            ev: Event,
+            ev: Ev,
             context: &'ctx Ctx,
-        ) -> AdapterTagStream<'me, 'ctx, Adapter, Event, TrEvent, Err>
+        ) -> AdapterTagStream<'out, Adapter, Ev, TrEv, Err>
         where
-            Event: 'static,
+            'me: 'out,
+            'ctx: 'out,
+            Ev: 'static,
             Ctx: ?Sized,
-            Adapter: Transformer<Event, Context = Ctx>,
-            TrEvent: From<Adapter::Transformed>,
+            Adapter: Transformer<Ev, Context = Ctx>,
+            TrEv: From<Adapter::Transformed>,
             Err: From<Adapter::Error>,
         {
-            <Adapter as Transformer<Event>>::transform(adapter, ev, context)
+            <Adapter as Transformer<Ev>>::transform(adapter, ev, context)
                 .map(|res| res.map(Into::into).map_err(Into::into))
         }
     }
 
-    type AdapterTagStream<'me, 'ctx, Adapter, Event, TrEvent, Err> =
-        stream::Map<
-            <Adapter as Transformer<Event>>::TransformedStream<'me, 'ctx>,
-            fn(
-                Result<
-                    <Adapter as Transformer<Event>>::Transformed,
-                    <Adapter as Transformer<Event>>::Error,
-                >,
-            ) -> Result<TrEvent, Err>,
-        >;
+    type AdapterTagStream<'out, Adapter, Event, TrEvent, Err> = stream::Map<
+        <Adapter as Transformer<Event>>::TransformedStream<'out>,
+        fn(
+            Result<
+                <Adapter as Transformer<Event>>::Transformed,
+                <Adapter as Transformer<Event>>::Error,
+            >,
+        ) -> Result<TrEvent, Err>,
+    >;
 
     // With From
 
@@ -212,7 +216,7 @@ pub mod specialization {
     }
 
     impl<Adapter, Event, TransformedEvent> TransformedByFrom
-        for &&Wrap<&Adapter, &Event, TransformedEvent>
+        for &&&&Wrap<&Adapter, &Event, TransformedEvent>
     where
         TransformedEvent: From<Event>,
     {
@@ -250,7 +254,7 @@ pub mod specialization {
     }
 
     impl<Adapter, Event, TransformedEvent> TransformedByFromInitial
-        for &Wrap<&Adapter, &Event, TransformedEvent>
+        for &&&Wrap<&Adapter, &Event, TransformedEvent>
     where
         TransformedEvent: From<event::Initial<Event>>,
     {
@@ -276,6 +280,89 @@ pub mod specialization {
             TrEvent: From<event::Initial<Event>>,
         {
             stream::once(future::ready(Ok(event::Initial(ev).into())))
+        }
+    }
+
+    // With From Upcast
+
+    /// TODO
+    pub trait TransformedByFromUpcast {
+        /// TODO
+        fn get_tag(&self) -> FromUpcastTag;
+    }
+
+    impl<Adapter, Event, TransformedEvent> TransformedByFromUpcast
+        for &Wrap<&Adapter, &Event, TransformedEvent>
+    where
+        Event: Upcast,
+        TransformedEvent: From<Event::Into>,
+    {
+        fn get_tag(&self) -> FromUpcastTag {
+            FromUpcastTag
+        }
+    }
+
+    /// TODO
+    #[derive(Clone, Copy, Debug)]
+    pub struct FromUpcastTag;
+
+    impl FromUpcastTag {
+        /// TODO
+        pub fn transform_event<Adapter, Event, TrEvent, Ctx, Err>(
+            self,
+            _: &Adapter,
+            ev: Event,
+            _: &Ctx,
+        ) -> stream::Once<future::Ready<Result<TrEvent, Err>>>
+        where
+            Ctx: ?Sized,
+            Event: Upcast,
+            TrEvent: From<Event::Into>,
+        {
+            stream::once(future::ready(Ok(Event::Into::from(ev).into())))
+        }
+    }
+
+    // With From Initial Upcast
+
+    /// TODO
+    pub trait TransformedByFromInitialUpcast {
+        /// TODO
+        fn get_tag(&self) -> FromInitialUpcastTag;
+    }
+
+    impl<Adapter, Event, TransformedEvent> TransformedByFromInitialUpcast
+        for &Wrap<&Adapter, &Event, TransformedEvent>
+    where
+        Event: Upcast,
+        TransformedEvent: From<event::Initial<Event::Into>>,
+    {
+        fn get_tag(&self) -> FromInitialUpcastTag {
+            FromInitialUpcastTag
+        }
+    }
+
+    /// TODO
+    #[derive(Clone, Copy, Debug)]
+    pub struct FromInitialUpcastTag;
+
+    impl FromInitialUpcastTag {
+        /// TODO
+        pub fn transform_event<Adapter, Event, TrEvent, Ctx, Err>(
+            self,
+            _: &Adapter,
+            ev: Event,
+            _: &Ctx,
+        ) -> stream::Once<future::Ready<Result<TrEvent, Err>>>
+        where
+            Ctx: ?Sized,
+            Event: Upcast,
+            TrEvent: From<event::Initial<Event::Into>>,
+        {
+            stream::once(future::ready(Ok(event::Initial(Event::Into::from(
+                ev,
+            ))
+            .into())))
         }
     }
 

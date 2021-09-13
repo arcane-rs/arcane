@@ -63,7 +63,7 @@ pub struct InnerAttrs {
     pub error: Required<syn::Type>,
 
     /// TODO
-    #[parse(value, alias = max, validate = can_parse_as_non_zero_usize)]
+    #[parse(value, validate = can_parse_as_non_zero_usize)]
     pub max_number_of_variants: Option<syn::LitInt>,
 }
 
@@ -120,6 +120,7 @@ impl PartialEq for InnerAttrs {
             && *self.transformed == *other.transformed
             && *self.context == *other.context
             && *self.error == *other.error
+            && self.max_number_of_variants == other.max_number_of_variants
     }
 }
 
@@ -197,121 +198,57 @@ impl TryFrom<syn::DeriveInput> for Definition {
     }
 }
 
-impl Definition {
+impl ImplDefinition {
     /// TODO
-    pub const MAX_NUMBER_OF_VARIANTS: usize = 256;
-
-    /// Generates code to derive [`Transformer`][0] trait.
-    ///
-    /// [0]: arcana_core::es::adapter::Transformer
     #[must_use]
-    pub fn derive_transformer(&self) -> TokenStream {
-        let adapter = &self.adapter;
-        let (impl_gen, type_gen, where_clause) = self.generics.split_for_impl();
-        let codegen_path = quote! { ::arcana::es::adapter::codegen };
+    pub fn transform_event(&self, adapter: &syn::Ident) -> TokenStream {
         let specialization_path = quote! {
             ::arcana::es::adapter::transformer::specialization
         };
-        let assert_fn = Self::assert_impl_any(
+
+        let assert_versioned_or_transformed = Self::assert_impl_any(
             &syn::Ident::new("event", Span::call_site()),
             [
                 parse_quote! {  ::arcana::es::event::Versioned },
-                parse_quote! {
-                    ::arcana::es::adapter::TransformedBy<#adapter>
-                },
+                parse_quote! { ::arcana::es::adapter::TransformedBy<#adapter> },
             ],
         );
 
-        self.transformers.iter().map(|tr| {
-            let ImplDefinition {
-                event,
-                transformed,
-                context,
-                error,
-                max_number_of_variants,
-            } = tr;
+        let ImplDefinition {
+            event,
+            transformed,
+            max_number_of_variants,
+            ..
+        } = self;
 
-            let max = *max_number_of_variants;
-            let id = 0..max;
-            let gets = quote! {
-                #( if ::std::option::Option::is_some(
-                    &#specialization_path::Get::<{
-                        #id % <#event as #specialization_path::EnumSize>::SIZE
-                    }>::get(&event)
-                ) {
-                    let event = #specialization_path::Get::<{
-                        #id % <#event as #specialization_path::EnumSize>::SIZE
-                    }>::unwrap(event);
-                    let check = #assert_fn;
-                    let event = check();
+        let max = *max_number_of_variants;
+        let id = 0..max;
+        quote! {
+            #( if ::std::option::Option::is_some(
+                &#specialization_path::Get::<{
+                    #id % <#event as #specialization_path::EnumSize>::SIZE
+                }>::get(&event)
+            ) {
+                let event = #specialization_path::Get::<{
+                    #id % <#event as #specialization_path::EnumSize>::SIZE
+                }>::unwrap(event);
+                let check = #assert_versioned_or_transformed;
+                let event = check();
 
-                    return ::std::boxed::Box::pin(
-                        (&&&&&Wrap::<&#adapter, _, #transformed>(
-                            self,
-                            &event,
-                            ::std::marker::PhantomData,
-                        ))
-                            .get_tag()
-                            .transform_event(self, event, ctx),
-                    );
-                } else )*
-                {
-                    unreachable!()
-                }
-            };
-
-            quote! {
-                ::arcana::es::adapter::transformer::too_many_variants_in_enum!(
-                    <#event as #specialization_path::EnumSize>::SIZE < #max
+                return ::std::boxed::Box::pin(
+                    (&&&&&&&Wrap::<&#adapter, _, #transformed>(
+                        self,
+                        &event,
+                        ::std::marker::PhantomData,
+                    ))
+                        .get_tag()
+                        .transform_event(self, event, ctx),
                 );
-
-                #[automatically_derived]
-                impl #impl_gen ::arcana::es::adapter::Transformer<#event> for
-                    #adapter#type_gen #where_clause
-                {
-                    type Context = #context;
-                    type Error = #error;
-                    type Transformed = #transformed;
-                    #[allow(clippy::type_complexity)]
-                    type TransformedStream<'me, 'ctx> =
-                        ::std::pin::Pin<
-                            ::std::boxed::Box<
-                                dyn #codegen_path::futures::Stream<
-                                    Item = ::std::result::Result<
-                                        Self::Transformed,
-                                        Self::Error,
-                                    >
-                                >
-                            >
-                        >;
-
-                    #[allow(
-                        clippy::modulo_one,
-                        clippy::needless_borrow,
-                        clippy::too_many_lines,
-                        clippy::unused_self
-                    )]
-                    fn transform<'me, 'ctx>(
-                        &'me self,
-                        event: #event,
-                        ctx: &'ctx Self::Context,
-                    ) -> Self::TransformedStream<'me, 'ctx> {
-                        #[allow(unused_imports)]
-                        use #specialization_path::{
-                            TransformedBySkipAdapter as _,
-                            TransformedByAdapter as _,
-                            TransformedByFrom as _,
-                            TransformedByFromInitial as _,
-                            TransformedByEmpty as _,
-                            Wrap,
-                        };
-
-                        #gets
-                    }
-                }
+            } else )*
+            {
+                unreachable!()
             }
-        })
-            .collect()
+        }
     }
 
     /// TODO
@@ -376,6 +313,91 @@ impl Definition {
                 #value
             }
         }
+    }
+}
+
+impl Definition {
+    /// TODO
+    pub const MAX_NUMBER_OF_VARIANTS: usize = 50;
+
+    /// Generates code to derive [`Transformer`][0] trait.
+    ///
+    /// [0]: arcana_core::es::adapter::Transformer
+    #[must_use]
+    pub fn derive_transformer(&self) -> TokenStream {
+        let adapter = &self.adapter;
+        let (impl_gen, type_gen, where_clause) = self.generics.split_for_impl();
+        let codegen_path = quote! { ::arcana::es::adapter::codegen };
+        let specialization_path = quote! {
+            ::arcana::es::adapter::transformer::specialization
+        };
+
+        self.transformers.iter().map(|tr| {
+            let transform_event = tr.transform_event(adapter);
+
+            let ImplDefinition {
+                event,
+                transformed,
+                context,
+                error,
+                max_number_of_variants,
+            } = tr;
+
+            let max = *max_number_of_variants;
+
+            quote! {
+                ::arcana::es::adapter::transformer::too_many_variants_in_enum!(
+                    <#event as #specialization_path::EnumSize>::SIZE <= #max
+                );
+
+                #[automatically_derived]
+                impl #impl_gen ::arcana::es::adapter::Transformer<#event> for
+                    #adapter#type_gen #where_clause
+                {
+                    type Context = #context;
+                    type Error = #error;
+                    type Transformed = #transformed;
+                    #[allow(clippy::type_complexity)]
+                    type TransformedStream<'out> =
+                        ::std::pin::Pin<
+                            ::std::boxed::Box<
+                                dyn #codegen_path::futures::Stream<
+                                    Item = ::std::result::Result<
+                                        Self::Transformed,
+                                        Self::Error,
+                                    >
+                                > + 'out
+                            >
+                        >;
+
+                    #[allow(clippy::modulo_one)]
+                    fn transform<'me, 'ctx, 'out>(
+                        &'me self,
+                        event: #event,
+                        ctx: &'ctx Self::Context,
+                    ) -> Self::TransformedStream<'out>
+                    where
+                        'me: 'out,
+                        'ctx: 'out,
+                    {
+                        #[allow(unused_imports)]
+                        use #specialization_path::{
+                            TransformedBySkipAdapter as _,
+                            TransformedByAdapter as _,
+                            TransformedByFrom as _,
+                            TransformedByFromInitial as _,
+                            TransformedByFromUpcast as _,
+                            TransformedByFromInitialUpcast as _,
+                            TransformedByEmpty as _,
+                            Wrap,
+                        };
+
+                        #transform_event
+                    }
+                }
+            }
+        })
+            .collect()
     }
 }
 

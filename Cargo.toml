@@ -30,10 +30,6 @@ tokio = { version = "1", features = ["full"] }
 pin-project = "1"
 static_assertions = "1"
 
-[[example]]
-name = "adapter"
-required-features = ["es", "derive"]
-
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

@@ -9,7 +9,6 @@ use std::array;
 use arcana::es::{event::Sourced, EventAdapter as _};
 use futures::{stream, Stream, TryStreamExt as _};
 
-#[allow(clippy::semicolon_if_nothing_returned)]
 #[tokio::main]
 async fn main() {
     let mut chat = Option::<domain::Chat>::None;
@@ -33,6 +32,17 @@ async fn main() {
         }),
     );
 
+    let message_events = storage::message::Adapter
+        .transform_all(incoming_events(), &())
+        .inspect_ok(|ev| message.apply(ev))
+        .try_collect::<Vec<event::Message>>()
+        .await
+        .unwrap();
+    println!("{:?}", message_events);
+
+    assert_eq!(message_events.len(), 1);
+    assert_eq!(message, Some(domain::Message));
+
     let email_events = storage::email::Adapter
         .transform_all(incoming_events(), &())
         .inspect_ok(|ev| email.apply(ev))
@@ -49,17 +59,6 @@ async fn main() {
             confirmed_by: Some("Test".to_owned()),
         })
     );
-
-    let message_events = storage::message::Adapter
-        .transform_all(incoming_events(), &())
-        .inspect_ok(|ev| message.apply(ev))
-        .try_collect::<Vec<event::Message>>()
-        .await
-        .unwrap();
-    println!("{:?}", message_events);
-
-    assert_eq!(message_events.len(), 1);
-    assert_eq!(message, Some(domain::Message));
 }
 
 fn incoming_events() -> impl Stream<Item = storage::Event> {
