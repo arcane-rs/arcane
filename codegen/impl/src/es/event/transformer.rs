@@ -13,9 +13,7 @@ use synthez::{ParseAttrs, Required, Spanning, ToTokens};
 ///
 /// # Errors
 ///
-/// - If `input` isn't a Rust enum definition;
-/// - If some enum variant is not a single-field tuple struct;
-/// - If failed to parse [`Attrs`].
+/// If failed to parse [`Attrs`] or transform them into [`Definition`].
 pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse2::<syn::DeriveInput>(input)?;
     let definition = Definition::try_from(input)?;
@@ -40,9 +38,11 @@ pub struct Attrs {
 /// [0]: arcana_core::es::adapter::Transformer
 #[derive(Debug, Default, ParseAttrs)]
 pub struct InnerAttrs {
-    /// TODO
-    #[parse(value, alias = from)]
-    pub event: Vec<syn::Type>,
+    /// [`Transformer`][0] generic types.
+    ///
+    /// [0]: arcana_core::es::adapter::Transformer
+    #[parse(value, alias(from, event))]
+    pub events: Vec<syn::Type>,
 
     /// [`Transformer::Transformed`][0] type.
     ///
@@ -62,7 +62,9 @@ pub struct InnerAttrs {
     #[parse(value, alias = err)]
     pub error: Required<syn::Type>,
 
-    /// TODO
+    /// Maximum number of allowed [`Self::events`] enum variants.
+    //  TODO: remove this restrictions, once we will be able to constantly
+    //        traverse const array
     #[parse(value, validate = can_parse_as_non_zero_usize)]
     pub max_number_of_variants: Option<syn::LitInt>,
 }
@@ -77,12 +79,22 @@ fn can_parse_as_non_zero_usize<'a>(
         .map(drop)
 }
 
+/// Default value for [`ImplDefinition::max_number_of_variants`].
+pub const MAX_NUMBER_OF_VARIANTS: usize = 50;
+
 impl InnerAttrs {
-    fn into_impl_definition(
+    /// Transforms [`InnerAttrs`] into [`ImplDefinition`]s.
+    ///
+    /// # Errors
+    ///
+    /// - If [`InnerAttrs::events`] is empty;
+    /// - If failed to parse [`Self::max_number_of_variants`] into
+    ///   [`NonZeroUsize`].
+    pub fn into_impl_definition(
         self,
     ) -> impl Iterator<Item = syn::Result<ImplDefinition>> {
         let InnerAttrs {
-            event,
+            events: event,
             transformed,
             context,
             error,
@@ -104,7 +116,7 @@ impl InnerAttrs {
                 error: error.deref().clone(),
                 max_number_of_variants: max_number_of_variants
                     .as_ref()
-                    .map_or(Ok(Definition::MAX_NUMBER_OF_VARIANTS), |max| {
+                    .map_or(Ok(MAX_NUMBER_OF_VARIANTS), |max| {
                         max.base10_parse::<NonZeroUsize>()
                             .map(NonZeroUsize::get)
                     })?,
@@ -116,7 +128,7 @@ impl InnerAttrs {
 // TODO: add PartialEq impls in synthez
 impl PartialEq for InnerAttrs {
     fn eq(&self, other: &Self) -> bool {
-        *self.event == *other.event
+        *self.events == *other.events
             && *self.transformed == *other.transformed
             && *self.context == *other.context
             && *self.error == *other.error
@@ -124,14 +136,17 @@ impl PartialEq for InnerAttrs {
     }
 }
 
-/// Representation of a enum for implementing [`Transformer`][0], used for code
+/// Representation of a type for implementing [`Transformer`][0], used for code
 /// generation.
 ///
 /// [0]: arcana_core::es::adapter::Transformer
 #[derive(Debug, ToTokens)]
-#[to_tokens(append(derive_transformer))]
+#[to_tokens(append(derive_transformers))]
 pub struct Definition {
-    /// TODO
+    /// [`syn::Ident`](struct@syn::Ident) of type [`Transformer`][0] is derived
+    /// on.
+    ///
+    /// [0]: arcana_core::es::adapter::Transformer
     pub adapter: syn::Ident,
 
     /// [`syn::Generics`] of this enum's type.
@@ -143,13 +158,14 @@ pub struct Definition {
     pub transformers: Vec<ImplDefinition>,
 }
 
-/// Representation of a struct implementing [`Transformer`][0], used for code
-/// generation.
+/// Representation of [`Transformer`][0] impl, used for code generation.
 ///
 /// [0]: arcana_core::es::adapter::Transformer
 #[derive(Debug)]
 pub struct ImplDefinition {
-    /// TODO
+    /// [`Transformer`][0] generic type.
+    ///
+    /// [0]: arcana_core::es::adapter::Transformer
     pub event: syn::Type,
 
     /// [`Transformer::Transformed`][0] type.
@@ -167,7 +183,7 @@ pub struct ImplDefinition {
     /// [0]: arcana_core::es::adapter::Transformer::Error
     pub error: syn::Type,
 
-    /// TODO
+    /// Maximum number of allowed [`Self::event`] enum variants.
     pub max_number_of_variants: usize,
 }
 
@@ -198,18 +214,111 @@ impl TryFrom<syn::DeriveInput> for Definition {
     }
 }
 
-impl ImplDefinition {
-    /// TODO
+impl Definition {
+    /// Generates code to derive [`Transformer`][0] traits.
+    ///
+    /// [0]: arcana_core::es::adapter::Transformer
     #[must_use]
-    pub fn transform_event(&self, adapter: &syn::Ident) -> TokenStream {
+    pub fn derive_transformers(&self) -> TokenStream {
+        let adapter = &self.adapter;
+        let (impl_gen, type_gen, where_clause) = self.generics.split_for_impl();
+        let codegen_path = quote! { ::arcana::es::event::codegen };
         let specialization_path = quote! {
             ::arcana::es::adapter::transformer::specialization
         };
 
+        self.transformers.iter().map(|tr| {
+            let transform_event = tr.transform_event(adapter);
+
+            let ImplDefinition {
+                event,
+                transformed,
+                context,
+                error,
+                max_number_of_variants,
+            } = tr;
+
+            let max = *max_number_of_variants;
+
+            quote! {
+                ::arcana::es::adapter::transformer::too_many_variants_in_enum!(
+                    <#event as #codegen_path::EnumSize>::SIZE <= #max
+                );
+
+                #[automatically_derived]
+                impl#impl_gen ::arcana::es::adapter::Transformer<#event> for
+                    #adapter#type_gen #where_clause
+                {
+                    type Context = #context;
+                    type Error = #error;
+                    type Transformed = #transformed;
+                    #[allow(clippy::type_complexity)]
+                    type TransformedStream<'out> =
+                        ::std::pin::Pin<
+                            ::std::boxed::Box<
+                                dyn #codegen_path::futures::Stream<
+                                    Item = ::std::result::Result<
+                                        Self::Transformed,
+                                        Self::Error,
+                                    >
+                                > + 'out
+                            >
+                        >;
+
+                    #[allow(clippy::modulo_one)]
+                    fn transform<'me, 'ctx, 'out>(
+                        &'me self,
+                        event: #event,
+                        ctx: &'ctx Self::Context,
+                    ) -> Self::TransformedStream<'out>
+                    where
+                        'me: 'out,
+                        'ctx: 'out,
+                    {
+                        #[allow(unused_imports)]
+                        use #specialization_path::{
+                            TransformedBySkipAdapter as _,
+                            TransformedByAdapter as _,
+                            TransformedByFrom as _,
+                            TransformedByFromInitial as _,
+                            TransformedByFromUpcast as _,
+                            TransformedByFromInitialUpcast as _,
+                            TransformedByEmpty as _,
+                            Wrap,
+                        };
+
+                        #transform_event
+                    }
+                }
+            }
+        })
+            .collect()
+    }
+}
+
+impl ImplDefinition {
+    /// Generates code which matches [`Event`] value with it's variant, checks
+    /// whether [`Versioned`] or [`TransformedBy`] is implemented for it and
+    /// then applies [`specialization`][0] transformations to it.
+    ///
+    /// Match is done by iterating `0..max_number_of_variants` over [`Get`]
+    /// trait. As before that we asserted that number of variants is less or
+    /// equals then `max_number_of_variants`, [`unreachable`] is really
+    /// unreachable.
+    ///
+    /// [0]: arcana_core::es::adapter::transformer::specialization
+    /// [`Event`]: arcana_core::es::Event
+    /// [`Get`]: arcana_core::es::event::codegen::Get
+    /// [`TransformedBy`]: arcana_core::es::adapter::TransformedBy
+    /// [`Versioned`]: arcana_core::es::event::Versioned
+    #[must_use]
+    pub fn transform_event(&self, adapter: &syn::Ident) -> TokenStream {
+        let codegen_path = quote! { ::arcana::es::event::codegen };
+
         let assert_versioned_or_transformed = Self::assert_impl_any(
             &syn::Ident::new("event", Span::call_site()),
             [
-                parse_quote! {  ::arcana::es::event::Versioned },
+                parse_quote! { ::arcana::es::event::Versioned },
                 parse_quote! { ::arcana::es::adapter::TransformedBy<#adapter> },
             ],
         );
@@ -225,17 +334,17 @@ impl ImplDefinition {
         let id = 0..max;
         quote! {
             #( if ::std::option::Option::is_some(
-                &#specialization_path::Get::<{
-                    #id % <#event as #specialization_path::EnumSize>::SIZE
+                &#codegen_path::Get::<{
+                    #id % <#event as #codegen_path::EnumSize>::SIZE
                 }>::get(&event)
             ) {
-                let event = #specialization_path::Get::<{
-                    #id % <#event as #specialization_path::EnumSize>::SIZE
+                let event = #codegen_path::Get::<{
+                    #id % <#event as #codegen_path::EnumSize>::SIZE
                 }>::unwrap(event);
                 let check = #assert_versioned_or_transformed;
                 let event = check();
 
-                return ::std::boxed::Box::pin(
+                ::std::boxed::Box::pin(
                     (&&&&&&&Wrap::<&#adapter, _, #transformed>(
                         self,
                         &event,
@@ -243,7 +352,7 @@ impl ImplDefinition {
                     ))
                         .get_tag()
                         .transform_event(self, event, ctx),
-                );
+                )
             } else )*
             {
                 unreachable!()
@@ -251,7 +360,12 @@ impl ImplDefinition {
         }
     }
 
-    /// TODO
+    /// Generates closure, which moves `value` inside, asserts whether any of
+    /// provided `traits` are implemented for it (if not, fails at compile time)
+    /// and then returns `value`.
+    ///
+    /// We can't use closure which takes `value` as parameter as type inference
+    /// can break assertion.
     #[must_use]
     pub fn assert_impl_any(
         value: &syn::Ident,
@@ -316,91 +430,6 @@ impl ImplDefinition {
     }
 }
 
-impl Definition {
-    /// TODO
-    pub const MAX_NUMBER_OF_VARIANTS: usize = 50;
-
-    /// Generates code to derive [`Transformer`][0] trait.
-    ///
-    /// [0]: arcana_core::es::adapter::Transformer
-    #[must_use]
-    pub fn derive_transformer(&self) -> TokenStream {
-        let adapter = &self.adapter;
-        let (impl_gen, type_gen, where_clause) = self.generics.split_for_impl();
-        let codegen_path = quote! { ::arcana::es::adapter::codegen };
-        let specialization_path = quote! {
-            ::arcana::es::adapter::transformer::specialization
-        };
-
-        self.transformers.iter().map(|tr| {
-            let transform_event = tr.transform_event(adapter);
-
-            let ImplDefinition {
-                event,
-                transformed,
-                context,
-                error,
-                max_number_of_variants,
-            } = tr;
-
-            let max = *max_number_of_variants;
-
-            quote! {
-                ::arcana::es::adapter::transformer::too_many_variants_in_enum!(
-                    <#event as #specialization_path::EnumSize>::SIZE <= #max
-                );
-
-                #[automatically_derived]
-                impl #impl_gen ::arcana::es::adapter::Transformer<#event> for
-                    #adapter#type_gen #where_clause
-                {
-                    type Context = #context;
-                    type Error = #error;
-                    type Transformed = #transformed;
-                    #[allow(clippy::type_complexity)]
-                    type TransformedStream<'out> =
-                        ::std::pin::Pin<
-                            ::std::boxed::Box<
-                                dyn #codegen_path::futures::Stream<
-                                    Item = ::std::result::Result<
-                                        Self::Transformed,
-                                        Self::Error,
-                                    >
-                                > + 'out
-                            >
-                        >;
-
-                    #[allow(clippy::modulo_one)]
-                    fn transform<'me, 'ctx, 'out>(
-                        &'me self,
-                        event: #event,
-                        ctx: &'ctx Self::Context,
-                    ) -> Self::TransformedStream<'out>
-                    where
-                        'me: 'out,
-                        'ctx: 'out,
-                    {
-                        #[allow(unused_imports)]
-                        use #specialization_path::{
-                            TransformedBySkipAdapter as _,
-                            TransformedByAdapter as _,
-                            TransformedByFrom as _,
-                            TransformedByFromInitial as _,
-                            TransformedByFromUpcast as _,
-                            TransformedByFromInitialUpcast as _,
-                            TransformedByEmpty as _,
-                            Wrap,
-                        };
-
-                        #transform_event
-                    }
-                }
-            }
-        })
-            .collect()
-    }
-}
-
 #[cfg(test)]
 mod spec {
     use quote::quote;
@@ -408,135 +437,293 @@ mod spec {
 
     #[allow(clippy::too_many_lines)]
     #[test]
-    fn derives_enum_impl() {
+    fn derives_impl() {
         let input = parse_quote! {
             #[event(
                 transformer(
-                    adapter = Adapter,
+                    from = Event,
                     into = IntoEvent,
                     context = dyn Any,
                     error = Infallible,
+                    max_number_of_variants = 2,
                 ),
             )]
-            enum Event {
-                File(FileEvent),
-                Chat(ChatEvent),
-            }
+            struct Adapter;
         };
 
         let output = quote! {
+            ::arcana::es::adapter::transformer::too_many_variants_in_enum!(
+                <Event as ::arcana::es::event::codegen::EnumSize>::SIZE <=
+                    2usize
+            );
+
             #[automatically_derived]
             impl ::arcana::es::adapter::Transformer<Event> for Adapter {
                 type Context = dyn Any;
                 type Error = Infallible;
                 type Transformed = IntoEvent;
-                type TransformedStream<'me, 'ctx> =
-                    ::arcana::es::adapter::codegen::futures::future::Either<
-                        ::arcana::es::adapter::codegen::futures::stream::Map<
-                            <Adapter as ::arcana::es::adapter::Transformer<
-                                FileEvent
-                            >>::TransformedStream<'me, 'ctx>,
-                            fn(
-                                ::std::result::Result<
-                                    <Adapter as ::arcana::es::adapter::
-                                                  Transformer<FileEvent>>::
-                                                  Transformed,
-                                    <Adapter as ::arcana::es::adapter::
-                                                  Transformer<FileEvent>>::
-                                                  Error,
-                                >,
-                            ) -> ::std::result::Result<
-                                <Adapter as ::arcana::es::adapter::
-                                              Transformer<Event>>::
-                                              Transformed,
-                                <Adapter as ::arcana::es::adapter::
-                                              Transformer<Event>>::Error,
-                            >,
-                        >,
-                        ::arcana::es::adapter::codegen::futures::stream::Map<
-                            <Adapter as ::arcana::es::adapter::Transformer<
-                                ChatEvent
-                            >>::TransformedStream<'me, 'ctx>,
-                            fn(
-                                ::std::result::Result<
-                                    <Adapter as ::arcana::es::adapter::
-                                                  Transformer<ChatEvent>>::
-                                                  Transformed,
-                                    <Adapter as ::arcana::es::adapter::
-                                                  Transformer<ChatEvent>>::
-                                                  Error,
-                                >,
-                            ) -> ::std::result::Result<
-                                <Adapter as ::arcana::es::adapter::
-                                               Transformer<Event>>::
-                                               Transformed,
-                                <Adapter as ::arcana::es::adapter::
-                                              Transformer<Event>>::Error,
-                            >,
-                        >,
+                #[allow(clippy::type_complexity)]
+                type TransformedStream<'out> =
+                    ::std::pin::Pin<
+                        ::std::boxed::Box<
+                            dyn ::arcana::es::event::codegen::futures::Stream<
+                                Item = ::std::result::Result<
+                                    Self::Transformed,
+                                    Self::Error,
+                                >
+                            > + 'out
+                        >
                     >;
 
-                fn transform<'me, 'ctx>(
+                #[allow(clippy::modulo_one)]
+                fn transform<'me, 'ctx, 'out>(
                     &'me self,
-                    __event: Event,
-                    __context:
-                        &'ctx <Self as ::arcana::es::adapter::
-                                         Transformer<Event>>::Context,
-                ) -> <Self as ::arcana::es::adapter::Transformer<Event>>::
-                                TransformedStream<'me, 'ctx>
+                    event: Event,
+                    ctx: &'ctx Self::Context,
+                ) -> Self::TransformedStream<'out>
+                where
+                    'me: 'out,
+                    'ctx: 'out,
                 {
-                    match __event {
-                        Event::File(__event) => {
-                            ::arcana::es::adapter::codegen::futures::StreamExt::
-                                left_stream(
-                                ::arcana::es::adapter::codegen::futures::
-                                StreamExt::map(
-                                    <Adapter as ::arcana::es::adapter::
-                                                  Transformer<FileEvent>
-                                    >::transform(self, __event, __context),
-                                    {
-                                        let __transform_fn: fn(_) -> _ =
-                                        |__res| {
-                                            ::std::result::Result::map_err(
-                                                ::std::result::Result::map(
-                                                    __res,
-                                                    ::std::convert::Into::into,
-                                                ),
-                                                ::std::convert::Into::into,
-                                            )
-                                        };
-                                        __transform_fn
-                                    },
-                                )
+                    #[allow(unused_imports)]
+                    use ::arcana::es::adapter::transformer::specialization::{
+                        TransformedBySkipAdapter as _,
+                        TransformedByAdapter as _,
+                        TransformedByFrom as _,
+                        TransformedByFromInitial as _,
+                        TransformedByFromUpcast as _,
+                        TransformedByFromInitialUpcast as _,
+                        TransformedByEmpty as _,
+                        Wrap,
+                    };
+
+                    if ::std::option::Option::is_some(
+                        &::arcana::es::event::codegen::Get::<{
+                                0usize % <Event as ::arcana::es::event::
+                                    codegen::EnumSize>::SIZE
+                            }>::get(&event)
+                    ) {
+                        let event =
+                            ::arcana::es::event::codegen::Get::<{
+                                0usize % <Event as ::arcana::es::event::
+                                    codegen::EnumSize>::SIZE
+                            }>::unwrap(event);
+                        let check = || {
+                            struct AssertImplAnyFallback;
+
+                            struct ActualAssertImplAnyToken;
+                            trait AssertImplAnyToken {}
+                            impl AssertImplAnyToken for
+                                ActualAssertImplAnyToken {}
+
+                            fn assert_impl_any_token<T>(_: T)
+                            where T: AssertImplAnyToken {}
+
+                            let previous = AssertImplAnyFallback;
+
+                            let previous = {
+                                struct Wrapper<T, N>(
+                                    ::std::marker::PhantomData<T>,
+                                    N,
+                                );
+
+                                impl<T, N> ::std::ops::Deref for Wrapper<T, N> {
+                                    type Target = N;
+
+                                    fn deref(&self) -> &Self::Target {
+                                        &self.1
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N> {
+                                    fn new(_: &T, right: N) -> Wrapper<T, N> {
+                                        Self(::std::marker::PhantomData, right)
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N>
+                                where
+                                    T: ::arcana::es::event::Versioned,
+                                {
+                                    fn _static_assertions_impl_any(
+                                        &self,
+                                    ) -> ActualAssertImplAnyToken {
+                                        ActualAssertImplAnyToken
+                                    }
+                                }
+
+                                Wrapper::new(&event, previous)
+                            };
+
+                            let previous = {
+                                struct Wrapper<T, N>(
+                                    ::std::marker::PhantomData<T>,
+                                    N,
+                                );
+
+                                impl<T, N> ::std::ops::Deref for Wrapper<T, N> {
+                                    type Target = N;
+
+                                    fn deref(&self) -> &Self::Target {
+                                        &self.1
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N> {
+                                    fn new(_: &T, right: N) -> Wrapper<T, N> {
+                                        Self(::std::marker::PhantomData, right)
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N>
+                                where
+                                    T: ::arcana::es::adapter::TransformedBy<
+                                        Adapter
+                                    >,
+                                {
+                                    fn _static_assertions_impl_any(
+                                        &self,
+                                    ) -> ActualAssertImplAnyToken {
+                                        ActualAssertImplAnyToken
+                                    }
+                                }
+
+                                Wrapper::new(&event, previous)
+                            };
+
+                            assert_impl_any_token(
+                                previous._static_assertions_impl_any(),
+                            );
+
+                            event
+                        };
+                        let event = check();
+
+                        ::std::boxed::Box::pin(
+                            (&&&&&&&Wrap::<&Adapter, _, IntoEvent>(
+                                self,
+                                &event,
+                                ::std::marker::PhantomData,
+                            ))
+                                .get_tag()
+                                .transform_event(self, event, ctx),
                             )
-                        },
-                        Event::Chat(__event) => {
-                            ::arcana::es::adapter::codegen::futures::StreamExt::
-                            right_stream(
-                                ::arcana::es::adapter::codegen::futures::
-                                StreamExt::map(
-                                    <Adapter as ::arcana::es::adapter::
-                                        Transformer<ChatEvent>
-                                    >::transform(self, __event, __context),
-                                    {
-                                        let __transform_fn: fn(_) -> _ =
-                                        |__res| {
-                                            ::std::result::Result::map_err(
-                                                ::std::result::Result::map(
-                                                    __res,
-                                                    ::std::convert::Into::into,
-                                                ),
-                                                ::std::convert::Into::into,
-                                            )
-                                        };
-                                        __transform_fn
-                                    },
-                                )
+                    } else if ::std::option::Option::is_some(
+                        &::arcana::es::event::codegen::Get::<{
+                            1usize % <Event as ::arcana::es::event::
+                            codegen::EnumSize>::SIZE
+                        }>::get(&event)
+                    ) {
+                        let event =
+                        ::arcana::es::event::codegen::Get::<{
+                            1usize % <Event as ::arcana::es::event::codegen::
+                                EnumSize>::SIZE
+                        }>::unwrap(event);
+                        let check = || {
+                            struct AssertImplAnyFallback;
+
+                            struct ActualAssertImplAnyToken;
+                            trait AssertImplAnyToken {}
+                            impl AssertImplAnyToken for
+                                ActualAssertImplAnyToken {}
+
+                            fn assert_impl_any_token<T>(_: T)
+                            where T: AssertImplAnyToken {}
+
+                            let previous = AssertImplAnyFallback;
+
+                            let previous = {
+                                struct Wrapper<T, N>(
+                                    ::std::marker::PhantomData<T>,
+                                    N,
+                                );
+
+                                impl<T, N> ::std::ops::Deref for Wrapper<T, N> {
+                                    type Target = N;
+
+                                    fn deref(&self) -> &Self::Target {
+                                        &self.1
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N> {
+                                    fn new(_: &T, right: N) -> Wrapper<T, N> {
+                                        Self(::std::marker::PhantomData, right)
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N>
+                                where
+                                    T: ::arcana::es::event::Versioned,
+                                {
+                                    fn _static_assertions_impl_any(
+                                        &self,
+                                    ) -> ActualAssertImplAnyToken {
+                                        ActualAssertImplAnyToken
+                                    }
+                                }
+
+                                Wrapper::new(&event, previous)
+                            };
+
+                            let previous = {
+                                struct Wrapper<T, N>(
+                                    ::std::marker::PhantomData<T>,
+                                    N,
+                                );
+
+                                impl<T, N> ::std::ops::Deref for Wrapper<T, N> {
+                                    type Target = N;
+
+                                    fn deref(&self) -> &Self::Target {
+                                        &self.1
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N> {
+                                    fn new(_: &T, right: N) -> Wrapper<T, N> {
+                                        Self(::std::marker::PhantomData, right)
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N>
+                                where
+                                    T: ::arcana::es::adapter::TransformedBy<
+                                        Adapter
+                                    >,
+                                {
+                                    fn _static_assertions_impl_any(
+                                        &self,
+                                    ) -> ActualAssertImplAnyToken {
+                                        ActualAssertImplAnyToken
+                                    }
+                                }
+
+                                Wrapper::new(&event, previous)
+                            };
+
+                            assert_impl_any_token(
+                                previous._static_assertions_impl_any(),
+                            );
+
+                            event
+                        };
+                        let event = check();
+
+                        ::std::boxed::Box::pin(
+                            (&&&&&&&Wrap::<&Adapter, _, IntoEvent>(
+                                self,
+                                &event,
+                                ::std::marker::PhantomData,
+                            ))
+                                .get_tag()
+                                .transform_event(self, event, ctx),
                             )
-                        },
+                        } else {
+                            unreachable!()
+                        }
                     }
                 }
-            }
         };
 
         assert_eq!(
@@ -545,8 +732,377 @@ mod spec {
         );
     }
 
+    #[allow(clippy::too_many_lines)]
     #[test]
-    fn errors_on_without_adapter_attribute() {
+    fn derives_multiple_impls() {
+        let shorter_input = parse_quote! {
+            #[event(
+                transformer(
+                    events(FirstEvent, SecondEvent),
+                    into = IntoEvent,
+                    context = dyn Any,
+                    error = Infallible,
+                    max_number_of_variants = 1,
+                ),
+            )]
+            struct Adapter;
+        };
+
+        let longer_input = parse_quote! {
+            #[event(
+                transformer(
+                    event = FirstEvent,
+                    into = IntoEvent,
+                    context = dyn Any,
+                    error = Infallible,
+                    max_number_of_variants = 1,
+                ),
+                transformer(
+                    event = SecondEvent,
+                    into = IntoEvent,
+                    context = dyn Any,
+                    error = Infallible,
+                    max_number_of_variants = 1,
+                ),
+            )]
+            struct Adapter;
+        };
+
+        let output = quote! {
+            ::arcana::es::adapter::transformer::too_many_variants_in_enum!(
+                <FirstEvent as ::arcana::es::event::codegen::EnumSize>::SIZE <=
+                    1usize
+            );
+
+            #[automatically_derived]
+            impl ::arcana::es::adapter::Transformer<FirstEvent> for Adapter {
+                type Context = dyn Any;
+                type Error = Infallible;
+                type Transformed = IntoEvent;
+                #[allow(clippy::type_complexity)]
+                type TransformedStream<'out> =
+                    ::std::pin::Pin<
+                        ::std::boxed::Box<
+                            dyn ::arcana::es::event::codegen::futures::Stream<
+                                Item = ::std::result::Result<
+                                    Self::Transformed,
+                                    Self::Error,
+                                >
+                            > + 'out
+                        >
+                    >;
+
+                #[allow(clippy::modulo_one)]
+                fn transform<'me, 'ctx, 'out>(
+                    &'me self,
+                    event: FirstEvent,
+                    ctx: &'ctx Self::Context,
+                ) -> Self::TransformedStream<'out>
+                where
+                    'me: 'out,
+                    'ctx: 'out,
+                {
+                    #[allow(unused_imports)]
+                    use ::arcana::es::adapter::transformer::specialization::{
+                        TransformedBySkipAdapter as _,
+                        TransformedByAdapter as _,
+                        TransformedByFrom as _,
+                        TransformedByFromInitial as _,
+                        TransformedByFromUpcast as _,
+                        TransformedByFromInitialUpcast as _,
+                        TransformedByEmpty as _,
+                        Wrap,
+                    };
+
+                    if ::std::option::Option::is_some(
+                        &::arcana::es::event::codegen::Get::<{
+                                0usize % <FirstEvent as ::arcana::es::event::
+                                    codegen::EnumSize>::SIZE
+                            }>::get(&event)
+                    ) {
+                        let event =
+                            ::arcana::es::event::codegen::Get::<{
+                                0usize % <FirstEvent as ::arcana::es::event::
+                                    codegen::EnumSize>::SIZE
+                            }>::unwrap(event);
+                        let check = || {
+                            struct AssertImplAnyFallback;
+
+                            struct ActualAssertImplAnyToken;
+                            trait AssertImplAnyToken {}
+                            impl AssertImplAnyToken for
+                                ActualAssertImplAnyToken {}
+
+                            fn assert_impl_any_token<T>(_: T)
+                            where T: AssertImplAnyToken {}
+
+                            let previous = AssertImplAnyFallback;
+
+                            let previous = {
+                                struct Wrapper<T, N>(
+                                    ::std::marker::PhantomData<T>,
+                                    N,
+                                );
+
+                                impl<T, N> ::std::ops::Deref for Wrapper<T, N> {
+                                    type Target = N;
+
+                                    fn deref(&self) -> &Self::Target {
+                                        &self.1
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N> {
+                                    fn new(_: &T, right: N) -> Wrapper<T, N> {
+                                        Self(::std::marker::PhantomData, right)
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N>
+                                where
+                                    T: ::arcana::es::event::Versioned,
+                                {
+                                    fn _static_assertions_impl_any(
+                                        &self,
+                                    ) -> ActualAssertImplAnyToken {
+                                        ActualAssertImplAnyToken
+                                    }
+                                }
+
+                                Wrapper::new(&event, previous)
+                            };
+
+                            let previous = {
+                                struct Wrapper<T, N>(
+                                    ::std::marker::PhantomData<T>,
+                                    N,
+                                );
+
+                                impl<T, N> ::std::ops::Deref for Wrapper<T, N> {
+                                    type Target = N;
+
+                                    fn deref(&self) -> &Self::Target {
+                                        &self.1
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N> {
+                                    fn new(_: &T, right: N) -> Wrapper<T, N> {
+                                        Self(::std::marker::PhantomData, right)
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N>
+                                where
+                                    T: ::arcana::es::adapter::TransformedBy<
+                                        Adapter
+                                    >,
+                                {
+                                    fn _static_assertions_impl_any(
+                                        &self,
+                                    ) -> ActualAssertImplAnyToken {
+                                        ActualAssertImplAnyToken
+                                    }
+                                }
+
+                                Wrapper::new(&event, previous)
+                            };
+
+                            assert_impl_any_token(
+                                previous._static_assertions_impl_any(),
+                            );
+
+                            event
+                        };
+                        let event = check();
+
+                        ::std::boxed::Box::pin(
+                            (&&&&&&&Wrap::<&Adapter, _, IntoEvent>(
+                                self,
+                                &event,
+                                ::std::marker::PhantomData,
+                            ))
+                                .get_tag()
+                                .transform_event(self, event, ctx),
+                            )
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+
+            ::arcana::es::adapter::transformer::too_many_variants_in_enum!(
+                <SecondEvent as ::arcana::es::event::codegen::EnumSize>::SIZE <=
+                    1usize
+            );
+
+            #[automatically_derived]
+            impl ::arcana::es::adapter::Transformer<SecondEvent> for Adapter {
+                type Context = dyn Any;
+                type Error = Infallible;
+                type Transformed = IntoEvent;
+                #[allow(clippy::type_complexity)]
+                type TransformedStream<'out> =
+                    ::std::pin::Pin<
+                        ::std::boxed::Box<
+                            dyn ::arcana::es::event::codegen::futures::Stream<
+                                Item = ::std::result::Result<
+                                    Self::Transformed,
+                                    Self::Error,
+                                >
+                            > + 'out
+                        >
+                    >;
+
+                #[allow(clippy::modulo_one)]
+                fn transform<'me, 'ctx, 'out>(
+                    &'me self,
+                    event: SecondEvent,
+                    ctx: &'ctx Self::Context,
+                ) -> Self::TransformedStream<'out>
+                where
+                    'me: 'out,
+                    'ctx: 'out,
+                {
+                    #[allow(unused_imports)]
+                    use ::arcana::es::adapter::transformer::specialization::{
+                        TransformedBySkipAdapter as _,
+                        TransformedByAdapter as _,
+                        TransformedByFrom as _,
+                        TransformedByFromInitial as _,
+                        TransformedByFromUpcast as _,
+                        TransformedByFromInitialUpcast as _,
+                        TransformedByEmpty as _,
+                        Wrap,
+                    };
+
+                    if ::std::option::Option::is_some(
+                        &::arcana::es::event::codegen::Get::<{
+                                0usize % <SecondEvent as ::arcana::es::event::
+                                    codegen::EnumSize>::SIZE
+                            }>::get(&event)
+                    ) {
+                        let event =
+                            ::arcana::es::event::codegen::Get::<{
+                                0usize % <SecondEvent as ::arcana::es::event::
+                                    codegen::EnumSize>::SIZE
+                            }>::unwrap(event);
+                        let check = || {
+                            struct AssertImplAnyFallback;
+
+                            struct ActualAssertImplAnyToken;
+                            trait AssertImplAnyToken {}
+                            impl AssertImplAnyToken for
+                                ActualAssertImplAnyToken {}
+
+                            fn assert_impl_any_token<T>(_: T)
+                            where T: AssertImplAnyToken {}
+
+                            let previous = AssertImplAnyFallback;
+
+                            let previous = {
+                                struct Wrapper<T, N>(
+                                    ::std::marker::PhantomData<T>,
+                                    N,
+                                );
+
+                                impl<T, N> ::std::ops::Deref for Wrapper<T, N> {
+                                    type Target = N;
+
+                                    fn deref(&self) -> &Self::Target {
+                                        &self.1
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N> {
+                                    fn new(_: &T, right: N) -> Wrapper<T, N> {
+                                        Self(::std::marker::PhantomData, right)
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N>
+                                where
+                                    T: ::arcana::es::event::Versioned,
+                                {
+                                    fn _static_assertions_impl_any(
+                                        &self,
+                                    ) -> ActualAssertImplAnyToken {
+                                        ActualAssertImplAnyToken
+                                    }
+                                }
+
+                                Wrapper::new(&event, previous)
+                            };
+
+                            let previous = {
+                                struct Wrapper<T, N>(
+                                    ::std::marker::PhantomData<T>,
+                                    N,
+                                );
+
+                                impl<T, N> ::std::ops::Deref for Wrapper<T, N> {
+                                    type Target = N;
+
+                                    fn deref(&self) -> &Self::Target {
+                                        &self.1
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N> {
+                                    fn new(_: &T, right: N) -> Wrapper<T, N> {
+                                        Self(::std::marker::PhantomData, right)
+                                    }
+                                }
+
+                                impl<T, N> Wrapper<T, N>
+                                where
+                                    T: ::arcana::es::adapter::TransformedBy<
+                                        Adapter
+                                    >,
+                                {
+                                    fn _static_assertions_impl_any(
+                                        &self,
+                                    ) -> ActualAssertImplAnyToken {
+                                        ActualAssertImplAnyToken
+                                    }
+                                }
+
+                                Wrapper::new(&event, previous)
+                            };
+
+                            assert_impl_any_token(
+                                previous._static_assertions_impl_any(),
+                            );
+
+                            event
+                        };
+                        let event = check();
+
+                        ::std::boxed::Box::pin(
+                            (&&&&&&&Wrap::<&Adapter, _, IntoEvent>(
+                                self,
+                                &event,
+                                ::std::marker::PhantomData,
+                            ))
+                                .get_tag()
+                                .transform_event(self, event, ctx),
+                            )
+                    } else {
+                        unreachable!()
+                    }
+                }
+            }
+        };
+
+        let shorter = super::derive(shorter_input).unwrap().to_string();
+        let longer = super::derive(longer_input).unwrap().to_string();
+
+        assert_eq!(shorter, longer);
+        assert_eq!(shorter, output.to_string());
+    }
+
+    #[test]
+    fn errors_on_without_event_attribute() {
         let input = parse_quote! {
             #[event(
                 transformer(
@@ -555,18 +1111,14 @@ mod spec {
                     error = Infallible,
                 ),
             )]
-            enum Event {
-                Event1(Event1),
-                Event2(Event2),
-            }
+            struct Adapter;
         };
 
         let err = super::derive(input).unwrap_err();
 
         assert_eq!(
             err.to_string(),
-            "`adapter` argument of `#[event(transformer)]` attribute is \
-             expected to be present, but is absent",
+            "expected at least 1 `event` or `from` attribute",
         );
     }
 
@@ -575,7 +1127,7 @@ mod spec {
         let input = parse_quote! {
             #[event(
                 transformer(
-                    adapter = Adapter,
+                    event = Event,
                     context = dyn Any,
                     error = Infallible,
                 ),
@@ -601,15 +1153,12 @@ mod spec {
         let input = parse_quote! {
             #[event(
                 transformer(
-                    adapter = Adapter,
+                    from = Event,
                     transformed = IntoEvent,
                     error = Infallible,
                 ),
             )]
-            enum Event {
-                Event1(Event1),
-                Event2(Event2),
-            }
+            struct Adapter;
         };
 
         let err = super::derive(input).unwrap_err();
@@ -627,15 +1176,12 @@ mod spec {
         let input = parse_quote! {
             #[event(
                 transformer(
-                    adapter = Adapter,
-                    transformed = IntoEvent,
+                    from = Event,
+                    into = IntoEvent,
                     ctx = dyn Any,
                 ),
             )]
-            enum Event {
-                Event1(Event1),
-                Event2(Event2),
-            }
+            struct Adapter;
         };
 
         let err = super::derive(input).unwrap_err();
@@ -646,68 +1192,5 @@ mod spec {
              `#[event(transformer)]` attribute is expected to be present, \
              but is absent",
         );
-    }
-
-    #[test]
-    fn errors_on_multiple_fields_in_variant() {
-        let input = parse_quote! {
-            #[event(
-                transformer(
-                    adapter = Adapter,
-                    into = IntoEvent,
-                    context = dyn Any,
-                    error = Infallible,
-                ),
-            )]
-            enum Event {
-                Event1(Event1),
-                Event2 {
-                    event: Event2,
-                    second_field: Event3,
-                }
-            }
-        };
-
-        let err = super::derive(input).unwrap_err();
-
-        assert_eq!(err.to_string(), "enum variants must have exactly 1 field");
-    }
-
-    #[test]
-    fn errors_on_struct() {
-        let input = parse_quote! {
-            #[event(
-                transformer(
-                    adapter = Adapter,
-                    into = IntoEvent,
-                    context = dyn Any,
-                    error = Infallible,
-                ),
-            )]
-            struct Event;
-        };
-
-        let err = super::derive(input).unwrap_err();
-
-        assert_eq!(err.to_string(), "expected enum only");
-    }
-
-    #[test]
-    fn errors_on_empty_enum() {
-        let input = parse_quote! {
-            #[event(
-                transformer(
-                    adapter = Adapter,
-                    into = IntoEvent,
-                    context = dyn Any,
-                    error = Infallible,
-                ),
-            )]
-            enum Event {}
-        };
-
-        let err = super::derive(input).unwrap_err();
-
-        assert_eq!(err.to_string(), "enum must have at least one variant");
     }
 }

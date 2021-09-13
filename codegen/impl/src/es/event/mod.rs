@@ -39,7 +39,7 @@ pub struct VariantAttrs {
 #[to_tokens(append(
     impl_event,
     impl_event_sourced,
-    get_impl,
+    impl_get_and_enum_size,
     gen_uniqueness_glue_code
 ))]
 pub struct Definition {
@@ -235,13 +235,18 @@ impl Definition {
         }
     }
 
-    /// TODO
+    /// Generates hidden machinery code used to transform [`Event`] value to 
+    /// it's corresponding variant be iterating over [`Get`] trait.
+    /// Used in [`Transformer`] derive macro expansion.
+    ///
+    /// [`Event`]: arcana_core::es::event::Event
+    /// [`Get`]: arcana_core::es::event::codegen::Get
+    /// [`Transformer`]: arcana_core::es::adapter::Transformer
     #[must_use]
-    pub fn get_impl(&self) -> TokenStream {
+    pub fn impl_get_and_enum_size(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
-        let spec_path =
-            quote! { ::arcana::es::adapter::transformer::specialization };
+        let codegen_path = quote! { ::arcana::es::event::codegen };
 
         let (id, (var_ident, var_ty)): (Vec<_>, (Vec<_>, Vec<_>)) = self
             .variants
@@ -253,30 +258,36 @@ impl Definition {
         let number_of_variants = id.len();
 
         quote! {
-            impl#impl_gens #spec_path::EnumSize for #ty#ty_gens
-            #where_clause
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl#impl_gens #codegen_path::EnumSize for #ty#ty_gens #where_clause
             {
                 const SIZE: usize = #number_of_variants;
             }
 
-            #( impl#impl_gens #spec_path::Get<#id> for #ty#ty_gens #where_clause
-            {
-                type Out = #var_ty;
+            #(
+                #[automatically_derived]
+                #[doc(hidden)]
+                impl#impl_gens #codegen_path::Get<#id> for #ty#ty_gens
+                    #where_clause
+                {
+                    type Out = #var_ty;
 
-                fn get(&self) -> ::std::option::Option<&Self::Out> {
-                    if let Self::#var_ident(v) = self {
-                        return Some(v);
+                    fn get(&self) -> ::std::option::Option<&Self::Out> {
+                        if let Self::#var_ident(v) = self {
+                            return Some(v);
+                        }
+                        None
                     }
-                    None
-                }
 
-                fn unwrap(self) -> Self::Out {
-                    if let Self::#var_ident(v) = self {
-                        return v;
+                    fn unwrap(self) -> Self::Out {
+                        if let Self::#var_ident(v) = self {
+                            return v;
+                        }
+                        panic!("called `Option::unwrap()` on a `None` value")
                     }
-                    panic!("called `Option::unwrap()` on a `None` value")
                 }
-            } )*
+            )*
         }
     }
 
@@ -284,15 +295,8 @@ impl Definition {
     /// [`Event::name`][0]s and [`Event::version`][1]s pairs are corresponding
     /// to a single Rust type.
     ///
-    /// # Panics
-    ///
-    /// If some enum [`Variant`]s don't have exactly 1 [`Field`] and not marked
-    /// with `#[event(skip)]`. Checked by [`TryFrom`] impl for [`Definition`].
-    ///
     /// [0]: arcana_core::es::event::Event::name()
     /// [1]: arcana_core::es::event::Event::version()
-    /// [`Field`]: syn::Field
-    /// [`Variant`]: syn::Variant
     #[must_use]
     pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
         let ty = &self.ident;
@@ -421,6 +425,49 @@ mod spec {
             }
 
             #[automatically_derived]
+            impl ::arcana::es::event::codegen::EnumSize for Event {
+                const SIZE: usize = 2usize;
+            }
+
+            #[automatically_derived]
+            impl ::arcana::es::event::codegen::Get<0usize> for Event {
+                type Out = FileEvent;
+
+                fn get(&self) -> ::std::option::Option<&Self::Out> {
+                    if let Self::File(v) = self {
+                        return Some(v);
+                    }
+                    None
+                }
+
+                fn unwrap(self) -> Self::Out {
+                    if let Self::File(v) = self {
+                        return v;
+                    }
+                    panic!("called `Option::unwrap()` on a `None` value")
+                }
+            }
+
+            #[automatically_derived]
+            impl ::arcana::es::event::codegen::Get<1usize> for Event {
+                type Out = ChatEvent;
+
+                fn get(&self) -> ::std::option::Option<&Self::Out> {
+                    if let Self::Chat(v) = self {
+                        return Some(v);
+                    }
+                    None
+                }
+
+                fn unwrap(self) -> Self::Out {
+                    if let Self::Chat(v) = self {
+                        return v;
+                    }
+                    panic!("called `Option::unwrap()` on a `None` value")
+                }
+            }
+
+            #[automatically_derived]
             #[doc(hidden)]
             impl ::arcana::es::event::codegen::Versioned for Event {
                 #[doc(hidden)]
@@ -541,6 +588,55 @@ mod spec {
                             ::arcana::es::event::Sourced::apply(self, f);
                         },
                     }
+                }
+            }
+
+            #[automatically_derived]
+            impl<'a, F, C> ::arcana::es::event::codegen::EnumSize for
+                Event<'a, F, C>
+            {
+                const SIZE: usize = 2usize;
+            }
+
+            #[automatically_derived]
+            impl<'a, F, C> ::arcana::es::event::codegen::Get<0usize> for
+                Event<'a, F, C>
+            {
+                type Out = FileEvent<'a, F>;
+
+                fn get(&self) -> ::std::option::Option<&Self::Out> {
+                    if let Self::File(v) = self {
+                        return Some(v);
+                    }
+                    None
+                }
+
+                fn unwrap(self) -> Self::Out {
+                    if let Self::File(v) = self {
+                        return v;
+                    }
+                    panic!("called `Option::unwrap()` on a `None` value")
+                }
+            }
+
+            #[automatically_derived]
+            impl<'a, F, C> ::arcana::es::event::codegen::Get<1usize> for
+                Event<'a, F, C>
+            {
+                type Out = ChatEvent<'a, C>;
+
+                fn get(&self) -> ::std::option::Option<&Self::Out> {
+                    if let Self::Chat(v) = self {
+                        return Some(v);
+                    }
+                    None
+                }
+
+                fn unwrap(self) -> Self::Out {
+                    if let Self::Chat(v) = self {
+                        return v;
+                    }
+                    panic!("called `Option::unwrap()` on a `None` value")
                 }
             }
 
@@ -679,6 +775,49 @@ mod spec {
                         },
                         _ => unreachable!(),
                     }
+                }
+            }
+
+            #[automatically_derived]
+            impl ::arcana::es::event::codegen::EnumSize for Event {
+                const SIZE: usize = 2usize;
+            }
+
+            #[automatically_derived]
+            impl ::arcana::es::event::codegen::Get<0usize> for Event {
+                type Out = FileEvent;
+
+                fn get(&self) -> ::std::option::Option<&Self::Out> {
+                    if let Self::File(v) = self {
+                        return Some(v);
+                    }
+                    None
+                }
+
+                fn unwrap(self) -> Self::Out {
+                    if let Self::File(v) = self {
+                        return v;
+                    }
+                    panic!("called `Option::unwrap()` on a `None` value")
+                }
+            }
+
+            #[automatically_derived]
+            impl ::arcana::es::event::codegen::Get<1usize> for Event {
+                type Out = ChatEvent;
+
+                fn get(&self) -> ::std::option::Option<&Self::Out> {
+                    if let Self::Chat(v) = self {
+                        return Some(v);
+                    }
+                    None
+                }
+
+                fn unwrap(self) -> Self::Out {
+                    if let Self::Chat(v) = self {
+                        return v;
+                    }
+                    panic!("called `Option::unwrap()` on a `None` value")
                 }
             }
 

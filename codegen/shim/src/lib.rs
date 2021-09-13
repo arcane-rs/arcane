@@ -117,6 +117,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
         .into()
 }
 
+// TODO describe specialization
 /// Macro for deriving [`Versioned`] on structs.
 ///
 /// For enums consisting of different [`Versioned`] events consider using
@@ -154,17 +155,14 @@ pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Macro for deriving [`Transformer`] on [`Adapter`]s to transform derived
-/// [`Event`] enum.
+/// Macro for deriving [`Transformer`] on [`Adapter`] to transform derived
+/// [`Event`]s enums.
 ///
 /// # Struct attributes
 ///
-/// #### `#[event(transformer(adapter = <ty>))]`
+/// #### `#[event(transformer(event = <ty>))]`
 ///
-/// [`Adapter`] to derive [`Transformer`] on.
-///
-/// Provided [`Adapter`] must be able to [`Transformer::transform`][0] every
-/// enum's variant.
+/// [`Event`] to transform.
 ///
 /// #### `#[event(transformer(transformed = <ty>))]`
 ///
@@ -178,6 +176,17 @@ pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
 ///
 /// [`Transformer::Error`][3] type for [`Transformer`] impl.
 ///
+/// #### `#[event(transformer(max_number_of_variants = <ty>))]` — optional
+///
+/// Due to current limitations of const evaluation, we have to limit maximum
+/// number of variants for transformed [`Event`]. Default value is
+/// [`MAX_NUMBER_OF_VARIANTS`][4].
+///
+/// Realistically you should decrease this value if you want slightly shorter
+/// compile time or increase it in case you have exceeded the default limit
+/// (although it's recommended to refactor into sub-enums for better
+/// readability).
+///
 /// # Example
 ///
 /// ```rust
@@ -185,16 +194,16 @@ pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
 /// #
 /// # use std::{any::Any, convert::Infallible};
 /// #
-/// # use arcana::es::adapter::transformer::{self, strategy, Transformer};
+/// # use arcana::es::{event, Event, adapter::Transformer};
 /// # use derive_more::From;
 /// #
-/// struct Adapter;
-///
+/// #[derive(event::Versioned)]
+/// #[event(name = "event.in", version = 1)]
 /// struct InputEvent;
 ///
-/// impl transformer::WithStrategy<InputEvent> for Adapter {
-///     type Strategy = strategy::Into<OutputEvent>;
-/// }
+/// #[derive(event::Versioned)]
+/// #[event(name = "event.out", version = 1)]
+/// struct OutputEvent;
 ///
 /// impl From<InputEvent> for OutputEvent {
 ///     fn from(_: InputEvent) -> Self {
@@ -202,88 +211,91 @@ pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
 ///     }
 /// }
 ///
-/// struct OutputEvent;
+/// #[derive(Event, From)]
+/// enum InputEvents {
+///     Input(InputEvent),
+/// }
 ///
-/// #[derive(From, Transformer)]
+/// #[derive(Event, From)]
+/// enum OutputEvents {
+///     Output(OutputEvent),
+/// }
+///
+/// #[derive(Transformer)]
 /// #[event(
 ///     transformer(
-///         adapter = Adapter,
+///         event = InputEvents,
 ///         transformed = OutputEvents,
 ///         context = dyn Any,
 ///         error = Infallible,
 ///     )
 /// )]
-/// enum InputEvents {
-///     Input(InputEvent),
-/// }
-///
-/// #[derive(From)]
-/// enum OutputEvents {
-///     Output(OutputEvent),
-/// }
+/// struct Adapter;
 /// ```
 ///
-/// > __NOTE__: Single [`Event`] enum can be [`Transformer::transform`][0]ed by
-/// >           multiple [`Adapter`]s.
+/// > __NOTE__: Single [`Adapter`] can [`Transformer::transform`][0] multiple
+/// >           [`Event`]s.
 ///
 /// ```rust
 /// # #![feature(generic_associated_types)]
 /// #
 /// # use std::{any::Any, convert::Infallible};
 /// #
-/// # use arcana::es::adapter::transformer::{self, strategy, Transformer};
+/// # use arcana::es::{event, Event, adapter::Transformer};
 /// # use derive_more::From;
 /// #
-/// # struct FirstAdapter;
-/// #
-/// # struct SecondAdapter;
-/// #
+/// # #[derive(event::Versioned)]
+/// # #[event(name = "event", version = 1)]
 /// # struct InputEvent;
 /// #
-/// # impl transformer::WithStrategy<InputEvent> for FirstAdapter {
-/// #     type Strategy = strategy::Into<OutputEvent>;
+/// # #[derive(event::Versioned)]
+/// # #[event(name = "out", version = 1)]
+/// # struct OutputEvents;
+/// #
+/// # #[derive(Event, From)]
+/// # enum FirstInputEvents {
+/// #     Input(InputEvent),
 /// # }
 /// #
-/// # impl transformer::WithStrategy<InputEvent> for SecondAdapter {
-/// #     type Strategy = strategy::Into<OutputEvent>;
+/// # #[derive(Event, From)]
+/// # enum SecondInputEvents {
+/// #     Input(InputEvent),
 /// # }
 /// #
-/// # impl From<InputEvent> for OutputEvent {
-/// #     fn from(_: InputEvent) -> Self {
-/// #         OutputEvent
-/// #     }
-/// # }
-/// #
-/// # struct OutputEvent;
-/// #
-/// #[derive(From, Transformer)]
+/// #[derive(Transformer)]
 /// #[event(
 ///     transformer(
-///         adapter = FirstAdapter,
+///         event(FirstInputEvents, SecondInputEvents),
+///         transformed = OutputEvents,
+///         context = dyn Any,
+///         error = Infallible,
+///     )
+/// )]
+/// struct FirstAdapter;
+///
+/// // equivalent to previous `derive`
+/// #[derive(Transformer)]
+/// #[event(
+///     transformer(
+///         event = FirstInputEvents,
 ///         transformed = OutputEvents,
 ///         context = dyn Any,
 ///         error = Infallible,
 ///     ),
 ///     transformer(
-///         adapter = SecondAdapter,
+///         event = SecondInputEvents,
 ///         transformed = OutputEvents,
 ///         context = dyn Any,
 ///         error = Infallible,
 ///     ),
 /// )]
-/// enum InputEvents {
-///     Input(InputEvent),
-/// }
-/// #
-/// # #[derive(From)]
-/// # enum OutputEvents {
-/// #     Output(OutputEvent),
-/// # }
+/// struct SecondAdapter;
 /// ```
 /// [0]: arcana_core::es::adapter::Transformer::transform()
 /// [1]: arcana_core::es::adapter::Transformer::Transformed
 /// [2]: arcana_core::es::adapter::Transformer::Context
 /// [3]: arcana_core::es::adapter::Transformer::Error
+/// [4]: arcana_codegen_impl::es::event::transformer::MAX_NUMBER_OF_VARIANTS
 /// [`Adapter`]: arcana_core::es::Adapter
 /// [`Event`]: trait@arcana_core::es::Event
 /// [`Transformer`]: arcana_core::es::adapter::Transformer

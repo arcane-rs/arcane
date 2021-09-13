@@ -7,6 +7,7 @@ use futures::Stream;
 #[doc(inline)]
 pub use strategy::Strategy;
 
+// TODO: describe specialization
 /// Facility to convert [`Event`]s.
 /// Typical use cases include (but are not limited to):
 ///
@@ -66,13 +67,65 @@ pub trait WithStrategy<Event>: Sized {
     type Strategy: Strategy<Self, Event>;
 }
 
-/// TODO
+/// Marker trait indicating that [`Event`] can be transformed by [`Adapter`].
+///
+/// [`Adapter`]: crate::es::Adapter
+/// [`Event`]: crate::es::Event
 pub trait TransformedBy<Adapter> {}
 
 impl<Ev, A> TransformedBy<A> for Ev where A: Transformer<Ev> {}
 
 pub mod specialization {
+    //! [`Transformer`] machinery aiding codegen.
+    //!
+    //! This module describes traits used for
+    //! [auto-deref based specialization][1]. Basically we want to transform
+    //! [`Event`] using [`Transformer`] impl, if present. If not, fallback to
+    //! [`From`] impl, if present and, as last resort, entirely [`Skip`] it.
+    //! More detailed description of specialization levels provided below.
+    //!
+    //! # Specialization Order
+    //!
+    //! ## 1. [`TransformedBySkipAdapter`]
+    //!
+    //! If we are using [`Skip`] [`Strategy`] for transforming particular
+    //! [`Event`], this specialization allows to avoid implementation of
+    //! [`From`] [`Unknown`].
+    //!
+    //! ## 2. [`TransformedByAdapter`]
+    //!
+    //! We prioritize custom [`Transformer`] implementations to allow custom
+    //! implementation of any [`Event`].
+    //!
+    //! ## 3. [`TransformedByFrom`]
+    //!
+    //! If [`Event`] can trivially transformed into
+    //! [`Transformer::Transformed`][2] using [`From`] specialization, we do it.
+    //!
+    //! ## 4. [`TransformedByFromInitial`]
+    //!
+    //! If [`Event`] wrapped into [`event::Initial`] can trivially transformed
+    //! into [`Transformer::Transformed`][2] using [`From`] specialization, we
+    //! do it.
+    //!
+    //! ## 5. [`TransformedByFromUpcast`]
+    //!
     //! TODO
+    //!
+    //! ## 6. [`TransformedByFromInitialUpcast`]
+    //!
+    //! TODO
+    //!
+    //! ## 7. [`TransformedByEmpty`]
+    //!
+    //! If none of the above applies, we just [`Skip`].
+    //!
+    //! [1]: https://bit.ly/3nrTbtj
+    //! [2]: super::Transformer::Transformed
+    //! [`Event`]: event::Event
+    //! [`Skip`]: strategy::Skip
+    //! [`Strategy`]: strategy::Strategy
+    //! [`Unknown`]: strategy::Unknown
 
     #![allow(clippy::unused_self)]
 
@@ -87,32 +140,23 @@ pub mod specialization {
     };
     use futures::{future, stream, StreamExt as _};
 
-    /// TODO
-    pub trait Get<const N: usize> {
-        /// TODO
-        type Out;
-
-        /// TODO
-        fn get(&self) -> Option<&Self::Out>;
-
-        /// TODO
-        fn unwrap(self) -> Self::Out;
-    }
-
-    /// TODO
-    pub trait EnumSize {
-        /// TODO
-        const SIZE: usize;
-    }
-
-    /// TODO
+    /// Wrapper to satisfy [orphan rules][1].
+    ///
+    /// [1]: https://bit.ly/2Xea7bG
     #[derive(Debug)]
     pub struct Wrap<Adapter, Event, TransformedEvent>(
-        /// TODO
+        /// [`Adapter`] to transform [`Event`].
+        ///
+        /// [`Adapter`]: crate::es::Adapter
+        /// [`Event`]: crate::es::Event
         pub Adapter,
-        /// TODO
+        /// Transformed [`Event`].
+        ///
+        /// [`Event`]: crate::es::Event
         pub Event,
-        /// TODO
+        /// Bound for [`Transformer::Transformed`][1].
+        ///
+        /// [1]: super::Transformer::Transformed
         pub PhantomData<TransformedEvent>,
     );
 

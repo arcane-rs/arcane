@@ -120,9 +120,6 @@ impl Definition {
     ///
     /// [`Event::name`]: arcana_core::es::Event::name
     /// [`Event::version`]: arcana_core::es::Event::version
-    // TODO: replace `::std::concat!(...)` with `TypeId::of()` once it gets
-    //       constified.
-    //       https://github.com/rust-lang/rust/issues/77125
     #[must_use]
     pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
         let ty = &self.ident;

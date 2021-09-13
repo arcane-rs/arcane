@@ -9,6 +9,7 @@ use std::array;
 use arcana::es::{event::Sourced, EventAdapter as _};
 use futures::{stream, Stream, TryStreamExt as _};
 
+#[allow(clippy::semicolon_if_nothing_returned)]
 #[tokio::main]
 async fn main() {
     let mut chat = Option::<domain::Chat>::None;

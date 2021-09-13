@@ -1,12 +1,6 @@
 //! [`Strategy`] definition and default implementations.
 
-use std::{
-    any::Any,
-    convert::Infallible,
-    fmt::{Debug, Formatter},
-    iter::Iterator,
-    marker::PhantomData,
-};
+use std::{any::Any, convert::Infallible, iter::Iterator, marker::PhantomData};
 
 use futures::{future, stream, Stream, StreamExt as _, TryStreamExt as _};
 
@@ -98,7 +92,7 @@ where
     type Transformed = event::Initial<InnerStrategy::Transformed>;
     type TransformedStream<'out> = stream::MapOk<
         InnerStrategy::TransformedStream<'out>,
-        WrapInitial<InnerStrategy::Transformed>,
+        WrapIntoInitial<InnerStrategy::Transformed>,
     >;
 
     fn transform<'me, 'ctx, 'out>(
@@ -114,7 +108,7 @@ where
     }
 }
 
-type WrapInitial<Event> = fn(Event) -> event::Initial<Event>;
+type WrapIntoInitial<Event> = fn(Event) -> event::Initial<Event>;
 
 /// [`Strategy`] for skipping [`Event`]s.
 ///
@@ -183,21 +177,8 @@ impl<Adapter, Event: 'static> Strategy<Adapter, Event> for AsIs {
 /// [`Strategy`] for converting [`Event`]s using [`From`] impl.
 ///
 /// [`Event`]: crate::es::Event
-pub struct Into<Into>(PhantomData<Into>);
-
-impl<Event> Clone for Into<Event> {
-    fn clone(&self) -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<Event> Copy for Into<Event> {}
-
-impl<Event> Debug for Into<Event> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Into").finish()
-    }
-}
+#[derive(Clone, Copy, Debug)]
+pub struct Into<Ev>(PhantomData<Ev>);
 
 impl<Adapter, Event, IntoEvent> Strategy<Adapter, Event> for Into<IntoEvent>
 where
@@ -226,6 +207,7 @@ where
 /// [`Splitter`] to define splitting logic.
 ///
 /// [`Event`]: crate::es::Event
+#[derive(Clone, Copy, Debug)]
 pub struct Split<Into>(PhantomData<Into>);
 
 /// Split single [`Event`] into multiple for [`Split`] [`Strategy`].
@@ -241,20 +223,6 @@ pub trait Splitter<From, Into> {
     ///
     /// [`Event`]: crate::es::Event
     fn split(&self, event: From) -> Self::Iterator;
-}
-
-impl<Event> Clone for Split<Event> {
-    fn clone(&self) -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<Event> Copy for Split<Event> {}
-
-impl<Event> Debug for Split<Event> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Into").finish()
-    }
 }
 
 impl<Adapter, Event, IntoEvent> Strategy<Adapter, Event> for Split<IntoEvent>

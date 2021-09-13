@@ -226,6 +226,26 @@ pub mod codegen {
 
     use super::{Event, Initial};
 
+    pub use futures;
+
+    /// TODO
+    pub trait EnumSize {
+        /// TODO
+        const SIZE: usize;
+    }
+
+    /// TODO
+    pub trait Get<const N: usize> {
+        /// TODO
+        type Out;
+
+        /// TODO
+        fn get(&self) -> Option<&Self::Out>;
+
+        /// TODO
+        fn unwrap(self) -> Self::Out;
+    }
+
     /// Custom [`Borrow`] codegen aiding trait for borrowing an [`Event`] either
     /// from itself or from an [`Initial`] wrapper.
     ///
