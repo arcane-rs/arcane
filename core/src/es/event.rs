@@ -12,7 +12,6 @@ pub type Name = &'static str;
 #[derive(
     Clone, Copy, Debug, Display, Eq, Hash, Into, Ord, PartialEq, PartialOrd,
 )]
-// TODO: Should it be bigger? Allow to abstract over it?
 pub struct Version(NonZeroU16);
 
 impl Version {
@@ -38,23 +37,22 @@ impl Version {
     pub const unsafe fn new_unchecked(value: u16) -> Self {
         Self(NonZeroU16::new_unchecked(value))
     }
+
+    /// Returns the value of this [`Version`] as a primitive type.
+    #[inline]
+    #[must_use]
+    pub const fn get(self) -> u16 {
+        self.0.get()
+    }
 }
 
 /// [`Event`] of a concrete [`Version`].
 pub trait Versioned {
-    /// Returns [`Name`] of this [`Event`].
-    ///
-    /// _Note:_ This should effectively be a constant value, and should never
-    /// change.
-    #[must_use]
-    fn name() -> Name;
+    /// [`Name`] of this [`Event`].
+    const NAME: Name;
 
-    /// Returns [`Version`] of this [`Event`].
-    ///
-    /// _Note:_ This should effectively be a constant value, and should never
-    /// change.
-    #[must_use]
-    fn version() -> Version;
+    /// [`Version`] of this [`Event`].
+    const VERSION: Version;
 }
 
 /// [Event Sourcing] event describing something that has occurred (happened
@@ -76,11 +74,11 @@ pub trait Event {
 
 impl<Ev: Versioned + ?Sized> Event for Ev {
     fn name(&self) -> Name {
-        <Self as Versioned>::name()
+        <Self as Versioned>::NAME
     }
 
     fn version(&self) -> Version {
-        <Self as Versioned>::version()
+        <Self as Versioned>::VERSION
     }
 }
 
@@ -106,8 +104,31 @@ impl<'e, S: Sourced<dyn Event + 'e>> Sourced<dyn Event + 'e> for Option<S> {
     }
 }
 
-/// [`Event`] that can source state `S`. Shouldn't be implemented manually,
-/// rather used as blanket impl.
+impl<'e, S: Sourced<dyn Event + Send + 'e>> Sourced<dyn Event + Send + 'e>
+    for Option<S>
+{
+    fn apply(&mut self, event: &(dyn Event + Send + 'e)) {
+        if let Some(state) = self {
+            state.apply(event);
+        }
+    }
+}
+
+impl<'e, S: Sourced<dyn Event + Send + Sync + 'e>>
+    Sourced<dyn Event + Send + Sync + 'e> for Option<S>
+{
+    fn apply(&mut self, event: &(dyn Event + Send + Sync + 'e)) {
+        if let Some(state) = self {
+            state.apply(event);
+        }
+    }
+}
+
+/// [`Event`] sourcing the specified state.
+///
+/// This is a reversed version of [`Sourced`] trait intended to simplify usage
+/// of trait objects describing sets of [`Event`]s. Shouldn't be implemented
+/// manually, but rather used as blanket impl.
 ///
 /// # Example
 ///
@@ -134,21 +155,30 @@ impl<'e, S: Sourced<dyn Event + 'e>> Sourced<dyn Event + 'e> for Option<S> {
 /// assert_eq!(chat, Some(Chat));
 /// ```
 pub trait Sourcing<S: ?Sized> {
-    /// Applies the specified [`Event`] to the current state.
+    /// Applies this [`Event`] to the specified `state`.
     fn apply_to(&self, state: &mut S);
 }
 
-impl<Ev, S: ?Sized> Sourcing<S> for Ev
-where
-    S: Sourced<Ev>,
-{
+impl<Ev: ?Sized, S: Sourced<Ev> + ?Sized> Sourcing<S> for Ev {
     fn apply_to(&self, state: &mut S) {
         state.apply(self);
     }
 }
 
-impl<'e, S> Sourced<dyn Sourcing<S> + 'e> for S {
+impl<'e, S: ?Sized> Sourced<dyn Sourcing<S> + 'e> for S {
     fn apply(&mut self, event: &(dyn Sourcing<S> + 'e)) {
+        event.apply_to(self);
+    }
+}
+
+impl<'e, S: ?Sized> Sourced<dyn Sourcing<S> + Send + 'e> for S {
+    fn apply(&mut self, event: &(dyn Sourcing<S> + Send + 'e)) {
+        event.apply_to(self);
+    }
+}
+
+impl<'e, S: ?Sized> Sourced<dyn Sourcing<S> + Send + Sync + 'e> for S {
+    fn apply(&mut self, event: &(dyn Sourcing<S> + Send + Sync + 'e)) {
         event.apply_to(self);
     }
 }
@@ -171,21 +201,6 @@ pub struct Initial<Ev: ?Sized>(pub Ev);
 impl<Ev> From<Ev> for Initial<Ev> {
     fn from(ev: Ev) -> Self {
         Self(ev)
-    }
-}
-
-/// TODO
-pub trait TransparentFrom<F> {
-    /// TODO
-    fn from(_: F) -> Self;
-}
-
-impl<L, R> TransparentFrom<Initial<L>> for Initial<R>
-where
-    R: From<L>,
-{
-    fn from(ev: Initial<L>) -> Self {
-        Initial(ev.0.into())
     }
 }
 

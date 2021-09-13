@@ -191,7 +191,7 @@ impl Definition {
     }
 
     /// Generates code to derive [`event::Sourced`][0] trait, by simply matching
-    /// each enum variant, which is expected to have itself
+    /// each enum variant, which is expected to have itself an
     /// [`event::Sourced`][0] implementation.
     ///
     /// [0]: arcana_core::es::event::Sourced
@@ -201,6 +201,7 @@ impl Definition {
         let (_, ty_gens, _) = self.generics.split_for_impl();
         let turbofish_gens = ty_gens.as_turbofish();
 
+        let var = self.variants.iter().map(|v| &v.ident);
         let var_ty =
             self.variants.iter().flat_map(|v| &v.fields).map(|f| &f.ty);
 
@@ -210,8 +211,6 @@ impl Definition {
             Self: #( ::arcana::es::event::Sourced<#var_ty> )+*
         });
         let (impl_gens, _, where_clause) = ext_gens.split_for_impl();
-
-        let var = self.variants.iter().map(|v| &v.ident);
 
         let unreachable_arm = self.has_ignored_variants.then(|| {
             quote! { _ => unreachable!(), }
@@ -224,9 +223,11 @@ impl Definition {
             {
                 fn apply(&mut self, event: &#ty#ty_gens) {
                     match event {
-                        #(#ty#turbofish_gens::#var(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
-                        },)*
+                        #(
+                            #ty#turbofish_gens::#var(f) => {
+                                ::arcana::es::event::Sourced::apply(self, f);
+                            },
+                        )*
                         #unreachable_arm
                     }
                 }
@@ -410,34 +411,10 @@ mod spec {
                 fn apply(&mut self, event: &Event) {
                     match event {
                         Event::File(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                         Event::Chat(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
-                        },
-                    }
-                }
-            }
-
-            #[automatically_derived]
-            impl ::arcana::es::adapter::transformer::specialization::UnpackEnum
-                for Event
-            {
-                const TUPLE_SIZE: usize = 2usize;
-
-                #[allow(clippy::type_complexity)]
-                type Tuple = (
-                    Option<FileEvent>,
-                    Option<ChatEvent>
-                );
-
-                fn unpack(self) -> Self::Tuple {
-                    match self {
-                        Self::File(e) => {
-                            (Some(e), None)
-                        },
-                        Self::Chat(e) => {
-                            (None, Some(e),)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                     }
                 }
@@ -558,35 +535,10 @@ mod spec {
                 fn apply(&mut self, event: &Event<'a, F, C>) {
                     match event {
                         Event::<'a, F, C>::File(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                         Event::<'a, F, C>::Chat(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
-                        },
-                    }
-                }
-            }
-
-            #[automatically_derived]
-            impl<'a, F, C>
-                ::arcana::es::adapter::transformer::specialization::UnpackEnum
-                for Event<'a, F, C>
-            {
-                const TUPLE_SIZE: usize = 2usize;
-
-                #[allow(clippy::type_complexity)]
-                type Tuple = (
-                    Option<FileEvent<'a, F> >,
-                    Option<ChatEvent<'a, C> >
-                );
-
-                fn unpack(self) -> Self::Tuple {
-                    match self {
-                        Self::File(e) => {
-                            (Some(e), None)
-                        },
-                        Self::Chat(e) => {
-                            (None, Some(e),)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                     }
                 }
@@ -720,35 +672,10 @@ mod spec {
                 fn apply(&mut self, event: &Event) {
                     match event {
                         Event::File(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                         Event::Chat(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
-                        },
-                        _ => unreachable!(),
-                    }
-                }
-            }
-
-            #[automatically_derived]
-            impl ::arcana::es::adapter::transformer::specialization::UnpackEnum
-                for Event
-            {
-                const TUPLE_SIZE: usize = 2usize;
-
-                #[allow(clippy::type_complexity)]
-                type Tuple = (
-                    Option<FileEvent>,
-                    Option<ChatEvent>
-                );
-
-                fn unpack(self) -> Self::Tuple {
-                    match self {
-                        Self::File(e) => {
-                            (Some(e), None)
-                        },
-                        Self::Chat(e) => {
-                            (None, Some(e),)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                         _ => unreachable!(),
                     }

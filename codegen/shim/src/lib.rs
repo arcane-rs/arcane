@@ -35,8 +35,8 @@ use proc_macro::TokenStream;
 /// is that all the underlying [`Event`] or [`Versioned`] impls should be
 /// derived too.
 ///
-/// Also provides [`Sourced`] impl for every state, which can be sourced from
-/// all variants.
+/// Also, provides a blanket [`Sourced`] implementation for every state, which
+/// can be sourced from all the enum variants.
 ///
 /// > __WARNING:__ Currently may not work with complex generics using where
 /// >              clause because of `const` evaluation limitations. Should be
@@ -90,7 +90,7 @@ use proc_macro::TokenStream;
 /// #[derive(Event)]
 /// enum AnyEvent {
 ///     Chat(ChatEvent),
-///     #[event(ignore)] // Not recommended for real usage.
+///     #[event(ignore)] // not recommended for real usage
 ///     DuplicateChat(DuplicateChatEvent),
 /// }
 ///
@@ -126,13 +126,13 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 ///
 /// #### `#[event(name = "...")]`
 ///
-/// Value to be returned by [`Versioned::name()`][0] method.
+/// Value of [`Versioned::NAME`][0] constant.
 ///
 /// #### `#[event(version = <non-zero-u16>)]`
 ///
 /// Aliases: `#[event(ver = <non-zero-u16>)]`
 ///
-/// Value to be returned by [`Versioned::version()`][0] method.
+/// Value of [`Versioned::VERSION`][1] constant.
 ///
 /// # Example
 ///
@@ -145,8 +145,8 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// [`Versioned`]: arcana_core::es::event::Versioned
-/// [0]: arcana_core::es::event::Versioned::name()
-/// [1]: arcana_core::es::event::Versioned::version()
+/// [0]: arcana_core::es::event::Versioned::NAME
+/// [1]: arcana_core::es::event::Versioned::VERSION
 #[proc_macro_derive(VersionedEvent, attributes(event))]
 pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
     codegen::es::event::versioned::derive(input.into())
