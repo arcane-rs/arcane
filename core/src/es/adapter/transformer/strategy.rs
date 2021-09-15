@@ -11,8 +11,13 @@ use crate::es::{adapter, event};
 
 use super::{Transformer, WithStrategy};
 
-/// Generalized [`Transformer`].
-pub trait Strategy<Adapter, Event> {
+/// Generalized [`Transformer`] for [`Versioned`] events.
+///
+/// [`Versioned`]: event::Versioned
+pub trait Strategy<Adapter, Event>
+where
+    Event: event::Versioned,
+{
     /// Context for converting [`Event`]s.
     ///
     /// [`Event`]: crate::es::Event
@@ -92,6 +97,7 @@ pub struct Initialized<InnerStrategy = AsIs>(PhantomData<InnerStrategy>);
 impl<Adapter, Event, InnerStrategy> Strategy<Adapter, Event>
     for Initialized<InnerStrategy>
 where
+    Event: event::Versioned,
     InnerStrategy: Strategy<Adapter, Event>,
     InnerStrategy::Transformed: 'static,
     InnerStrategy::Error: 'static,
@@ -132,6 +138,7 @@ pub struct Skip;
 
 impl<Adapter, Event> Strategy<Adapter, Event> for Skip
 where
+    Event: event::Versioned,
     Adapter: adapter::WithError,
     Adapter::Transformed: 'static,
     Adapter::Error: 'static,
@@ -161,7 +168,10 @@ where
 #[derive(Clone, Copy, Debug)]
 pub struct AsIs;
 
-impl<Adapter, Event: 'static> Strategy<Adapter, Event> for AsIs {
+impl<Adapter, Event> Strategy<Adapter, Event> for AsIs
+where
+    Event: event::Versioned + 'static,
+{
     type Context = dyn Any;
     type Error = Infallible;
     type Transformed = Event;
@@ -190,6 +200,7 @@ pub struct Into<I, InnerStrategy = AsIs>(PhantomData<(I, InnerStrategy)>);
 impl<Adapter, Event, IntoEvent, InnerStrategy> Strategy<Adapter, Event>
     for Into<IntoEvent, InnerStrategy>
 where
+    Event: event::Versioned,
     InnerStrategy: Strategy<Adapter, Event>,
     InnerStrategy::Transformed: 'static,
     InnerStrategy::Error: 'static,
@@ -242,6 +253,7 @@ pub trait Splitter<From, Into> {
 
 impl<Adapter, Event, IntoEvent> Strategy<Adapter, Event> for Split<IntoEvent>
 where
+    Event: event::Versioned,
     IntoEvent: 'static,
     Adapter: Splitter<Event, IntoEvent>,
     Adapter::Iterator: 'static,

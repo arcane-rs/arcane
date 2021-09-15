@@ -17,7 +17,6 @@ readme = "README.md"
 doc = ["arcana-core", "futures"] # only for generating documentation
 
 [dependencies]
-either = "1.6.1"
 proc-macro2 = { version = "1.0.4", default-features = false }
 quote = { version = "1.0.9", default-features = false }
 syn = { version = "1.0.72", features = ["derive", "extra-traits", "parsing", "printing"], default-features = false }
