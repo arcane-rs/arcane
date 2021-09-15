@@ -39,19 +39,22 @@ pub trait Transformer<Event> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    type TransformedStream<'me, 'ctx>: Stream<
-        Item = Result<Self::Transformed, Self::Error>,
-    >;
+    #[rustfmt::skip]
+    type TransformedStream<'out>:
+        Stream<Item = Result<Self::Transformed, Self::Error>> + 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    fn transform<'me, 'ctx>(
+    fn transform<'me, 'ctx, 'out>(
         &'me self,
         event: Event,
         context: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx>;
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out;
 }
 
 /// Instead of implementing [`Transformer`] manually, you can use this trait

@@ -24,6 +24,7 @@ async fn main() {
         .unwrap();
     println!("{:?}", chat_events);
 
+    assert_eq!(chat_events.len(), 4);
     assert_eq!(
         chat,
         Some(domain::Chat {
@@ -40,6 +41,7 @@ async fn main() {
         .unwrap();
     println!("{:?}", email_events);
 
+    assert_eq!(email_events.len(), 2);
     assert_eq!(
         email,
         Some(domain::Email {
@@ -56,6 +58,7 @@ async fn main() {
         .unwrap();
     println!("{:?}", message_events);
 
+    assert_eq!(message_events.len(), 1);
     assert_eq!(message, Some(domain::Message));
 }
 

@@ -1,16 +1,13 @@
 //! [`Strategy`] definition and default implementations.
 
 use std::{
-    any::Any,
-    convert::Infallible,
-    fmt::{Debug, Formatter},
-    iter::Iterator,
+    any::Any, convert::Infallible, fmt::Debug, iter::Iterator,
     marker::PhantomData,
 };
 
 use futures::{future, stream, Stream, StreamExt as _, TryStreamExt as _};
 
-use crate::es::event;
+use crate::es::{adapter, event};
 
 use super::{Transformer, WithStrategy};
 
@@ -33,42 +30,54 @@ pub trait Strategy<Adapter, Event> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    type TransformedStream<'me, 'ctx>: Stream<
-        Item = Result<Self::Transformed, Self::Error>,
-    >;
+    #[rustfmt::skip]
+    type TransformedStream<'out>:
+        Stream<Item = Result<Self::Transformed, Self::Error>> + 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    fn transform<'me, 'ctx>(
+    fn transform<'me, 'ctx, 'out>(
         adapter: &'me Adapter,
         event: Event,
         context: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx>;
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out;
 }
 
-impl<Event, Adapter> Transformer<Event> for Adapter
+impl<Event, Adapter> Transformer<Event> for adapter::Wrapper<Adapter>
 where
-    Adapter: WithStrategy<Event>,
+    Event: event::Versioned,
+    Adapter: WithStrategy<Event> + adapter::WithError,
     Adapter::Strategy: Strategy<Adapter, Event>,
+    <Adapter as adapter::WithError>::Transformed:
+        From<<Adapter::Strategy as Strategy<Adapter, Event>>::Transformed>,
+    <Adapter as adapter::WithError>::Error:
+        From<<Adapter::Strategy as Strategy<Adapter, Event>>::Error>,
 {
     type Context = <Adapter::Strategy as Strategy<Adapter, Event>>::Context;
     type Error = <Adapter::Strategy as Strategy<Adapter, Event>>::Error;
     type Transformed =
         <Adapter::Strategy as Strategy<Adapter, Event>>::Transformed;
-    type TransformedStream<'me, 'ctx> = <Adapter::Strategy as Strategy<
+    type TransformedStream<'out> = <Adapter::Strategy as Strategy<
         Adapter,
         Event,
-    >>::TransformedStream<'me, 'ctx>;
+    >>::TransformedStream<'out>;
 
-    fn transform<'me, 'ctx>(
+    fn transform<'me, 'ctx, 'out>(
         &'me self,
         event: Event,
         context: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx> {
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+    {
         <Adapter::Strategy as Strategy<Adapter, Event>>::transform(
-            self, event, context,
+            &self.0, event, context,
         )
     }
 }
@@ -78,26 +87,32 @@ where
 /// [`Event`]: crate::es::Event
 /// [`Initial`]: event::Initial
 #[derive(Clone, Debug)]
-pub struct Initialized<S>(PhantomData<S>);
+pub struct Initialized<InnerStrategy = AsIs>(PhantomData<InnerStrategy>);
 
 impl<Adapter, Event, InnerStrategy> Strategy<Adapter, Event>
     for Initialized<InnerStrategy>
 where
     InnerStrategy: Strategy<Adapter, Event>,
+    InnerStrategy::Transformed: 'static,
+    InnerStrategy::Error: 'static,
 {
     type Context = InnerStrategy::Context;
     type Error = InnerStrategy::Error;
     type Transformed = event::Initial<InnerStrategy::Transformed>;
-    type TransformedStream<'me, 'ctx> = stream::MapOk<
-        InnerStrategy::TransformedStream<'me, 'ctx>,
+    type TransformedStream<'out> = stream::MapOk<
+        InnerStrategy::TransformedStream<'out>,
         WrapInitial<InnerStrategy::Transformed>,
     >;
 
-    fn transform<'me, 'ctx>(
+    fn transform<'me, 'ctx, 'out>(
         adapter: &'me Adapter,
         event: Event,
         context: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx> {
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+    {
         InnerStrategy::transform(adapter, event, context).map_ok(event::Initial)
     }
 }
@@ -115,26 +130,27 @@ type WrapInitial<Event> = fn(Event) -> event::Initial<Event>;
 #[derive(Clone, Copy, Debug)]
 pub struct Skip;
 
-/// As [`Skip`] [`Strategy`] isn't parametrised by [`Strategy::Transformed`]
-/// [`Event`], this type expresses 'never going to be constructed'.
-///
-/// [`Event`]: crate::es::Event
-// TODO: replace with `never`(`!`), once it's stabilized.
-#[derive(Clone, Copy, Debug)]
-pub enum Unknown {}
-
-impl<Adapter, Event> Strategy<Adapter, Event> for Skip {
+impl<Adapter, Event> Strategy<Adapter, Event> for Skip
+where
+    Adapter: adapter::WithError,
+    Adapter::Transformed: 'static,
+    Adapter::Error: 'static,
+{
     type Context = dyn Any;
-    type Error = Infallible;
-    type Transformed = Unknown;
-    type TransformedStream<'me, 'ctx> =
-        stream::Empty<Result<Unknown, Infallible>>;
+    type Error = Adapter::Error;
+    type Transformed = Adapter::Transformed;
+    type TransformedStream<'out> =
+        stream::Empty<Result<Self::Transformed, Self::Error>>;
 
-    fn transform<'me, 'ctx>(
+    fn transform<'me, 'ctx, 'out>(
         _: &'me Adapter,
         _: Event,
         _: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx> {
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+    {
         stream::empty()
     }
 }
@@ -149,14 +165,18 @@ impl<Adapter, Event: 'static> Strategy<Adapter, Event> for AsIs {
     type Context = dyn Any;
     type Error = Infallible;
     type Transformed = Event;
-    type TransformedStream<'me, 'ctx> =
-        stream::Once<future::Ready<Result<Event, Self::Error>>>;
+    type TransformedStream<'out> =
+        stream::Once<future::Ready<Result<Self::Transformed, Self::Error>>>;
 
-    fn transform<'me, 'ctx>(
+    fn transform<'me, 'ctx, 'out>(
         _: &'me Adapter,
         event: Event,
         _: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx> {
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+    {
         stream::once(future::ready(Ok(event)))
     }
 }
@@ -164,45 +184,45 @@ impl<Adapter, Event: 'static> Strategy<Adapter, Event> for AsIs {
 /// [`Strategy`] for converting [`Event`]s using [`From`] impl.
 ///
 /// [`Event`]: crate::es::Event
-pub struct Into<Into>(PhantomData<Into>);
+#[derive(Copy, Clone, Debug)]
+pub struct Into<I, InnerStrategy = AsIs>(PhantomData<(I, InnerStrategy)>);
 
-impl<Event> Clone for Into<Event> {
-    fn clone(&self) -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<Event> Copy for Into<Event> {}
-
-impl<Event> Debug for Into<Event> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Into").finish()
-    }
-}
-
-impl<Adapter, Event, IntoEvent> Strategy<Adapter, Event> for Into<IntoEvent>
+impl<Adapter, Event, IntoEvent, InnerStrategy> Strategy<Adapter, Event>
+    for Into<IntoEvent, InnerStrategy>
 where
-    IntoEvent: From<Event> + 'static,
+    InnerStrategy: Strategy<Adapter, Event>,
+    InnerStrategy::Transformed: 'static,
+    InnerStrategy::Error: 'static,
+    IntoEvent: From<InnerStrategy::Transformed> + 'static,
 {
-    type Context = dyn Any;
-    type Error = Infallible;
+    type Context = InnerStrategy::Context;
+    type Error = InnerStrategy::Error;
     type Transformed = IntoEvent;
-    type TransformedStream<'me, 'ctx> =
-        stream::Once<future::Ready<Result<IntoEvent, Infallible>>>;
+    type TransformedStream<'out> = stream::MapOk<
+        InnerStrategy::TransformedStream<'out>,
+        IntoFn<InnerStrategy::Transformed, IntoEvent>,
+    >;
 
-    fn transform<'me, 'ctx>(
-        _: &'me Adapter,
+    fn transform<'me, 'ctx, 'out>(
+        adapter: &'me Adapter,
         event: Event,
-        _: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx> {
-        stream::once(future::ready(Ok(IntoEvent::from(event))))
+        ctx: &'ctx Self::Context,
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+    {
+        InnerStrategy::transform(adapter, event, ctx).map_ok(IntoEvent::from)
     }
 }
+
+type IntoFn<FromEvent, IntoEvent> = fn(FromEvent) -> IntoEvent;
 
 /// [`Strategy`] for splitting single [`Event`] into multiple. Implement
 /// [`Splitter`] to define splitting logic.
 ///
 /// [`Event`]: crate::es::Event
+#[derive(Clone, Copy, Debug)]
 pub struct Split<Into>(PhantomData<Into>);
 
 /// Split single [`Event`] into multiple for [`Split`] [`Strategy`].
@@ -220,34 +240,26 @@ pub trait Splitter<From, Into> {
     fn split(&self, event: From) -> Self::Iterator;
 }
 
-impl<Event> Clone for Split<Event> {
-    fn clone(&self) -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<Event> Copy for Split<Event> {}
-
-impl<Event> Debug for Split<Event> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Into").finish()
-    }
-}
-
 impl<Adapter, Event, IntoEvent> Strategy<Adapter, Event> for Split<IntoEvent>
 where
+    IntoEvent: 'static,
     Adapter: Splitter<Event, IntoEvent>,
+    Adapter::Iterator: 'static,
 {
     type Context = dyn Any;
     type Error = Infallible;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
-    type TransformedStream<'me, 'ctx> = SplitStream<Adapter, Event, IntoEvent>;
+    type TransformedStream<'out> = SplitStream<Adapter, Event, IntoEvent>;
 
-    fn transform<'me, 'ctx>(
+    fn transform<'me, 'ctx, 'out>(
         adapter: &'me Adapter,
         event: Event,
         _: &'ctx Self::Context,
-    ) -> Self::TransformedStream<'me, 'ctx> {
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+    {
         stream::iter(adapter.split(event)).map(Ok)
     }
 }

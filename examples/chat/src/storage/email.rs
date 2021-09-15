@@ -1,26 +1,35 @@
-use std::array;
+use std::{any::Any, array, convert::Infallible};
 
 use arcana::es::{
-    adapter::transformer::{self, strategy},
-    event::{Initial, Sourcing},
+    adapter::{
+        self,
+        transformer::{self, strategy},
+        Transformer,
+    },
+    event::Initial,
 };
 use either::Either;
 
-use crate::{domain, event};
+use crate::event;
 
+impl adapter::WithError for Adapter {
+    type Context = dyn Any;
+    type Error = Infallible;
+    type Transformed = event::Email;
+}
+
+#[derive(Debug, Transformer)]
+#[transformer(
+    strategy::Initialized => event::email::Added,
+    strategy::AsIs => event::email::Confirmed,
+    strategy::Skip => (
+        event::chat::public::Created,
+        event::chat::private::Created,
+        event::chat::v1::Created,
+        event::message::Posted,
+    )
+)]
 pub struct Adapter;
-
-impl transformer::WithStrategy<super::ChatEvent> for Adapter {
-    type Strategy = strategy::Skip;
-}
-
-impl transformer::WithStrategy<super::MessageEvent> for Adapter {
-    type Strategy = strategy::Skip;
-}
-
-impl transformer::WithStrategy<event::email::Added> for Adapter {
-    type Strategy = strategy::Initialized<strategy::AsIs>;
-}
 
 impl transformer::WithStrategy<event::email::v1::AddedAndConfirmed>
     for Adapter
@@ -71,11 +80,4 @@ impl From<Either<event::email::Added, event::email::Confirmed>>
             Either::Right(ev) => ev.into(),
         }
     }
-}
-
-impl<Ev> transformer::WithStrategy<Ev> for Adapter
-where
-    Ev: Sourcing<domain::Email>,
-{
-    type Strategy = strategy::AsIs;
 }

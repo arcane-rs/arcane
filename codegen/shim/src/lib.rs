@@ -287,7 +287,7 @@ pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
 /// [`Adapter`]: arcana_core::es::Adapter
 /// [`Event`]: trait@arcana_core::es::Event
 /// [`Transformer`]: arcana_core::es::adapter::Transformer
-#[proc_macro_derive(EventTransformer, attributes(event))]
+#[proc_macro_derive(EventTransformer, attributes(transformer))]
 pub fn derive_event_transformer(input: TokenStream) -> TokenStream {
     codegen::es::event::transformer::derive(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
