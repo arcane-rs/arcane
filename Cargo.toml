@@ -27,6 +27,8 @@ derive_more = "0.99"
 either = "1"
 futures = "0.3"
 tokio = { version = "1", features = ["full"] }
+pin-project = "1"
+static_assertions = "1"
 
 [package.metadata.docs.rs]
 all-features = true

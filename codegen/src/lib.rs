@@ -25,6 +25,4 @@
 
 pub mod es;
 
-pub use futures;
-
 pub use static_assertions as sa;
