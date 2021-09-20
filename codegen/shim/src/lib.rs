@@ -35,12 +35,15 @@ use proc_macro::TokenStream;
 /// is that all the underlying [`Event`] or [`Versioned`] impls should be
 /// derived too.
 ///
-/// Also, provides a blanket [`Sourced`] implementation for every state, which
-/// can be sourced from all the enum variants.
-///
 /// > __WARNING:__ Currently may not work with complex generics using where
 /// >              clause because of `const` evaluation limitations. Should be
 /// >              lifted once [rust-lang/rust#57775] is resolved.
+///
+/// # Blanket implementations
+///
+/// - [`Sourced`] for every state, which can be sourced from all enum variants;
+/// - [`Transformer`] for every [`Adapter`], that can transform all enum
+///   variants.
 ///
 /// # Variant attributes
 ///
@@ -104,8 +107,10 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
+/// [`Adapter`]: arcana_core::es::Adapter
 /// [`Event`]: arcana_core::es::Event
 /// [`Sourced`]: arcana_core::es::event::Sourced
+/// [`Transformer`]: arcana_core::es::adapter::Transformer
 /// [`Versioned`]: arcana_core::es::event::Versioned
 /// [0]: arcana_core::es::Event::name()
 /// [1]: arcana_core::es::Event::version()
