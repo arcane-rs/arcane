@@ -23,12 +23,7 @@ pub use strategy::Strategy;
 /// [`Skip`]: strategy::Skip
 /// [`Split`]: strategy::Split
 /// [`Version`]: crate::es::event::Version
-pub trait Transformer<Event> {
-    /// Context for converting [`Event`]s.
-    ///
-    /// [`Event`]: crate::es::Event
-    type Context: ?Sized;
-
+pub trait Transformer<Event, Ctx: ?Sized> {
     /// Error of this [`Transformer`].
     type Error;
 
@@ -52,7 +47,7 @@ pub trait Transformer<Event> {
     fn transform<'me, 'ctx, 'out>(
         &'me self,
         event: Event,
-        context: &'ctx Self::Context,
+        context: &'ctx Ctx,
     ) -> Self::TransformedStream<'out>
     where
         'me: 'out,
@@ -61,13 +56,14 @@ pub trait Transformer<Event> {
 
 /// Instead of implementing [`Transformer`] manually, you can use this trait
 /// with some [`Strategy`].
-pub trait WithStrategy<Event>
+pub trait WithStrategy<Event, Ctx>
 where
     Self: Sized,
     Event: event::Versioned,
+    Ctx: ?Sized,
 {
     /// [`Strategy`] to transform [`Event`] with.
     ///
     /// [`Event`]: crate::es::Event
-    type Strategy: Strategy<Self, Event>;
+    type Strategy: Strategy<Self, Event, Ctx>;
 }

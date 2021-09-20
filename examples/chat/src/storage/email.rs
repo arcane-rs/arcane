@@ -1,9 +1,9 @@
-use std::{any::Any, array, convert::Infallible};
+use std::{array, convert::Infallible};
 
 use arcana::es::{
     adapter::{
         self,
-        transformer::{self, strategy},
+        transformer::strategy::{AsIs, Initialized, Skip, Split, Splitter},
         Transformer,
     },
     event::Initial,
@@ -12,34 +12,29 @@ use either::Either;
 
 use crate::event;
 
-impl adapter::WithError for Adapter {
-    type Context = dyn Any;
+impl<Ctx> adapter::WithError<Ctx> for Adapter {
     type Error = Infallible;
     type Transformed = event::Email;
 }
 
 #[derive(Debug, Transformer)]
 #[transformer(
-    strategy::Initialized => event::email::Added,
-    strategy::AsIs => event::email::Confirmed,
-    strategy::Skip => (
+    Initialized => event::email::Added,
+    AsIs => event::email::Confirmed,
+    Skip => (
         event::chat::public::Created,
         event::chat::private::Created,
         event::chat::v1::Created,
         event::message::Posted,
-    )
+    ),
+    Split<Either<event::email::Added, event::email::Confirmed>> => (
+        event::email::v1::AddedAndConfirmed,
+    ),
 )]
 pub struct Adapter;
 
-impl transformer::WithStrategy<event::email::v1::AddedAndConfirmed>
-    for Adapter
-{
-    type Strategy =
-        strategy::Split<Either<event::email::Added, event::email::Confirmed>>;
-}
-
 impl
-    strategy::Splitter<
+    Splitter<
         event::email::v1::AddedAndConfirmed,
         Either<event::email::Added, event::email::Confirmed>,
     > for Adapter

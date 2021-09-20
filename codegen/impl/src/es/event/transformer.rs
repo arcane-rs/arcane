@@ -6,6 +6,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
+    parse_quote,
     punctuated::Punctuated,
     token,
 };
@@ -171,7 +172,22 @@ impl Definition {
     /// TODO
     #[must_use]
     pub fn impl_strategies(&self) -> TokenStream {
-        let (impl_gen, type_gen, where_cl) = self.generics.split_for_impl();
+        let mut generics = self.generics.clone();
+        generics.params.push(parse_quote! { __Ctx });
+        generics.make_where_clause().predicates.push(
+            parse_quote! { Self: ::arcana::es::adapter::WithError<__Ctx> },
+        );
+        generics.make_where_clause().predicates.push(parse_quote! {
+            <Self as ::arcana::es::adapter::
+                WithError<__Ctx>>::Transformed: 'static
+        });
+        generics.make_where_clause().predicates.push(parse_quote! {
+            <Self as ::arcana::es::adapter::
+                WithError<__Ctx>>::Error: 'static
+        });
+
+        let (impl_gen, _, where_cl) = generics.split_for_impl();
+        let (_, type_gen, _) = self.generics.split_for_impl();
         let adapter = &self.adapter;
 
         self.strategies
@@ -182,7 +198,7 @@ impl Definition {
             .map(|(ev, strategy)| {
                 quote! {
                     impl#impl_gen ::arcana::es::adapter::transformer::
-                        WithStrategy<#ev> for #adapter#type_gen #where_cl
+                        WithStrategy<#ev, __Ctx> for #adapter#type_gen #where_cl
                     {
                         type Strategy = #strategy;
                     }

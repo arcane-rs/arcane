@@ -1,21 +1,24 @@
-use std::{any::Any, convert::Infallible};
+use std::convert::Infallible;
 
-use arcana::es::adapter::{self, transformer::strategy, Transformer};
+use arcana::es::adapter::{
+    self,
+    transformer::strategy::{Initialized, Skip},
+    Transformer,
+};
 
 use crate::event;
 
-impl adapter::WithError for Adapter {
-    type Context = dyn Any;
+impl<Ctx> adapter::WithError<Ctx> for Adapter {
     type Error = Infallible;
     type Transformed = event::Message;
 }
 
 #[derive(Debug, Transformer)]
 #[transformer(
-    strategy::Initialized => (
+    Initialized => (
         event::message::Posted,
     ),
-    strategy::Skip => (
+    Skip => (
         event::chat::public::Created,
         event::chat::private::Created,
         event::chat::v1::Created,
