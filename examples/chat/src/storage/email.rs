@@ -3,10 +3,8 @@ use std::{array, convert::Infallible};
 use arcana::es::{
     adapter::{
         self,
-        transformer::{
-            self,
-            strategy::{AsIs, Initialized, Skip, Split, Splitter},
-        },
+        transformer::strategy::{AsIs, Initialized, Skip, Split, Splitter},
+        Transformer,
     },
     event::Initial,
 };
@@ -14,55 +12,25 @@ use either::Either;
 
 use crate::event;
 
+#[derive(Debug, Transformer)]
+#[transformer(
+    Initialized => event::email::Added,
+    AsIs => event::email::Confirmed,
+    Skip => (
+        event::chat::public::Created,
+        event::chat::private::Created,
+        event::chat::v1::Created,
+        event::message::Posted,
+    ),
+    Split<Either<event::email::Added, event::email::Confirmed>> => (
+        event::email::v1::AddedAndConfirmed,
+    ),
+)]
+pub struct Adapter;
+
 impl adapter::WithError for Adapter {
     type Error = Infallible;
     type Transformed = event::Email;
-}
-
-// #[derive(Debug, Transformer)]
-// #[transformer(
-//     Initialized => event::email::Added,
-//     AsIs => event::email::Confirmed,
-//     Skip => (
-//         event::chat::public::Created,
-//         event::chat::private::Created,
-//         event::chat::v1::Created,
-//         event::message::Posted,
-//     ),
-//     Split<Either<event::email::Added, event::email::Confirmed>> => (
-//         event::email::v1::AddedAndConfirmed,
-//     ),
-// )]
-pub struct Adapter;
-
-impl transformer::WithStrategy<event::email::Added> for Adapter {
-    type Strategy = Initialized;
-}
-
-impl transformer::WithStrategy<event::email::Confirmed> for Adapter {
-    type Strategy = AsIs;
-}
-
-impl transformer::WithStrategy<event::chat::public::Created> for Adapter {
-    type Strategy = Skip;
-}
-
-impl transformer::WithStrategy<event::chat::private::Created> for Adapter {
-    type Strategy = Skip;
-}
-
-impl transformer::WithStrategy<event::chat::v1::Created> for Adapter {
-    type Strategy = Skip;
-}
-
-impl transformer::WithStrategy<event::message::Posted> for Adapter {
-    type Strategy = Skip;
-}
-
-impl transformer::WithStrategy<event::email::v1::AddedAndConfirmed>
-    for Adapter
-{
-    type Strategy = Split<Either<event::email::Added, event::email::Confirmed>>;
 }
 
 impl
