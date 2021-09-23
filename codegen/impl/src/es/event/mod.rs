@@ -36,7 +36,12 @@ pub struct VariantAttrs {
 ///
 /// [`Event`]: arcana_core::es::event::Event
 #[derive(Debug, ToTokens)]
-#[to_tokens(append(impl_event, impl_event_sourced, gen_uniqueness_glue_code))]
+#[to_tokens(append(
+    impl_event,
+    impl_event_sourced,
+    gen_uniqueness_glue_code,
+    impl_transformer,
+))]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
@@ -317,12 +322,12 @@ impl Definition {
 
         let inner_match = self.inner_match();
         let transformed = self.transformed_stream();
+        let context_bound = self.context_bound();
 
         let mut generics = self.generics.clone();
         generics.params.push(parse_quote! { __A });
-        generics.params.push(parse_quote! { __Ctx });
         generics.make_where_clause().predicates.push(parse_quote! {
-            __A: ::arcana::es::adapter::WithError<__Ctx>
+            __A: ::arcana::es::adapter::WithError
         });
         generics.make_where_clause().predicates.push({
             let adapter_constrains = self
@@ -330,7 +335,7 @@ impl Definition {
                 .iter()
                 .filter_map(|var| var.fields.iter().next().map(|f| &f.ty))
                 .map(|ty| {
-                    quote! { ::arcana::es::adapter::Transformer<#ty, __Ctx> }
+                    quote! { ::arcana::es::adapter::Transformer<#ty> }
                 });
             let self_bound = quote! { Self: #( #adapter_constrains )+* };
             parse_quote! { #self_bound }
@@ -343,14 +348,13 @@ impl Definition {
                 .map(|ty| {
                     quote! {
                         ::std::convert::From<
-                            <Self as ::arcana::es::adapter::Transformer<
-                                #ty, __Ctx,
-                            >>::Transformed
+                            <Self as ::arcana::es::adapter::Transformer<#ty>>::
+                                Transformed
                         >
                     }
                 });
             let transformed_bound = quote! {
-                <__A as ::arcana::es::adapter::WithError<__Ctx>>::Transformed:
+                <__A as ::arcana::es::adapter::WithError>::Transformed:
                     #( #adapter_constrains )+*
             };
             parse_quote! { #transformed_bound + 'static }
@@ -363,14 +367,13 @@ impl Definition {
                 .map(|ty| {
                     quote! {
                         ::std::convert::From<
-                            <Self as ::arcana::es::adapter::Transformer<
-                                #ty, __Ctx,
-                            >>::Error
+                            <Self as ::arcana::es::adapter::Transformer<#ty>>::
+                                Error
                         >
                     }
                 });
             let err_bound = quote! {
-                <__A as ::arcana::es::adapter::WithError<__Ctx>>::Error:
+                <__A as ::arcana::es::adapter::WithError>::Error:
                     #( #adapter_constrains )+*
             };
             parse_quote! { #err_bound + 'static }
@@ -382,9 +385,8 @@ impl Definition {
             .filter_map(|var| var.fields.iter().next().map(|f| &f.ty))
             .map(|ty| {
                 parse_quote! {
-                    <Self as ::arcana::es::adapter::Transformer<
-                        #ty, __Ctx,
-                    >>::Error: 'static
+                    <Self as ::arcana::es::adapter::Transformer<#ty>>::
+                        Error: 'static
                 }
             })
         {
@@ -396,9 +398,8 @@ impl Definition {
             .filter_map(|var| var.fields.iter().next().map(|f| &f.ty))
             .map(|ty| {
                 parse_quote! {
-                    <Self as ::arcana::es::adapter::Transformer<
-                        #ty, __Ctx
-                    >>::Transformed: 'static
+                    <Self as ::arcana::es::adapter::Transformer<#ty>>::
+                        Transformed: 'static
                 }
             })
         {
@@ -410,25 +411,25 @@ impl Definition {
 
         quote! {
             #[automatically_derived]
-            impl#impl_gen ::arcana::es::adapter::Transformer<
-                #event#type_gen, __Ctx
-            > for ::arcana::es::adapter::Wrapper<__A> #where_clause
+            impl#impl_gen ::arcana::es::adapter::Transformer<#event#type_gen>
+                for ::arcana::es::adapter::Wrapper<__A> #where_clause
             {
-                type Error = <__A as ::arcana::es::adapter::
-                    WithError<__Ctx>>::Error;
-                type Transformed = <__A as ::arcana::es::adapter::
-                    WithError<__Ctx>>::Transformed;
-                type TransformedStream<'out> = #transformed;
+                type Context<__Impl> = #context_bound;
+                type Error = <__A as ::arcana::es::adapter::WithError>::Error;
+                type Transformed =
+                    <__A as ::arcana::es::adapter::WithError>::Transformed;
+                type TransformedStream<'out, __Ctx: 'static> = #transformed;
 
-                fn transform<'me, 'ctx, 'out>(
+                fn transform<'me, 'ctx, 'out, __Ctx>(
                     &'me self,
-                    __event: #event,
+                    __event: #event#type_gen,
                     __context: &'ctx __Ctx,
                 ) -> <Self as ::arcana::es::adapter::
-                    Transformer<#event, __Ctx>>::TransformedStream<'out>
+                    Transformer<#event>>::TransformedStream<'out, __Ctx>
                 where
                     'me: 'out,
                     'ctx: 'out,
+                    __Ctx: 'static,
                 {
                     match __event {
                         #inner_match
@@ -453,26 +454,25 @@ impl Definition {
     /// [`stream::Map`]: futures::stream::Map
     #[must_use]
     pub fn transformed_stream(&self) -> TokenStream {
-        let from = &self.ident;
+        let event = &self.ident;
 
-        let transformed_stream = |event: &syn::Type| {
+        let transformed_stream = |from: &syn::Type| {
             quote! {
                 ::arcana::es::adapter::codegen::futures::stream::Map<
-                    <Self as ::arcana::es::adapter::Transformer<
-                        #event, __Ctx
-                    >>::TransformedStream<'out>,
+                    <Self as ::arcana::es::adapter::Transformer<#from >>::
+                        TransformedStream<'out, __Ctx>,
                     fn(
                         ::std::result::Result<
                             <Self as ::arcana::es::adapter::
-                                Transformer<#event, __Ctx>>::Transformed,
+                                Transformer<#from >>::Transformed,
                             <Self as ::arcana::es::adapter::
-                                Transformer<#event, __Ctx>>::Error,
+                                Transformer<#from >>::Error,
                         >,
                     ) -> ::std::result::Result<
                         <Self as ::arcana::es::adapter::
-                            Transformer<#from, __Ctx>>::Transformed,
+                            Transformer<#event >>::Transformed,
                         <Self as ::arcana::es::adapter::
-                            Transformer<#from, __Ctx>>::Error,
+                            Transformer<#event >>::Error,
                     >
                 >
             }
@@ -525,9 +525,8 @@ impl Definition {
             .map(|(i, (variant_ident, var_ty))| {
                 let stream_map = quote! {
                     ::arcana::es::adapter::codegen::futures::StreamExt::map(
-                        <Self as ::arcana::es::adapter::Transformer<
-                            #var_ty, __Ctx
-                        >>::transform(self, __event, __context),
+                        <Self as ::arcana::es::adapter::Transformer<#var_ty>>::
+                            transform(self, __event, __context),
                         {
                             let __transform_fn: fn(_) -> _ = |__res| {
                                 ::std::result::Result::map_err(
@@ -568,6 +567,26 @@ impl Definition {
                 }
             })
             .collect()
+    }
+
+    /// TODO
+    #[must_use]
+    pub fn context_bound(&self) -> TokenStream {
+        self.variants
+            .iter()
+            .filter_map(|var| var.fields.iter().next())
+            .map(|f| {
+                quote! {
+                    <Self as ::arcana::es::adapter::Transformer<#f>>::
+                        Context<__Impl>
+                }
+            })
+            .fold(None, |acc, var_ty| {
+                Some(acc.map(
+                    |acc| quote! { ::arcana::es::adapter::And<#var_ty, #acc> },
+                ).unwrap_or(var_ty))
+            })
+            .unwrap_or_default()
     }
 }
 
