@@ -67,7 +67,7 @@ pub trait Adapter<Events> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    type TransformedStream<'out, Ctx: 'static>: Stream<
+    type TransformedStream<'out, Ctx: 'out>: Stream<
             Item = Result<
                 <Self as Adapter<Events>>::Transformed,
                 <Self as Adapter<Events>>::Error,
@@ -86,7 +86,7 @@ pub trait Adapter<Events> {
     where
         'me: 'out,
         'ctx: 'out,
-        Context: 'static;
+        Context: 'out;
 }
 
 impl<A, Events> Adapter<Events> for A
@@ -101,7 +101,7 @@ where
 {
     type Error = <A as WithError>::Error;
     type Transformed = <A as WithError>::Transformed;
-    type TransformedStream<'out, Ctx: 'static> =
+    type TransformedStream<'out, Ctx: 'out> =
         TransformedStream<'out, Wrapper<A>, Events, Ctx>;
 
     fn transform_all<'me, 'ctx, 'out, Ctx>(
@@ -112,17 +112,18 @@ where
     where
         'me: 'out,
         'ctx: 'out,
-        Ctx: 'static,
+        Ctx: 'out,
     {
         TransformedStream::new(RefCast::ref_cast(self), events, context)
     }
 }
 
-#[pin_project]
 /// [`Stream`] for [`Adapter`] blanket impl.
+#[allow(explicit_outlives_requirements)]
+#[pin_project]
 pub struct TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Ctx: 'static,
+    Ctx: 'out,
     Events: Stream,
     Adapter: Transformer<Events::Item>,
     <Adapter as Transformer<Events::Item>>::Context<Ctx>: Correct,
@@ -139,7 +140,7 @@ where
 impl<'out, Adapter, Events, Ctx> fmt::Debug
     for TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Ctx: fmt::Debug + 'static,
+    Ctx: fmt::Debug + 'out,
     Events: fmt::Debug + Stream,
     Adapter: fmt::Debug + Transformer<Events::Item>,
     <Adapter as Transformer<Events::Item>>::Context<Ctx>: Correct,
@@ -165,7 +166,7 @@ type AdapterTransformedStream<'out, Event, Adapter, Ctx> = future::Either<
 
 impl<'out, Adapter, Events, Ctx> TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Ctx: 'static,
+    Ctx: 'out,
     Events: Stream,
     Adapter: Transformer<Events::Item>,
     <Adapter as Transformer<Events::Item>>::Context<Ctx>: Correct,
@@ -183,7 +184,7 @@ where
 impl<'out, Adapter, Events, Ctx> Stream
     for TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Ctx: 'static,
+    Ctx: 'out,
     Events: Stream,
     Adapter: Transformer<Events::Item> + WithError,
     <Adapter as Transformer<Events::Item>>::Context<Ctx>: Correct,

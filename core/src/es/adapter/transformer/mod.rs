@@ -39,7 +39,7 @@ pub trait Transformer<Event> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    type TransformedStream<'out, Ctx: 'static>: Stream<
+    type TransformedStream<'out, Ctx: 'out>: Stream<
             Item = Result<
                 <Self as Transformer<Event>>::Transformed,
                 <Self as Transformer<Event>>::Error,
@@ -58,7 +58,7 @@ pub trait Transformer<Event> {
     where
         'me: 'out,
         'ctx: 'out,
-        Ctx: 'static;
+        Ctx: 'out;
 }
 
 /// Instead of implementing [`Transformer`] manually, you can use this trait

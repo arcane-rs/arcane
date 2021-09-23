@@ -35,7 +35,7 @@ where
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    type TransformedStream<'out, Ctx: 'static>: Stream<
+    type TransformedStream<'out, Ctx: 'out>: Stream<
             Item = Result<
                 <Self as Strategy<Adapter, Event>>::Transformed,
                 <Self as Strategy<Adapter, Event>>::Error,
@@ -54,7 +54,7 @@ where
     where
         'me: 'out,
         'ctx: 'out,
-        Ctx: 'static;
+        Ctx: 'out;
 }
 
 impl<Event, Adapter> Transformer<Event> for adapter::Wrapper<Adapter>
@@ -71,11 +71,10 @@ where
     type Transformed =
         <Adapter::Strategy as Strategy<Adapter, Event>>::Transformed;
 
-    type TransformedStream<'out, Ctx: 'static> =
-        <Adapter::Strategy as Strategy<Adapter, Event>>::TransformedStream<
-            'out,
-            Ctx,
-        >;
+    type TransformedStream<'out, Ctx: 'out> = <Adapter::Strategy as Strategy<
+        Adapter,
+        Event,
+    >>::TransformedStream<'out, Ctx>;
 
     fn transform<'me, 'ctx, 'out, Ctx>(
         &'me self,
@@ -85,7 +84,7 @@ where
     where
         'me: 'out,
         'ctx: 'out,
-        Ctx: 'static,
+        Ctx: 'out,
     {
         <Adapter::Strategy as Strategy<Adapter, Event>>::transform(
             &self.0, event, context,
@@ -114,7 +113,7 @@ where
 
     type Transformed = event::Initial<InnerStrategy::Transformed>;
 
-    type TransformedStream<'out, Ctx: 'static> = stream::MapOk<
+    type TransformedStream<'out, Ctx: 'out> = stream::MapOk<
         InnerStrategy::TransformedStream<'out, Ctx>,
         WrapInitial<InnerStrategy::Transformed>,
     >;
@@ -127,7 +126,7 @@ where
     where
         'me: 'out,
         'ctx: 'out,
-        Ctx: 'static,
+        Ctx: 'out,
     {
         InnerStrategy::transform(adapter, event, context).map_ok(event::Initial)
     }
@@ -156,7 +155,7 @@ where
     type Context<Impl> = Any<Impl>;
     type Error = Adapter::Error;
     type Transformed = Adapter::Transformed;
-    type TransformedStream<'out, Ctx: 'static> =
+    type TransformedStream<'out, Ctx: 'out> =
         stream::Empty<Result<Self::Transformed, Self::Error>>;
 
     fn transform<'me, 'ctx, 'out, Ctx>(
@@ -167,7 +166,7 @@ where
     where
         'me: 'out,
         'ctx: 'out,
-        Ctx: 'static,
+        Ctx: 'out,
     {
         stream::empty()
     }
@@ -186,7 +185,7 @@ where
     type Context<Impl> = Any<Impl>;
     type Error = Infallible;
     type Transformed = Event;
-    type TransformedStream<'out, Ctx: 'static> =
+    type TransformedStream<'out, Ctx: 'out> =
         stream::Once<future::Ready<Result<Self::Transformed, Self::Error>>>;
 
     fn transform<'me, 'ctx, 'out, Ctx>(
@@ -197,7 +196,7 @@ where
     where
         'me: 'out,
         'ctx: 'out,
-        Ctx: 'static,
+        Ctx: 'out,
     {
         stream::once(future::ready(Ok(event)))
     }
@@ -221,7 +220,7 @@ where
     type Context<Impl> = InnerStrategy::Context<Impl>;
     type Error = InnerStrategy::Error;
     type Transformed = IntoEvent;
-    type TransformedStream<'out, Ctx: 'static> = stream::MapOk<
+    type TransformedStream<'out, Ctx: 'out> = stream::MapOk<
         InnerStrategy::TransformedStream<'out, Ctx>,
         IntoFn<InnerStrategy::Transformed, IntoEvent>,
     >;
@@ -234,7 +233,7 @@ where
     where
         'me: 'out,
         'ctx: 'out,
-        Ctx: 'static,
+        Ctx: 'out,
     {
         InnerStrategy::transform(adapter, event, ctx).map_ok(IntoEvent::from)
     }
@@ -274,7 +273,7 @@ where
     type Context<Impl> = Any<Impl>;
     type Error = Infallible;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
-    type TransformedStream<'out, Ctx: 'static> =
+    type TransformedStream<'out, Ctx: 'out> =
         SplitStream<Adapter, Event, IntoEvent>;
 
     fn transform<'me, 'ctx, 'out, Ctx>(
@@ -285,7 +284,7 @@ where
     where
         'me: 'out,
         'ctx: 'out,
-        Ctx: 'static,
+        Ctx: 'out,
     {
         stream::iter(adapter.split(event)).map(Ok)
     }
@@ -316,16 +315,4 @@ where
     L: Correct,
     R: Correct,
 {
-}
-
-/// TODO
-#[macro_export]
-macro_rules! and {
-    ($head: ty $(,)?) => { $head };
-    ($head: ty, $($tail: ty),* $(,)?) => {
-        $crate::es::adapter::transformer::strategy::And<
-            $head,
-            $crate::and!($($tail),*)
-        >
-    };
 }

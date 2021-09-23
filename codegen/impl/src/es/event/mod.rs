@@ -418,7 +418,7 @@ impl Definition {
                 type Error = <__A as ::arcana::es::adapter::WithError>::Error;
                 type Transformed =
                     <__A as ::arcana::es::adapter::WithError>::Transformed;
-                type TransformedStream<'out, __Ctx: 'static> = #transformed;
+                type TransformedStream<'out, __Ctx: 'out> = #transformed;
 
                 fn transform<'me, 'ctx, 'out, __Ctx>(
                     &'me self,
@@ -429,7 +429,7 @@ impl Definition {
                 where
                     'me: 'out,
                     'ctx: 'out,
-                    __Ctx: 'static,
+                    __Ctx: 'out,
                 {
                     match __event {
                         #inner_match
