@@ -146,7 +146,9 @@ impl Definition {
         quote! { < #( #generics ),* > }
     }
 
-    /// TODO
+    /// Returns [`Iterator`] over each enum variant [`Field`].
+    ///
+    /// [`Field`]: syn::Field
     pub fn variants_types(&self) -> impl Iterator<Item = &syn::Field> {
         self.variants.iter().flat_map(|v| &v.fields)
     }
