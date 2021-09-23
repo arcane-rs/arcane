@@ -72,7 +72,9 @@ pub trait Adapter<Events> {
                 <Self as Adapter<Events>>::Transformed,
                 <Self as Adapter<Events>>::Error,
             >,
-        > + 'out;
+        > + 'out
+    where
+        Events: 'out;
 
     /// Converts all incoming [`Event`]s into [`Transformed`].
     ///
@@ -91,7 +93,7 @@ pub trait Adapter<Events> {
 
 impl<A, Events> Adapter<Events> for A
 where
-    Events: Stream + 'static,
+    Events: Stream,
     A: WithError,
     Wrapper<A>: Transformer<Events::Item> + 'static,
     <A as WithError>::Transformed:
@@ -101,8 +103,10 @@ where
 {
     type Error = <A as WithError>::Error;
     type Transformed = <A as WithError>::Transformed;
-    type TransformedStream<'out, Ctx: 'out> =
-        TransformedStream<'out, Wrapper<A>, Events, Ctx>;
+    type TransformedStream<'out, Ctx: 'out>
+    where
+        Events: 'out,
+    = TransformedStream<'out, Wrapper<A>, Events, Ctx>;
 
     fn transform_all<'me, 'ctx, 'out, Ctx>(
         &'me self,
