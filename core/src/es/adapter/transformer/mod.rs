@@ -4,7 +4,7 @@ pub mod strategy;
 
 use futures::Stream;
 
-use crate::es::event;
+use crate::es::{adapter::Correct, event};
 
 #[doc(inline)]
 pub use strategy::Strategy;
@@ -23,7 +23,10 @@ pub use strategy::Strategy;
 /// [`Skip`]: strategy::Skip
 /// [`Split`]: strategy::Split
 /// [`Version`]: crate::es::event::Version
-pub trait Transformer<Event, Ctx: ?Sized> {
+pub trait Transformer<Event> {
+    /// TODO
+    type Context<Impl>: Correct;
+
     /// Error of this [`Transformer`].
     type Error;
 
@@ -36,34 +39,37 @@ pub trait Transformer<Event, Ctx: ?Sized> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    #[rustfmt::skip]
-    type TransformedStream<'out>:
-        Stream<Item = Result<Self::Transformed, Self::Error>> + 'out;
+    type TransformedStream<'out, Ctx: 'static>: Stream<
+            Item = Result<
+                <Self as Transformer<Event>>::Transformed,
+                <Self as Transformer<Event>>::Error,
+            >,
+        > + 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    fn transform<'me, 'ctx, 'out>(
+    fn transform<'me, 'ctx, 'out, Ctx>(
         &'me self,
         event: Event,
         context: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>
+    ) -> Self::TransformedStream<'out, Ctx>
     where
         'me: 'out,
-        'ctx: 'out;
+        'ctx: 'out,
+        Ctx: 'static;
 }
 
 /// Instead of implementing [`Transformer`] manually, you can use this trait
 /// with some [`Strategy`].
-pub trait WithStrategy<Event, Ctx>
+pub trait WithStrategy<Event>
 where
     Self: Sized,
     Event: event::Versioned,
-    Ctx: ?Sized,
 {
     /// [`Strategy`] to transform [`Event`] with.
     ///
     /// [`Event`]: crate::es::Event
-    type Strategy: Strategy<Self, Event, Ctx>;
+    type Strategy: Strategy<Self, Event>;
 }

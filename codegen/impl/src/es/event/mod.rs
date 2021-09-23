@@ -36,12 +36,7 @@ pub struct VariantAttrs {
 ///
 /// [`Event`]: arcana_core::es::event::Event
 #[derive(Debug, ToTokens)]
-#[to_tokens(append(
-    impl_event,
-    impl_event_sourced,
-    gen_uniqueness_glue_code,
-    impl_transformer
-))]
+#[to_tokens(append(impl_event, impl_event_sourced, gen_uniqueness_glue_code))]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
