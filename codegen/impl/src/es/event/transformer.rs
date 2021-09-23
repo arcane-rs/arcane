@@ -176,14 +176,14 @@ impl Definition {
         generics
             .make_where_clause()
             .predicates
-            .push(parse_quote! { Self: ::arcana::es::adapter::WithError });
+            .push(parse_quote! { Self: ::arcana::es::adapter::Returning });
         generics.make_where_clause().predicates.push(parse_quote! {
             <Self as ::arcana::es::adapter::
-                WithError>::Transformed: 'static
+                Returning>::Transformed: 'static
         });
         generics.make_where_clause().predicates.push(parse_quote! {
             <Self as ::arcana::es::adapter::
-                WithError>::Error: 'static
+                Returning>::Error: 'static
         });
 
         let (impl_gen, _, where_cl) = generics.split_for_impl();

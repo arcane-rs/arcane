@@ -24,7 +24,7 @@ use crate::event;
 )]
 pub struct Adapter;
 
-impl adapter::WithError for Adapter {
+impl adapter::Returning for Adapter {
     type Error = Infallible;
     type Transformed = event::Message;
 }

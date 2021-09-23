@@ -16,10 +16,7 @@ use super::{Transformer, WithStrategy};
 /// Generalized [`Transformer`] for [`Versioned`] events.
 ///
 /// [`Versioned`]: event::Versioned
-pub trait Strategy<Adapter, Event>
-where
-    Event: event::Versioned,
-{
+pub trait Strategy<Adapter, Event> {
     /// TODO
     type Context<Impl>: Correct;
 
@@ -148,7 +145,7 @@ pub struct Skip;
 impl<Adapter, Event> Strategy<Adapter, Event> for Skip
 where
     Event: event::Versioned,
-    Adapter: adapter::WithError,
+    Adapter: adapter::Returning,
     Adapter::Transformed: 'static,
     Adapter::Error: 'static,
 {

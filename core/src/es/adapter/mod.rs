@@ -16,22 +16,13 @@ use ref_cast::RefCast;
 pub use self::transformer::Transformer;
 
 /// TODO
-pub trait WithError {
-    /// TODO
-    type Error;
-
-    /// TODO
-    type Transformed;
-}
-
-/// TODO
 #[derive(Debug, RefCast)]
 #[repr(transparent)]
 pub struct Wrapper<A>(pub A);
 
-impl<A> WithError for Wrapper<A>
+impl<A> Returning for Wrapper<A>
 where
-    A: WithError,
+    A: Returning,
 {
     type Error = A::Error;
     type Transformed = A::Transformed;
@@ -91,18 +82,27 @@ pub trait Adapter<Events> {
         Context: 'out;
 }
 
+/// TODO
+pub trait Returning {
+    /// TODO
+    type Error;
+
+    /// TODO
+    type Transformed;
+}
+
 impl<A, Events> Adapter<Events> for A
 where
+    A: Returning,
     Events: Stream,
-    A: WithError,
     Wrapper<A>: Transformer<Events::Item> + 'static,
-    <A as WithError>::Transformed:
+    <A as Returning>::Transformed:
         From<<Wrapper<A> as Transformer<Events::Item>>::Transformed>,
-    <A as WithError>::Error:
+    <A as Returning>::Error:
         From<<Wrapper<A> as Transformer<Events::Item>>::Error>,
 {
-    type Error = <A as WithError>::Error;
-    type Transformed = <A as WithError>::Transformed;
+    type Error = <A as Returning>::Error;
+    type Transformed = <A as Returning>::Transformed;
     type TransformedStream<'out, Ctx: 'out>
     where
         Events: 'out,
@@ -190,16 +190,16 @@ impl<'out, Adapter, Events, Ctx> Stream
 where
     Ctx: 'out,
     Events: Stream,
-    Adapter: Transformer<Events::Item> + WithError,
+    Adapter: Transformer<Events::Item> + Returning,
     <Adapter as Transformer<Events::Item>>::Context<Ctx>: Correct,
-    <Adapter as WithError>::Transformed:
+    <Adapter as Returning>::Transformed:
         From<<Adapter as Transformer<Events::Item>>::Transformed>,
-    <Adapter as WithError>::Error:
+    <Adapter as Returning>::Error:
         From<<Adapter as Transformer<Events::Item>>::Error>,
 {
     type Item = Result<
-        <Adapter as WithError>::Transformed,
-        <Adapter as WithError>::Error,
+        <Adapter as Returning>::Transformed,
+        <Adapter as Returning>::Error,
     >;
 
     fn poll_next(
