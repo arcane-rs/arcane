@@ -17,7 +17,7 @@ async fn main() {
     let mut email = Option::<domain::Email>::None;
 
     let chat_events = storage::chat::Adapter
-        .transform_all(incoming_events(), &1)
+        .transform_all(incoming_events(), &())
         .inspect_ok(|ev| chat.apply(ev))
         .try_collect::<Vec<event::Chat>>()
         .await
@@ -51,7 +51,7 @@ async fn main() {
     );
 
     let message_events = storage::message::Adapter
-        .transform_all(incoming_events(), &())
+        .transform_all(incoming_events(), &1)
         .inspect_ok(|ev| message.apply(ev))
         .try_collect::<Vec<event::Message>>()
         .await

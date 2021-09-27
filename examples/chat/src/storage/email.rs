@@ -3,8 +3,7 @@ use std::{array, convert::Infallible};
 use arcana::es::{
     adapter::{
         self,
-        transformer::strategy::{AsIs, Initialized, Skip, Split, Splitter},
-        Transformer,
+        transformer::{strategy, Strategy},
     },
     event::Initial,
 };
@@ -12,29 +11,29 @@ use either::Either;
 
 use crate::event;
 
-impl<Ctx> adapter::WithError<Ctx> for Adapter {
+impl adapter::WithError for Adapter {
     type Error = Infallible;
     type Transformed = event::Email;
 }
 
-#[derive(Debug, Transformer)]
-#[transformer(
-    Initialized => event::email::Added,
-    AsIs => event::email::Confirmed,
-    Skip => (
+#[derive(Debug, Strategy)]
+#[strategy(
+    strategy::Initialized => event::email::Added,
+    strategy::AsIs => event::email::Confirmed,
+    strategy::Skip => (
         event::chat::public::Created,
         event::chat::private::Created,
         event::chat::v1::Created,
         event::message::Posted,
     ),
-    Split<Either<event::email::Added, event::email::Confirmed>> => (
+    strategy::Split<Either<event::email::Added, event::email::Confirmed>> => (
         event::email::v1::AddedAndConfirmed,
     ),
 )]
 pub struct Adapter;
 
 impl
-    Splitter<
+    strategy::Splitter<
         event::email::v1::AddedAndConfirmed,
         Either<event::email::Added, event::email::Confirmed>,
     > for Adapter

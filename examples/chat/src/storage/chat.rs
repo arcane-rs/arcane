@@ -2,30 +2,29 @@ use std::convert::Infallible;
 
 use arcana::es::adapter::{
     self,
-    transformer::strategy::{AsIs, Initialized, Into, Skip},
-    Transformer,
+    transformer::{strategy, Strategy},
 };
 
 use crate::event;
 
-impl<Ctx> adapter::WithError<Ctx> for Adapter {
+impl adapter::WithError for Adapter {
     type Error = Infallible;
     type Transformed = event::Chat;
 }
 
-#[derive(Debug, Transformer)]
-#[transformer(
-    Initialized => (
+#[derive(Debug, Strategy)]
+#[strategy(
+    strategy::Initialized => (
         event::chat::public::Created,
         event::chat::private::Created,
     ),
-    AsIs => event::message::Posted,
-    Skip => (
+    strategy::AsIs => event::message::Posted,
+    strategy::Skip => (
         event::email::v1::AddedAndConfirmed,
         event::email::Confirmed,
         event::email::Added,
     ),
-    Initialized<Into<event::chat::private::Created>> => (
+    strategy::Initialized<strategy::Into<event::chat::private::Created>> => (
         event::chat::v1::Created,
     ),
 )]

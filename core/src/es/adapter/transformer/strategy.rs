@@ -1,8 +1,6 @@
 //! [`Strategy`] definition and default implementations.
 
-use std::{
-    convert::Infallible, fmt::Debug, iter::Iterator, marker::PhantomData,
-};
+use std::{iter::Iterator, marker::PhantomData};
 
 use futures::{future, stream, Stream, StreamExt as _, TryStreamExt as _};
 
@@ -30,9 +28,12 @@ where
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    #[rustfmt::skip]
-    type TransformedStream<'out>:
-        Stream<Item = Result<Self::Transformed, Self::Error>> + 'out;
+    type TransformedStream<'out>: Stream<
+            Item = Result<
+                <Self as Strategy<Adapter, Event, Ctx>>::Transformed,
+                <Self as Strategy<Adapter, Event, Ctx>>::Error,
+            >,
+        > + 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
@@ -52,11 +53,11 @@ impl<Event, Adapter, Ctx> Transformer<Event, Ctx> for adapter::Wrapper<Adapter>
 where
     Ctx: ?Sized,
     Event: event::Versioned,
-    Adapter: WithStrategy<Event, Ctx> + adapter::WithError<Ctx>,
+    Adapter: WithStrategy<Event, Ctx> + adapter::WithError,
     Adapter::Strategy: Strategy<Adapter, Event, Ctx>,
-    <Adapter as adapter::WithError<Ctx>>::Transformed:
+    <Adapter as adapter::WithError>::Transformed:
         From<<Adapter::Strategy as Strategy<Adapter, Event, Ctx>>::Transformed>,
-    <Adapter as adapter::WithError<Ctx>>::Error:
+    <Adapter as adapter::WithError>::Error:
         From<<Adapter::Strategy as Strategy<Adapter, Event, Ctx>>::Error>,
 {
     type Error = <Adapter::Strategy as Strategy<Adapter, Event, Ctx>>::Error;
@@ -136,7 +137,7 @@ impl<Adapter, Event, Ctx> Strategy<Adapter, Event, Ctx> for Skip
 where
     Ctx: ?Sized,
     Event: event::Versioned,
-    Adapter: adapter::WithError<Ctx>,
+    Adapter: adapter::WithError,
     Adapter::Transformed: 'static,
     Adapter::Error: 'static,
 {
@@ -166,10 +167,12 @@ pub struct AsIs;
 
 impl<Adapter, Event, Ctx> Strategy<Adapter, Event, Ctx> for AsIs
 where
+    Adapter: adapter::WithError,
+    Adapter::Error: 'static,
     Ctx: ?Sized,
     Event: event::Versioned + 'static,
 {
-    type Error = Infallible;
+    type Error = Adapter::Error;
     type Transformed = Event;
     type TransformedStream<'out> =
         stream::Once<future::Ready<Result<Self::Transformed, Self::Error>>>;
@@ -253,10 +256,11 @@ where
     Ctx: ?Sized,
     Event: event::Versioned,
     IntoEvent: 'static,
-    Adapter: Splitter<Event, IntoEvent>,
+    Adapter: Splitter<Event, IntoEvent> + adapter::WithError,
     Adapter::Iterator: 'static,
+    Adapter::Error: 'static,
 {
-    type Error = Infallible;
+    type Error = Adapter::Error;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
     type TransformedStream<'out> = SplitStream<Adapter, Event, IntoEvent>;
 
@@ -279,6 +283,71 @@ type SplitStream<Adapter, From, Into> = stream::Map<
         <<Adapter as Splitter<From, Into>>::Iterator as Iterator>::Item,
     ) -> Result<
         <<Adapter as Splitter<From, Into>>::Iterator as Iterator>::Item,
-        Infallible,
+        <Adapter as adapter::WithError>::Error,
     >,
 >;
+
+/// TODO
+#[derive(Clone, Copy, Debug)]
+pub struct Custom;
+
+/// TODO
+pub trait CustomTransformer<Event, Ctx>
+where
+    Event: event::Versioned,
+    Ctx: ?Sized,
+{
+    /// Error of this [`Strategy`].
+    type Error;
+
+    /// Converted [`Event`].
+    ///
+    /// [`Event`]: crate::es::Event
+    type Transformed;
+
+    /// [`Stream`] of [`Transformed`] [`Event`]s.
+    ///
+    /// [`Event`]: crate::es::Event
+    /// [`Transformed`]: Self::Transformed
+    type TransformedStream<'out>: Stream<
+            Item = Result<
+                <Self as CustomTransformer<Event, Ctx>>::Transformed,
+                <Self as CustomTransformer<Event, Ctx>>::Error,
+            >,
+        > + 'out;
+
+    /// Converts incoming [`Event`] into [`Transformed`].
+    ///
+    /// [`Event`]: crate::es::Event
+    /// [`Transformed`]: Self::Transformed
+    fn transform<'me, 'ctx, 'out>(
+        &'me self,
+        event: Event,
+        context: &'ctx Ctx,
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out;
+}
+
+impl<Adapter, Event, Ctx> Strategy<Adapter, Event, Ctx> for Custom
+where
+    Adapter: CustomTransformer<Event, Ctx>,
+    Event: event::Versioned,
+{
+    type Error = Adapter::Error;
+    type Transformed = Adapter::Transformed;
+    type TransformedStream<'out> = Adapter::TransformedStream<'out>;
+
+    fn transform<'me, 'ctx, 'out>(
+        adapter: &'me Adapter,
+        event: Event,
+        context: &'ctx Ctx,
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+    {
+        Adapter::transform(adapter, event, context)
+    }
+}

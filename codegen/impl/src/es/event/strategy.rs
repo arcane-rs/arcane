@@ -1,23 +1,21 @@
 //! `#[derive(adapter::Transformer)]` macro implementation.
 
-use std::{collections::HashMap, convert::TryFrom, iter};
+use std::{collections::HashMap, convert::TryFrom};
 
+use itertools::Itertools as _;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
     parse_quote,
     punctuated::Punctuated,
-    token,
 };
-use synthez::{ParseAttrs, Required, Spanning, ToTokens};
+use synthez::{ParseAttrs, ToTokens};
 
-/// Expands `#[derive(adapter::Transformer)]` macro.
+/// Expands `#[derive(Strategy)]` macro.
 ///
 /// # Errors
 ///
-/// - If `input` isn't a Rust enum definition;
-/// - If some enum variant is not a single-field tuple struct;
 /// - If failed to parse [`Attrs`].
 pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse2::<syn::DeriveInput>(input)?;
@@ -26,103 +24,53 @@ pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
     Ok(quote! { #definition })
 }
 
-/// Helper attributes of `#[derive(adapter::Transformer)]` macro.
-#[derive(Debug, Default, ParseAttrs)]
-pub struct Attrs {
-    /// [`Vec`] of [`InnerAttrs`] for generating [`Transformer`][0] trait impls.
-    ///
-    /// [0]: arcana_core::es::adapter::Transformer
-    #[parse(nested)]
-    pub transformer: Required<Spanning<StrategyAttr>>,
-}
-
-/// TODO
+/// Helper attributes of `#[derive(Strategy)]` macro placed on an enum variant.
 #[derive(Debug, Default, PartialEq)]
-pub struct StrategyAttr {
-    /// TODO
+pub struct Attr {
+    /// [`Strategies`][0] with corresponding [`VersionedEvent`][1]s.
+    ///
+    /// [0]: arcana_core::es::adapter::transformer::Strategy
+    /// [1]: arcana_core::es::VersionedEvent
     pub strategies: HashMap<syn::Type, Vec<syn::Type>>,
 }
 
-/// TODO
-#[derive(Debug)]
-pub struct StrategyAttrRepr {
-    /// TODO
-    pub strategy: syn::Type,
-
-    /// TODO
-    pub eq_sign: syn::Token![=],
-
-    /// TODO
-    pub greater_sign: syn::Token![>],
-
-    /// TODO
-    pub events: EventsRepr,
-}
-
-/// TODO
-#[derive(Debug)]
-pub enum EventsRepr {
-    /// TODO
-    Many {
-        /// TODO
-        paren: token::Paren,
-
-        /// TODO
-        events: Punctuated<syn::Type, syn::Token![,]>,
-    },
-
-    /// TODO
-    Single {
-        /// TODO
-        event: syn::Type,
-    },
-}
-
-impl Parse for StrategyAttr {
+impl Parse for Attr {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let parse_attr = |input: ParseStream<'_>| {
-            let many = || {
+            let parenthesized = || {
                 let content;
-                Ok(EventsRepr::Many {
-                    paren: syn::parenthesized!(content in input),
-                    events: content.parse_terminated(syn::Type::parse)?,
-                })
+                let _ = syn::parenthesized!(content in input);
+                Ok(content)
             };
-            let single_or_many = || {
-                many().or_else(|_| -> syn::Result<_> {
-                    Ok(EventsRepr::Single {
-                        event: input.parse()?,
-                    })
-                })
+            let events = || {
+                parenthesized().map_or_else(
+                    |_| input.parse().map(|ty| vec![ty]),
+                    |par| {
+                        par.parse_terminated::<_, syn::Token![,]>(
+                            syn::Type::parse,
+                        )
+                        .map(|ty| ty.into_iter().collect::<Vec<_>>())
+                    },
+                )
             };
 
-            Ok(StrategyAttrRepr {
-                strategy: input.parse()?,
-                eq_sign: input.parse()?,
-                greater_sign: input.parse()?,
-                events: single_or_many()?,
-            })
+            let strategy = input.parse()?;
+            let _ = input.parse::<syn::Token![=]>()?;
+            let _ = input.parse::<syn::Token![>]>()?;
+
+            Ok((strategy, events()?))
         };
 
         let strategies = input
             .parse_terminated::<_, syn::Token![,]>(parse_attr)?
             .into_iter()
-            .map(|repr: StrategyAttrRepr| {
-                let events = match repr.events {
-                    EventsRepr::Many { events, .. } => {
-                        events.into_iter().collect()
-                    }
-                    EventsRepr::Single { event } => vec![event],
-                };
-                (repr.strategy, events)
-            })
             .collect::<HashMap<_, _>>();
 
         Ok(Self { strategies })
     }
 }
 
-impl ParseAttrs for StrategyAttr {
+impl ParseAttrs for Attr {
     fn try_merge(self, another: Self) -> syn::Result<Self> {
         Ok(Self {
             strategies: self
@@ -149,7 +97,10 @@ pub struct Definition {
     /// [`syn::Generics`] of this enum's type.
     pub generics: syn::Generics,
 
-    /// TODO
+    /// [`Strategies`][0] with corresponding [`VersionedEvent`][1]s.
+    ///
+    /// [0]: arcana_core::es::adapter::transformer::Strategy
+    /// [1]: arcana_core::es::VersionedEvent
     pub strategies: HashMap<syn::Type, Vec<syn::Type>>,
 }
 
@@ -157,8 +108,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
     type Error = syn::Error;
 
     fn try_from(input: syn::DeriveInput) -> syn::Result<Self> {
-        let attrs: StrategyAttr =
-            StrategyAttr::parse_attrs("transformer", &input)?;
+        let attrs: Attr = Attr::parse_attrs("strategy", &input)?;
 
         Ok(Self {
             adapter: input.ident,
@@ -169,22 +119,26 @@ impl TryFrom<syn::DeriveInput> for Definition {
 }
 
 impl Definition {
-    /// TODO
+    /// Generates code to derive [`Strategy`][0] traits.
+    ///
+    /// [0]: arcana_core::es::adapter::transformer::Strategy
     #[must_use]
     pub fn impl_strategies(&self) -> TokenStream {
+        let transformed_and_err_bounds: Punctuated<
+            syn::WherePredicate,
+            syn::Token![,],
+        > = parse_quote! {
+            Self: ::arcana::es::adapter::WithError,
+            <Self as ::arcana::es::adapter::WithError>::Transformed: 'static,
+            <Self as ::arcana::es::adapter::WithError>::Error: 'static,
+        };
+
         let mut generics = self.generics.clone();
         generics.params.push(parse_quote! { __Ctx });
-        generics.make_where_clause().predicates.push(
-            parse_quote! { Self: ::arcana::es::adapter::WithError<__Ctx> },
-        );
-        generics.make_where_clause().predicates.push(parse_quote! {
-            <Self as ::arcana::es::adapter::
-                WithError<__Ctx>>::Transformed: 'static
-        });
-        generics.make_where_clause().predicates.push(parse_quote! {
-            <Self as ::arcana::es::adapter::
-                WithError<__Ctx>>::Error: 'static
-        });
+        generics
+            .make_where_clause()
+            .predicates
+            .extend(transformed_and_err_bounds);
 
         let (impl_gen, _, where_cl) = generics.split_for_impl();
         let (_, type_gen, _) = self.generics.split_for_impl();
@@ -192,16 +146,14 @@ impl Definition {
 
         self.strategies
             .iter()
-            .flat_map(|(strategy, events)| {
-                events.iter().zip(iter::repeat(strategy))
-            })
-            .map(|(ev, strategy)| {
+            .sorted_by_key(|(s, _)| s.to_token_stream().to_string())
+            .map(|(strategy, ev)| {
                 quote! {
-                    impl#impl_gen ::arcana::es::adapter::transformer::
+                    #( impl#impl_gen ::arcana::es::adapter::transformer::
                         WithStrategy<#ev, __Ctx> for #adapter#type_gen #where_cl
                     {
                         type Strategy = #strategy;
-                    }
+                    } )*
                 }
             })
             .collect()

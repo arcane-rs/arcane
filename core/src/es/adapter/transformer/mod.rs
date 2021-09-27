@@ -36,9 +36,12 @@ pub trait Transformer<Event, Ctx: ?Sized> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    #[rustfmt::skip]
-    type TransformedStream<'out>:
-        Stream<Item = Result<Self::Transformed, Self::Error>> + 'out;
+    type TransformedStream<'out>: Stream<
+            Item = Result<
+                <Self as Transformer<Event, Ctx>>::Transformed,
+                <Self as Transformer<Event, Ctx>>::Error,
+            >,
+        > + 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
@@ -65,5 +68,5 @@ where
     /// [`Strategy`] to transform [`Event`] with.
     ///
     /// [`Event`]: crate::es::Event
-    type Strategy: Strategy<Self, Event, Ctx>;
+    type Strategy;
 }

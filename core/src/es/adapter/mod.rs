@@ -16,7 +16,7 @@ use ref_cast::RefCast;
 pub use self::transformer::Transformer;
 
 /// TODO
-pub trait WithError<Ctx: ?Sized> {
+pub trait WithError {
     /// TODO
     type Error;
 
@@ -29,10 +29,9 @@ pub trait WithError<Ctx: ?Sized> {
 #[repr(transparent)]
 pub struct Wrapper<A>(pub A);
 
-impl<A, Ctx> WithError<Ctx> for Wrapper<A>
+impl<A> WithError for Wrapper<A>
 where
-    A: WithError<Ctx>,
-    Ctx: ?Sized,
+    A: WithError,
 {
     type Error = A::Error;
     type Transformed = A::Transformed;
@@ -65,9 +64,14 @@ pub trait Adapter<Events, Ctx: ?Sized> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    #[rustfmt::skip]
-    type TransformedStream<'out>:
-        Stream<Item = Result<Self::Transformed, Self::Error>> + 'out;
+    type TransformedStream<'out>: Stream<
+            Item = Result<
+                <Self as Adapter<Events, Ctx>>::Transformed,
+                <Self as Adapter<Events, Ctx>>::Error,
+            >,
+        > + 'out
+    where
+        Events: 'out;
 
     /// Converts all incoming [`Event`]s into [`Transformed`].
     ///
@@ -85,19 +89,21 @@ pub trait Adapter<Events, Ctx: ?Sized> {
 
 impl<A, Events, Ctx> Adapter<Events, Ctx> for A
 where
-    Events: Stream + 'static,
+    Events: Stream,
     Ctx: 'static + ?Sized,
-    A: WithError<Ctx>,
+    A: WithError,
     Wrapper<A>: Transformer<Events::Item, Ctx> + 'static,
-    <A as WithError<Ctx>>::Transformed:
+    <A as WithError>::Transformed:
         From<<Wrapper<A> as Transformer<Events::Item, Ctx>>::Transformed>,
-    <A as WithError<Ctx>>::Error:
+    <A as WithError>::Error:
         From<<Wrapper<A> as Transformer<Events::Item, Ctx>>::Error>,
 {
-    type Error = <A as WithError<Ctx>>::Error;
-    type Transformed = <A as WithError<Ctx>>::Transformed;
-    type TransformedStream<'out> =
-        TransformedStream<'out, Wrapper<A>, Events, Ctx>;
+    type Error = <A as WithError>::Error;
+    type Transformed = <A as WithError>::Transformed;
+    type TransformedStream<'out>
+    where
+        Events: 'out,
+    = TransformedStream<'out, Wrapper<A>, Events, Ctx>;
 
     fn transform_all<'me, 'ctx, 'out>(
         &'me self,
@@ -176,15 +182,15 @@ impl<'out, Adapter, Events, Ctx> Stream
 where
     Events: Stream,
     Ctx: ?Sized,
-    Adapter: Transformer<Events::Item, Ctx> + WithError<Ctx>,
-    <Adapter as WithError<Ctx>>::Transformed:
+    Adapter: Transformer<Events::Item, Ctx> + WithError,
+    <Adapter as WithError>::Transformed:
         From<<Adapter as Transformer<Events::Item, Ctx>>::Transformed>,
-    <Adapter as WithError<Ctx>>::Error:
+    <Adapter as WithError>::Error:
         From<<Adapter as Transformer<Events::Item, Ctx>>::Error>,
 {
     type Item = Result<
-        <Adapter as WithError<Ctx>>::Transformed,
-        <Adapter as WithError<Ctx>>::Error,
+        <Adapter as WithError>::Transformed,
+        <Adapter as WithError>::Error,
     >;
 
     fn poll_next(
