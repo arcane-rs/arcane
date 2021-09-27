@@ -158,11 +158,3 @@ pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
-
-/// TODO
-#[proc_macro_derive(Strategy, attributes(strategy))]
-pub fn derive_strategy(input: TokenStream) -> TokenStream {
-    codegen::es::event::strategy::derive(input.into())
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}

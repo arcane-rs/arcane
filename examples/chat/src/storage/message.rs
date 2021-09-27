@@ -2,7 +2,7 @@ use std::convert::Infallible;
 
 use arcana::es::adapter::{
     self,
-    transformer::{strategy, Strategy},
+    transformer::{self, strategy},
 };
 use futures::stream;
 
@@ -13,21 +13,42 @@ impl adapter::WithError for Adapter {
     type Transformed = event::Message;
 }
 
-#[derive(Debug, Strategy)]
-#[strategy(
-    strategy::Initialized => (
-        event::message::Posted,
-    ),
-    strategy::Skip => (
-        event::chat::private::Created,
-        event::chat::v1::Created,
-        event::email::Added,
-        event::email::Confirmed,
-        event::email::v1::AddedAndConfirmed,
-    ),
-    strategy::Custom => event::chat::public::Created,
-)]
+#[derive(Debug)]
 pub struct Adapter;
+
+impl<Ctx> transformer::WithStrategy<event::message::Posted, Ctx> for Adapter {
+    type Strategy = strategy::Initialized;
+}
+
+impl<Ctx> transformer::WithStrategy<event::chat::public::Created, Ctx>
+    for Adapter
+{
+    type Strategy = strategy::Custom;
+}
+
+impl<Ctx> transformer::WithStrategy<event::chat::private::Created, Ctx>
+    for Adapter
+{
+    type Strategy = strategy::Skip;
+}
+
+impl<Ctx> transformer::WithStrategy<event::chat::v1::Created, Ctx> for Adapter {
+    type Strategy = strategy::Skip;
+}
+
+impl<Ctx> transformer::WithStrategy<event::email::v1::AddedAndConfirmed, Ctx>
+    for Adapter
+{
+    type Strategy = strategy::Skip;
+}
+
+impl<Ctx> transformer::WithStrategy<event::email::Confirmed, Ctx> for Adapter {
+    type Strategy = strategy::Skip;
+}
+
+impl<Ctx> transformer::WithStrategy<event::email::Added, Ctx> for Adapter {
+    type Strategy = strategy::Skip;
+}
 
 // Basically same as Skip, but with additional Ctx bounds
 impl<Ctx> strategy::CustomTransformer<event::chat::public::Created, Ctx>
