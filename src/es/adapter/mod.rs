@@ -7,7 +7,8 @@ pub use self::transformer::Transformer;
 
 #[doc(inline)]
 pub use arcana_core::es::adapter::{
-    Adapter, TransformedStream, WithError, Wrapper,
+    transformer::strategy::{And, Any},
+    Adapter, Correct, Returning, Wrapper,
 };
 
 #[cfg(feature = "derive")]
