@@ -26,6 +26,7 @@ sealed = { version = "0.3", optional = true }
 
 [dev-dependencies]
 arcana = { version = "0.1.0-dev", path = "..", features = ["derive", "es"] }
+futures = { version = "0.3", features = ["executor"] }
 
 [package.metadata.docs.rs]
 all-features = true

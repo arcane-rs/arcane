@@ -342,9 +342,9 @@ impl Definition {
                 #event#type_gen, __Ctx
             > for ::arcana::es::adapter::Wrapper<__A> #where_clause
             {
-                type Error = <__A as ::arcana::es::adapter::WithError>::
+                type Error = <__A as ::arcana::es::adapter::Returning>::
                     Error;
-                type Transformed = <__A as ::arcana::es::adapter::WithError>::
+                type Transformed = <__A as ::arcana::es::adapter::Returning>::
                     Transformed;
                 type TransformedStream<'out> = #transformed;
 
@@ -389,13 +389,13 @@ impl Definition {
             syn::WherePredicate,
             syn::Token![,],
         > = parse_quote! {
-            __A: ::arcana::es::adapter::WithError,
+            __A: ::arcana::es::adapter::Returning,
             Self: #( ::arcana::es::adapter::Transformer<#var_type, __Ctx> )+*,
-            <__A as ::arcana::es::adapter::WithError>::Transformed:
+            <__A as ::arcana::es::adapter::Returning>::Transformed:
                 #( ::std::convert::From<<Self as ::arcana::es::adapter::
                         Transformer<#var_type, __Ctx>>::Transformed> +)*
                 'static,
-            <__A as ::arcana::es::adapter::WithError>::Error:
+            <__A as ::arcana::es::adapter::Returning>::Error:
                 #( ::std::convert::From<<Self as ::arcana::es::adapter::
                         Transformer<#var_type, __Ctx>>::Error> +)*
                 'static,
@@ -434,7 +434,7 @@ impl Definition {
 
         let transformed_stream = |from: &syn::Type| {
             quote! {
-                ::arcana::es::adapter::codegen::futures::stream::Map<
+                ::arcana::es::event::codegen::futures::stream::Map<
                     <Self as ::arcana::es::adapter::Transformer<
                         #from, __Ctx
                     >>::TransformedStream<'out>,
@@ -462,7 +462,7 @@ impl Definition {
                 Some(
                     acc.map(|acc| {
                         quote! {
-                            ::arcana::es::adapter::codegen::futures::future::
+                            ::arcana::es::event::codegen::futures::future::
                             Either<
                                 #variant_stream,
                                 #acc,
@@ -501,7 +501,7 @@ impl Definition {
             .enumerate()
             .map(|(i, (variant_ident, var_ty))| {
                 let stream_map = quote! {
-                    ::arcana::es::adapter::codegen::futures::StreamExt::map(
+                    ::arcana::es::event::codegen::futures::StreamExt::map(
                         <Self as ::arcana::es::adapter::Transformer<
                             #var_ty, __Ctx
                         > >::transform(self, __event, __context),
@@ -521,11 +521,11 @@ impl Definition {
                 };
 
                 let right_stream = quote! {
-                    ::arcana::es::adapter::codegen::futures::StreamExt::
+                    ::arcana::es::event::codegen::futures::StreamExt::
                     right_stream
                 };
                 let left_stream = quote! {
-                    ::arcana::es::adapter::codegen::futures::StreamExt::
+                    ::arcana::es::event::codegen::futures::StreamExt::
                     left_stream
                 };
                 let left_stream_count =
@@ -611,17 +611,17 @@ mod spec {
             impl<__A, __Ctx> ::arcana::es::adapter::Transformer<Event, __Ctx>
                 for ::arcana::es::adapter::Wrapper<__A>
             where
-                __A: ::arcana::es::adapter::WithError,
+                __A: ::arcana::es::adapter::Returning,
                 Self:
                     ::arcana::es::adapter::Transformer<FileEvent, __Ctx> +
                     ::arcana::es::adapter::Transformer<ChatEvent, __Ctx>,
-                <__A as ::arcana::es::adapter::WithError>::Transformed:
+                <__A as ::arcana::es::adapter::Returning>::Transformed:
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent, __Ctx> >::Transformed> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<ChatEvent, __Ctx> >::Transformed> +
                     'static,
-                <__A as ::arcana::es::adapter::WithError>::Error:
+                <__A as ::arcana::es::adapter::Returning>::Error:
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent, __Ctx> >::Error> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
@@ -636,13 +636,13 @@ mod spec {
                 <Self as ::arcana::es::adapter::
                     Transformer<ChatEvent, __Ctx> >::Error: 'static
             {
-                type Error = <__A as ::arcana::es::adapter::WithError>::
+                type Error = <__A as ::arcana::es::adapter::Returning>::
                     Error;
-                type Transformed = <__A as ::arcana::es::adapter::WithError>::
+                type Transformed = <__A as ::arcana::es::adapter::Returning>::
                     Transformed;
                 type TransformedStream<'out> =
-                    ::arcana::es::adapter::codegen::futures::future::Either<
-                        ::arcana::es::adapter::codegen::futures::stream::Map<
+                    ::arcana::es::event::codegen::futures::future::Either<
+                        ::arcana::es::event::codegen::futures::stream::Map<
                             <Self as ::arcana::es::adapter::Transformer<
                                 FileEvent, __Ctx
                             >>::TransformedStream<'out>,
@@ -663,7 +663,7 @@ mod spec {
                                          Transformer<Event, __Ctx>>::Error,
                             >
                         >,
-                        ::arcana::es::adapter::codegen::futures::stream::Map<
+                        ::arcana::es::event::codegen::futures::stream::Map<
                             <Self as ::arcana::es::adapter::Transformer<
                                 ChatEvent, __Ctx
                             >>::TransformedStream<'out>,
@@ -699,9 +699,9 @@ mod spec {
                 {
                     match __event {
                         Event::File(__event) => {
-                            ::arcana::es::adapter::codegen::futures::StreamExt::
+                            ::arcana::es::event::codegen::futures::StreamExt::
                                 left_stream(
-                                ::arcana::es::adapter::codegen::futures::
+                                ::arcana::es::event::codegen::futures::
                                 StreamExt::map(
                                     <Self as ::arcana::es::adapter::
                                              Transformer<FileEvent, __Ctx>
@@ -723,9 +723,9 @@ mod spec {
                             )
                         },
                         Event::Chat(__event) => {
-                            ::arcana::es::adapter::codegen::futures::StreamExt::
+                            ::arcana::es::event::codegen::futures::StreamExt::
                             right_stream(
-                                ::arcana::es::adapter::codegen::futures::
+                                ::arcana::es::event::codegen::futures::
                                 StreamExt::map(
                                     <Self as ::arcana::es::adapter::
                                              Transformer<ChatEvent, __Ctx>
@@ -879,17 +879,17 @@ mod spec {
                 Transformer<Event<'a, F, C>, __Ctx> for
                     ::arcana::es::adapter::Wrapper<__A>
             where
-                __A: ::arcana::es::adapter::WithError,
+                __A: ::arcana::es::adapter::Returning,
                 Self:
                    ::arcana::es::adapter::Transformer<FileEvent<'a, F>, __Ctx> +
                    ::arcana::es::adapter::Transformer<ChatEvent<'a, C>, __Ctx>,
-                <__A as ::arcana::es::adapter::WithError>::Transformed:
+                <__A as ::arcana::es::adapter::Returning>::Transformed:
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent<'a, F>, __Ctx> >::Transformed> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<ChatEvent<'a, C>, __Ctx> >::Transformed> +
                     'static,
-                <__A as ::arcana::es::adapter::WithError>::Error:
+                <__A as ::arcana::es::adapter::Returning>::Error:
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent<'a, F>, __Ctx> >::Error> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
@@ -907,13 +907,13 @@ mod spec {
                 <Self as ::arcana::es::adapter::
                     Transformer<ChatEvent<'a, C>, __Ctx> >::Error: 'static
             {
-                type Error = <__A as ::arcana::es::adapter::WithError>::
+                type Error = <__A as ::arcana::es::adapter::Returning>::
                     Error;
-                type Transformed = <__A as ::arcana::es::adapter::WithError>::
+                type Transformed = <__A as ::arcana::es::adapter::Returning>::
                     Transformed;
                 type TransformedStream<'out> =
-                    ::arcana::es::adapter::codegen::futures::future::Either<
-                        ::arcana::es::adapter::codegen::futures::stream::Map<
+                    ::arcana::es::event::codegen::futures::future::Either<
+                        ::arcana::es::event::codegen::futures::stream::Map<
                             <Self as ::arcana::es::adapter::Transformer<
                                 FileEvent<'a, F>, __Ctx
                             >>::TransformedStream<'out>,
@@ -937,7 +937,7 @@ mod spec {
                                          Error,
                             >
                         >,
-                        ::arcana::es::adapter::codegen::futures::stream::Map<
+                        ::arcana::es::event::codegen::futures::stream::Map<
                             <Self as ::arcana::es::adapter::Transformer<
                                 ChatEvent<'a, C>, __Ctx
                             >>::TransformedStream<'out>,
@@ -978,9 +978,9 @@ mod spec {
                 {
                     match __event {
                         Event::<'a, F, C>::File(__event) => {
-                            ::arcana::es::adapter::codegen::futures::StreamExt::
+                            ::arcana::es::event::codegen::futures::StreamExt::
                                 left_stream(
-                                ::arcana::es::adapter::codegen::futures::
+                                ::arcana::es::event::codegen::futures::
                                 StreamExt::map(
                                     <Self as ::arcana::es::adapter::Transformer<
                                         FileEvent<'a, F>, __Ctx
@@ -1002,9 +1002,9 @@ mod spec {
                             )
                         },
                         Event::<'a, F, C>::Chat(__event) => {
-                            ::arcana::es::adapter::codegen::futures::StreamExt::
+                            ::arcana::es::event::codegen::futures::StreamExt::
                             right_stream(
-                                ::arcana::es::adapter::codegen::futures::
+                                ::arcana::es::event::codegen::futures::
                                 StreamExt::map(
                                     <Self as ::arcana::es::adapter::Transformer<
                                         ChatEvent<'a, C>, __Ctx
@@ -1171,17 +1171,17 @@ mod spec {
             impl<__A, __Ctx> ::arcana::es::adapter::Transformer<Event, __Ctx>
                 for ::arcana::es::adapter::Wrapper<__A>
             where
-                __A: ::arcana::es::adapter::WithError,
+                __A: ::arcana::es::adapter::Returning,
                 Self:
                     ::arcana::es::adapter::Transformer<FileEvent, __Ctx> +
                     ::arcana::es::adapter::Transformer<ChatEvent, __Ctx>,
-                <__A as ::arcana::es::adapter::WithError>::Transformed:
+                <__A as ::arcana::es::adapter::Returning>::Transformed:
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent, __Ctx> >::Transformed> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<ChatEvent, __Ctx> >::Transformed> +
                     'static,
-                <__A as ::arcana::es::adapter::WithError>::Error:
+                <__A as ::arcana::es::adapter::Returning>::Error:
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent, __Ctx> >::Error> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
@@ -1196,13 +1196,13 @@ mod spec {
                 <Self as ::arcana::es::adapter::
                     Transformer<ChatEvent, __Ctx> >::Error: 'static
             {
-                type Error = <__A as ::arcana::es::adapter::WithError>::
+                type Error = <__A as ::arcana::es::adapter::Returning>::
                     Error;
-                type Transformed = <__A as ::arcana::es::adapter::WithError>::
+                type Transformed = <__A as ::arcana::es::adapter::Returning>::
                     Transformed;
                 type TransformedStream<'out> =
-                    ::arcana::es::adapter::codegen::futures::future::Either<
-                        ::arcana::es::adapter::codegen::futures::stream::Map<
+                    ::arcana::es::event::codegen::futures::future::Either<
+                        ::arcana::es::event::codegen::futures::stream::Map<
                             <Self as ::arcana::es::adapter::Transformer<
                                 FileEvent, __Ctx
                             >>::TransformedStream<'out>,
@@ -1223,7 +1223,7 @@ mod spec {
                                          Transformer<Event, __Ctx>>::Error,
                             >
                         >,
-                        ::arcana::es::adapter::codegen::futures::stream::Map<
+                        ::arcana::es::event::codegen::futures::stream::Map<
                             <Self as ::arcana::es::adapter::Transformer<
                                 ChatEvent, __Ctx
                             >>::TransformedStream<'out>,
@@ -1259,9 +1259,9 @@ mod spec {
                 {
                     match __event {
                         Event::File(__event) => {
-                            ::arcana::es::adapter::codegen::futures::StreamExt::
+                            ::arcana::es::event::codegen::futures::StreamExt::
                                 left_stream(
-                                ::arcana::es::adapter::codegen::futures::
+                                ::arcana::es::event::codegen::futures::
                                 StreamExt::map(
                                     <Self as ::arcana::es::adapter::
                                              Transformer<FileEvent, __Ctx>
@@ -1283,9 +1283,9 @@ mod spec {
                             )
                         },
                         Event::Chat(__event) => {
-                            ::arcana::es::adapter::codegen::futures::StreamExt::
+                            ::arcana::es::event::codegen::futures::StreamExt::
                             right_stream(
-                                ::arcana::es::adapter::codegen::futures::
+                                ::arcana::es::event::codegen::futures::
                                 StreamExt::map(
                                     <Self as ::arcana::es::adapter::
                                              Transformer<ChatEvent, __Ctx>

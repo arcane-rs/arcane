@@ -4,10 +4,26 @@ pub mod strategy;
 
 use futures::Stream;
 
-use crate::es::event;
-
 #[doc(inline)]
 pub use strategy::Strategy;
+
+/// To use [`Adapter`] with some [`Event`], you should provide [`Strategy`]
+/// for every [`VersionedEvent`] involved with this [`Event`] and implement
+/// [`Returning`] on [`Adapter`] itself.
+///
+/// [`Adapter`]: crate::es::Adapter
+/// [`Event`]: crate::es::Event
+/// [`Returning`]: super::Returning
+/// [`VersionedEvent`]: crate::es::VersionedEvent
+pub trait WithStrategy<Event>
+where
+    Self: Sized,
+{
+    /// [`Strategy`] to transform [`Event`] with.
+    ///
+    /// [`Event`]: crate::es::Event
+    type Strategy;
+}
 
 /// Facility to convert [`Event`]s.
 /// Typical use cases include (but are not limited to):
@@ -16,9 +32,12 @@ pub use strategy::Strategy;
 /// - Transforming (ex: from one [`Version`] to another);
 /// - [`Split`]ting existing [`Event`]s into more granular ones.
 ///
-/// To reduce boilerplate consider using [`WithStrategy`] with some [`Strategy`]
-/// instead of implementing this trait manually.
+/// Provided with blanket impl for [`WithStrategy`] implementors, so usually you
+/// shouldn't implement it manually. For more flexibility consider using
+/// [`Custom`] or implementing your own [`Strategy`] in case it will be reused.
+/// See [`Adapter`] for more info.
 ///
+/// [`Custom`]: strategy::Custom
 /// [`Event`]: crate::es::Event
 /// [`Skip`]: strategy::Skip
 /// [`Split`]: strategy::Split
@@ -55,18 +74,4 @@ pub trait Transformer<Event, Ctx: ?Sized> {
     where
         'me: 'out,
         'ctx: 'out;
-}
-
-/// Instead of implementing [`Transformer`] manually, you can use this trait
-/// with some [`Strategy`].
-pub trait WithStrategy<Event, Ctx>
-where
-    Self: Sized,
-    Event: event::Versioned,
-    Ctx: ?Sized,
-{
-    /// [`Strategy`] to transform [`Event`] with.
-    ///
-    /// [`Event`]: crate::es::Event
-    type Strategy;
 }

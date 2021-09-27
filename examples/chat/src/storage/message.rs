@@ -1,14 +1,11 @@
 use std::convert::Infallible;
 
-use arcana::es::adapter::{
-    self,
-    transformer::{self, strategy},
-};
+use arcana::es::adapter::{self, strategy, WithStrategy};
 use futures::stream;
 
 use crate::event;
 
-impl adapter::WithError for Adapter {
+impl adapter::Returning for Adapter {
     type Error = Infallible;
     type Transformed = event::Message;
 }
@@ -16,43 +13,36 @@ impl adapter::WithError for Adapter {
 #[derive(Debug)]
 pub struct Adapter;
 
-impl<Ctx> transformer::WithStrategy<event::message::Posted, Ctx> for Adapter {
+impl WithStrategy<event::message::Posted> for Adapter {
     type Strategy = strategy::Initialized;
 }
 
-impl<Ctx> transformer::WithStrategy<event::chat::public::Created, Ctx>
-    for Adapter
-{
+impl WithStrategy<event::chat::public::Created> for Adapter {
     type Strategy = strategy::Custom;
 }
 
-impl<Ctx> transformer::WithStrategy<event::chat::private::Created, Ctx>
-    for Adapter
-{
+impl WithStrategy<event::chat::private::Created> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl<Ctx> transformer::WithStrategy<event::chat::v1::Created, Ctx> for Adapter {
+impl WithStrategy<event::chat::v1::Created> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl<Ctx> transformer::WithStrategy<event::email::v1::AddedAndConfirmed, Ctx>
-    for Adapter
-{
+impl WithStrategy<event::email::v1::AddedAndConfirmed> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl<Ctx> transformer::WithStrategy<event::email::Confirmed, Ctx> for Adapter {
+impl WithStrategy<event::email::Confirmed> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl<Ctx> transformer::WithStrategy<event::email::Added, Ctx> for Adapter {
+impl WithStrategy<event::email::Added> for Adapter {
     type Strategy = strategy::Skip;
 }
 
 // Basically same as Skip, but with additional Ctx bounds
-impl<Ctx> strategy::CustomTransformer<event::chat::public::Created, Ctx>
-    for Adapter
+impl<Ctx> strategy::Customize<event::chat::public::Created, Ctx> for Adapter
 where
     Ctx: From<i32>,
 {

@@ -7,17 +7,17 @@ mod storage;
 use std::array;
 
 use arcana::es::{event::Sourced, EventAdapter as _};
-use futures::{stream, Stream, TryStreamExt as _};
+use futures::{stream, Stream, StreamExt as _, TryStreamExt as _};
 
 #[allow(clippy::semicolon_if_nothing_returned)]
 #[tokio::main]
 async fn main() {
-    let mut chat = Option::<domain::Chat>::None;
-    let mut message = Option::<domain::Message>::None;
-    let mut email = Option::<domain::Email>::None;
+    let mut events = stream::repeat_with(incoming_events).flatten();
+    let events = events.by_ref();
 
+    let mut chat = Option::<domain::Chat>::None;
     let chat_events = storage::chat::Adapter
-        .transform_all(incoming_events(), &())
+        .transform_all(events.take(5), &())
         .inspect_ok(|ev| chat.apply(ev))
         .try_collect::<Vec<event::Chat>>()
         .await
@@ -33,8 +33,9 @@ async fn main() {
         }),
     );
 
+    let mut email = Option::<domain::Email>::None;
     let email_events = storage::email::Adapter
-        .transform_all(incoming_events(), &())
+        .transform_all(events.take(5), &())
         .inspect_ok(|ev| email.apply(ev))
         .try_collect::<Vec<event::Email>>()
         .await
@@ -50,8 +51,9 @@ async fn main() {
         })
     );
 
+    let mut message = Option::<domain::Message>::None;
     let message_events = storage::message::Adapter
-        .transform_all(incoming_events(), &1)
+        .transform_all(events.take(5), &1)
         .inspect_ok(|ev| message.apply(ev))
         .try_collect::<Vec<event::Message>>()
         .await

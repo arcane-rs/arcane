@@ -60,6 +60,8 @@ use proc_macro::TokenStream;
 /// # Example
 ///
 /// ```rust,compile_fail,E0080
+/// # #![feature(generic_associated_types)]
+/// #
 /// # use arcana::es::{event, Event};
 /// #
 /// #[derive(event::Versioned)]
@@ -80,6 +82,8 @@ use proc_macro::TokenStream;
 /// ```
 ///
 /// ```rust
+/// # #![feature(generic_associated_types)]
+/// #
 /// # use arcana::es::{event, Event};
 /// #
 /// # #[derive(event::Versioned)]

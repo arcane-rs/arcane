@@ -212,12 +212,6 @@ impl<Ev: Event + ?Sized, S: Initialized<Ev>> Sourced<Initial<Ev>>
     }
 }
 
-/// TODO
-pub trait Upcast: Sized {
-    /// TODO
-    type Into: From<Self>;
-}
-
 #[cfg(feature = "codegen")]
 pub mod codegen {
     //! [`Event`] machinery aiding codegen.

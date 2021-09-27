@@ -1,17 +1,14 @@
 use std::{array, convert::Infallible};
 
 use arcana::es::{
-    adapter::{
-        self,
-        transformer::{self, strategy},
-    },
+    adapter::{self, strategy, WithStrategy},
     event::Initial,
 };
 use either::Either;
 
 use crate::event;
 
-impl adapter::WithError for Adapter {
+impl adapter::Returning for Adapter {
     type Error = Infallible;
     type Transformed = event::Email;
 }
@@ -19,38 +16,32 @@ impl adapter::WithError for Adapter {
 #[derive(Clone, Copy, Debug)]
 pub struct Adapter;
 
-impl<Ctx> transformer::WithStrategy<event::email::Added, Ctx> for Adapter {
+impl WithStrategy<event::email::Added> for Adapter {
     type Strategy = strategy::Initialized;
 }
 
-impl<Ctx> transformer::WithStrategy<event::email::v1::AddedAndConfirmed, Ctx>
-    for Adapter
-{
+impl WithStrategy<event::email::v1::AddedAndConfirmed> for Adapter {
     type Strategy =
         strategy::Split<Either<event::email::Added, event::email::Confirmed>>;
 }
 
-impl<Ctx> transformer::WithStrategy<event::chat::public::Created, Ctx>
-    for Adapter
-{
+impl WithStrategy<event::chat::public::Created> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl<Ctx> transformer::WithStrategy<event::chat::private::Created, Ctx>
-    for Adapter
-{
+impl WithStrategy<event::chat::private::Created> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl<Ctx> transformer::WithStrategy<event::chat::v1::Created, Ctx> for Adapter {
+impl WithStrategy<event::chat::v1::Created> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl<Ctx> transformer::WithStrategy<event::message::Posted, Ctx> for Adapter {
+impl WithStrategy<event::message::Posted> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl<Ctx> transformer::WithStrategy<event::email::Confirmed, Ctx> for Adapter {
+impl WithStrategy<event::email::Confirmed> for Adapter {
     type Strategy = strategy::Skip;
 }
 

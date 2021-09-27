@@ -7,9 +7,6 @@ pub use self::transformer::Transformer;
 
 #[doc(inline)]
 pub use arcana_core::es::adapter::{
-    Adapter, TransformedStream, WithError, Wrapper,
+    strategy, Adapter, Returning, Strategy, TransformedStream, WithStrategy,
+    Wrapper,
 };
-
-#[cfg(feature = "derive")]
-#[doc(inline)]
-pub use arcana_core::es::adapter::codegen;

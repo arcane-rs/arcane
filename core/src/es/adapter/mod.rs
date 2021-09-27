@@ -13,28 +13,17 @@ use pin_project::pin_project;
 use ref_cast::RefCast;
 
 #[doc(inline)]
-pub use self::transformer::Transformer;
+pub use self::transformer::{strategy, Strategy, Transformer, WithStrategy};
 
-/// TODO
-pub trait WithError {
-    /// TODO
+/// Specifies result of [`Adapter`].
+pub trait Returning {
+    /// Error of this [`Adapter`].
     type Error;
 
-    /// TODO
+    /// Converted [`Event`].
+    ///
+    /// [`Event`]: crate::es::Event
     type Transformed;
-}
-
-/// TODO
-#[derive(Debug, RefCast)]
-#[repr(transparent)]
-pub struct Wrapper<A>(pub A);
-
-impl<A> WithError for Wrapper<A>
-where
-    A: WithError,
-{
-    type Error = A::Error;
-    type Transformed = A::Transformed;
 }
 
 /// Facility to convert [`Event`]s.
@@ -44,13 +33,106 @@ where
 /// - Transforming (ex: from one [`Version`] to another);
 /// - [`Split`]ting existing [`Event`]s into more granular ones.
 ///
-/// Provided with blanket impl for [`Transformer`] implementors, so usually you
-/// shouldn't implement it manually.
+/// Usually provided as blanket impl, so you shouldn't implement it manually.
+/// For that you'll need to implement [`Returning`] to specify transformation
+/// result and [`WithStrategy`] for every [`VersionedEvent`] which is part of
+/// transformed [`Event`]. And as long as [`Event`] is implemented via derive
+/// macro you should be good to go.
 ///
+/// # Example
+///
+/// ```rust
+/// # #![feature(generic_associated_types)]
+/// #
+/// # use std::convert::Infallible;
+/// #
+/// # use arcana::es::{
+/// #     adapter::{self, strategy},
+/// #     Event, EventAdapter as _, VersionedEvent,
+/// # };
+/// # use derive_more::From;
+/// # use futures::{stream, TryStreamExt as _};
+/// #
+/// #[derive(Clone, Copy, Debug, PartialEq, VersionedEvent)]
+/// #[event(name = "chat", version = 1)]
+/// struct ChatEvent;
+///
+/// #[derive(Clone, Copy, Debug, PartialEq, VersionedEvent)]
+/// #[event(name = "file", version = 2)]
+/// struct FileEvent;
+///
+/// // Some outdated Event.
+/// #[derive(Clone, Copy, Debug, PartialEq, VersionedEvent)]
+/// #[event(name = "file", version = 1)]
+/// struct FileEventV1;
+///
+/// // Repository-level Event, which is loaded from some Event Store and
+/// // includes legacy Events.
+/// #[derive(Clone, Copy, Debug, Event, PartialEq, From)]
+/// enum RepositoryEvent {
+///     FileV1(FileEventV1),
+///     File(FileEvent),
+///     Chat(ChatEvent),
+/// }
+///
+/// // Actual Event we want to transform RepositoryEvent into
+/// #[derive(Clone, Copy, Debug, Event, From, PartialEq)]
+/// enum FileDomainEvent {
+///     File(FileEvent),
+/// }
+///
+/// #[derive(Clone, Copy)]
+/// struct Adapter;
+///
+/// impl adapter::Returning for Adapter {
+///     type Error = Infallible;
+///     type Transformed = FileDomainEvent;
+/// }
+///
+/// impl adapter::WithStrategy<FileEvent> for Adapter {
+///     type Strategy = strategy::AsIs;
+/// }
+///
+/// impl adapter::WithStrategy<FileEventV1> for Adapter {
+///     type Strategy = strategy::Into<FileEvent>;
+/// }
+///
+/// impl adapter::WithStrategy<ChatEvent> for Adapter {
+///     type Strategy = strategy::Skip;
+/// }
+///
+/// # let assertion = async {
+/// let events = stream::iter::<[RepositoryEvent; 3]>([
+///     FileEventV1.into(),
+///     FileEvent.into(),
+///     ChatEvent.into(),
+/// ]);
+///
+/// let transformed = Adapter
+///     .transform_all(events, &())
+///     .try_collect::<Vec<_>>()
+///     .await
+///     .unwrap();
+///
+/// assert_eq!(transformed, vec![FileEvent.into(), FileEvent.into()]);
+/// # };
+/// #
+/// # futures::executor::block_on(assertion);
+/// #
+/// # impl From<FileEventV1> for FileEvent {
+/// #     fn from(_: FileEventV1) -> Self {
+/// #         Self
+/// #     }
+/// # }
+/// ```
+///
+/// [`Error`]: Self::Error
 /// [`Event`]: crate::es::Event
 /// [`Skip`]: transformer::strategy::Skip
 /// [`Split`]: transformer::strategy::Split
+/// [`Transformed`]: Self::Transformed
 /// [`Version`]: crate::es::event::Version
+/// [`VersionedEvent`]: crate::es::VersionedEvent
 pub trait Adapter<Events, Ctx: ?Sized> {
     /// Error of this [`Adapter`].
     type Error;
@@ -91,15 +173,15 @@ impl<A, Events, Ctx> Adapter<Events, Ctx> for A
 where
     Events: Stream,
     Ctx: 'static + ?Sized,
-    A: WithError,
+    A: Returning,
     Wrapper<A>: Transformer<Events::Item, Ctx> + 'static,
-    <A as WithError>::Transformed:
+    <A as Returning>::Transformed:
         From<<Wrapper<A> as Transformer<Events::Item, Ctx>>::Transformed>,
-    <A as WithError>::Error:
+    <A as Returning>::Error:
         From<<Wrapper<A> as Transformer<Events::Item, Ctx>>::Error>,
 {
-    type Error = <A as WithError>::Error;
-    type Transformed = <A as WithError>::Transformed;
+    type Error = <A as Returning>::Error;
+    type Transformed = <A as Returning>::Transformed;
     type TransformedStream<'out>
     where
         Events: 'out,
@@ -116,6 +198,22 @@ where
     {
         TransformedStream::new(RefCast::ref_cast(self), events, context)
     }
+}
+
+/// Wrapper type for [`Adapter`] to satisfy orphan rules on [`Event`] derive
+/// macro. Shouldn't be used manually.
+///
+/// [`Event`]: crate::es::Event
+#[derive(Debug, RefCast)]
+#[repr(transparent)]
+pub struct Wrapper<A>(pub A);
+
+impl<A> Returning for Wrapper<A>
+where
+    A: Returning,
+{
+    type Error = A::Error;
+    type Transformed = A::Transformed;
 }
 
 #[pin_project]
@@ -182,15 +280,15 @@ impl<'out, Adapter, Events, Ctx> Stream
 where
     Events: Stream,
     Ctx: ?Sized,
-    Adapter: Transformer<Events::Item, Ctx> + WithError,
-    <Adapter as WithError>::Transformed:
+    Adapter: Transformer<Events::Item, Ctx> + Returning,
+    <Adapter as Returning>::Transformed:
         From<<Adapter as Transformer<Events::Item, Ctx>>::Transformed>,
-    <Adapter as WithError>::Error:
+    <Adapter as Returning>::Error:
         From<<Adapter as Transformer<Events::Item, Ctx>>::Error>,
 {
     type Item = Result<
-        <Adapter as WithError>::Transformed,
-        <Adapter as WithError>::Error,
+        <Adapter as Returning>::Transformed,
+        <Adapter as Returning>::Error,
     >;
 
     fn poll_next(
@@ -218,13 +316,4 @@ where
             }
         }
     }
-}
-
-#[cfg(feature = "codegen")]
-pub mod codegen {
-    //! Re-exports for [`Transformer`] derive macro.
-    //!
-    //! [`Transformer`]: crate::es::adapter::Transformer
-
-    pub use futures;
 }
