@@ -2,7 +2,8 @@
 
 #[doc(inline)]
 pub use arcana_core::es::event::{
-    Event, Initial, Initialized, Name, Sourced, Sourcing, Version, Versioned,
+    Event, Initial, Initialized, Name, Raw, Sourced, Sourcing, Version,
+    Versioned, VersionedOrRaw,
 };
 
 #[cfg(feature = "derive")]

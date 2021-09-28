@@ -1,5 +1,5 @@
 use arcana::es::event;
 
-#[derive(Debug, event::Versioned)]
+#[derive(Debug, PartialEq, event::Versioned)]
 #[event(name = "message.posted", version = 1)]
 pub struct Posted;

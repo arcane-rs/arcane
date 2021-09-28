@@ -15,10 +15,7 @@ pub use strategy::Strategy;
 /// [`Event`]: crate::es::Event
 /// [`Returning`]: super::Returning
 /// [`VersionedEvent`]: crate::es::VersionedEvent
-pub trait WithStrategy<Event>
-where
-    Self: Sized,
-{
+pub trait WithStrategy<Event> {
     /// [`Strategy`] to transform [`Event`] with.
     ///
     /// [`Event`]: crate::es::Event
@@ -37,6 +34,7 @@ where
 /// [`Custom`] or implementing your own [`Strategy`] in case it will be reused.
 /// See [`Adapter`] for more info.
 ///
+/// [`Adapter`]: crate::es::Adapter
 /// [`Custom`]: strategy::Custom
 /// [`Event`]: crate::es::Event
 /// [`Skip`]: strategy::Skip

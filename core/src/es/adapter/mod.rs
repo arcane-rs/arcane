@@ -153,7 +153,9 @@ pub trait Adapter<Events, Ctx: ?Sized> {
             >,
         > + 'out
     where
-        Events: 'out;
+        Ctx: 'out,
+        Events: 'out,
+        Self: 'out;
 
     /// Converts all incoming [`Event`]s into [`Transformed`].
     ///
@@ -171,20 +173,21 @@ pub trait Adapter<Events, Ctx: ?Sized> {
 
 impl<A, Events, Ctx> Adapter<Events, Ctx> for A
 where
-    Events: Stream,
-    Ctx: 'static + ?Sized,
     A: Returning,
-    Wrapper<A>: Transformer<Events::Item, Ctx> + 'static,
-    <A as Returning>::Transformed:
+    Ctx: ?Sized,
+    Events: Stream,
+    Wrapper<A>: Transformer<Events::Item, Ctx>,
+    A::Transformed:
         From<<Wrapper<A> as Transformer<Events::Item, Ctx>>::Transformed>,
-    <A as Returning>::Error:
-        From<<Wrapper<A> as Transformer<Events::Item, Ctx>>::Error>,
+    A::Error: From<<Wrapper<A> as Transformer<Events::Item, Ctx>>::Error>,
 {
     type Error = <A as Returning>::Error;
     type Transformed = <A as Returning>::Transformed;
     type TransformedStream<'out>
     where
+        Ctx: 'out,
         Events: 'out,
+        Self: 'out,
     = TransformedStream<'out, Wrapper<A>, Events, Ctx>;
 
     fn transform_all<'me, 'ctx, 'out>(
@@ -220,9 +223,9 @@ where
 /// [`Stream`] for [`Adapter`] blanket impl.
 pub struct TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Events: Stream,
     Adapter: Transformer<Events::Item, Ctx>,
     Ctx: ?Sized,
+    Events: Stream,
 {
     #[pin]
     events: Events,
@@ -236,9 +239,9 @@ where
 impl<'out, Adapter, Events, Ctx> Debug
     for TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Events: Debug + Stream,
     Adapter: Debug + Transformer<Events::Item, Ctx>,
     Ctx: Debug + ?Sized,
+    Events: Debug + Stream,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TransformStream")
@@ -261,9 +264,9 @@ type AdapterTransformedStream<'out, Event, Adapter, Ctx> = future::Either<
 
 impl<'out, Adapter, Events, Ctx> TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Events: Stream,
     Adapter: Transformer<Events::Item, Ctx>,
     Ctx: ?Sized,
+    Events: Stream,
 {
     fn new(adapter: &'out Adapter, events: Events, context: &'out Ctx) -> Self {
         Self {
@@ -278,9 +281,9 @@ where
 impl<'out, Adapter, Events, Ctx> Stream
     for TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Events: Stream,
     Ctx: ?Sized,
     Adapter: Transformer<Events::Item, Ctx> + Returning,
+    Events: Stream,
     <Adapter as Returning>::Transformed:
         From<<Adapter as Transformer<Events::Item, Ctx>>::Transformed>,
     <Adapter as Returning>::Error:

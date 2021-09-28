@@ -17,7 +17,7 @@ where
     Adapter: adapter::Returning,
     Adapter::Error: 'static,
     Ctx: ?Sized,
-    Event: event::Versioned + 'static,
+    Event: event::VersionedOrRaw + 'static,
 {
     type Error = Adapter::Error;
     type Transformed = Event;

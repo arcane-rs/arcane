@@ -15,7 +15,7 @@ pub struct Skip;
 impl<Adapter, Event, Ctx> Strategy<Adapter, Event, Ctx> for Skip
 where
     Ctx: ?Sized,
-    Event: event::Versioned,
+    Event: event::VersionedOrRaw,
     Adapter: adapter::Returning,
     Adapter::Transformed: 'static,
     Adapter::Error: 'static,

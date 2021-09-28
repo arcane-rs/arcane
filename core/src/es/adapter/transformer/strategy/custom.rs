@@ -17,7 +17,7 @@ pub struct Custom;
 /// [`Transformed`]: Self::Transformed
 pub trait Customize<Event, Ctx>
 where
-    Event: event::Versioned,
+    Event: event::VersionedOrRaw,
     Ctx: ?Sized,
 {
     /// Error of this [`Strategy`].
@@ -56,7 +56,7 @@ where
 impl<Adapter, Event, Ctx> Strategy<Adapter, Event, Ctx> for Custom
 where
     Adapter: Customize<Event, Ctx>,
-    Event: event::Versioned,
+    Event: event::VersionedOrRaw,
 {
     type Error = Adapter::Error;
     type Transformed = Adapter::Transformed;

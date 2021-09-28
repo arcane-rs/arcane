@@ -1,15 +1,16 @@
-use std::{array, convert::Infallible};
+use std::{array, iter};
 
 use arcana::es::{
-    adapter::{self, strategy, WithStrategy},
+    adapter::{self, strategy, strategy::Splitter, WithStrategy},
     event::Initial,
 };
 use either::Either;
+use futures::{future, stream, StreamExt as _};
 
 use crate::event;
 
 impl adapter::Returning for Adapter {
-    type Error = Infallible;
+    type Error = serde_json::Error;
     type Transformed = event::Email;
 }
 
@@ -20,7 +21,7 @@ impl WithStrategy<event::email::Added> for Adapter {
     type Strategy = strategy::Initialized;
 }
 
-impl WithStrategy<event::email::v1::AddedAndConfirmed> for Adapter {
+impl WithStrategy<event::email::v2::AddedAndConfirmed> for Adapter {
     type Strategy =
         strategy::Split<Either<event::email::Added, event::email::Confirmed>>;
 }
@@ -46,8 +47,16 @@ impl WithStrategy<event::email::Confirmed> for Adapter {
 }
 
 impl
-    strategy::Splitter<
-        event::email::v1::AddedAndConfirmed,
+    WithStrategy<
+        event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
+    > for Adapter
+{
+    type Strategy = strategy::Custom;
+}
+
+impl
+    Splitter<
+        event::email::v2::AddedAndConfirmed,
         Either<event::email::Added, event::email::Confirmed>,
     > for Adapter
 {
@@ -55,7 +64,7 @@ impl
 
     fn split(
         &self,
-        event: event::email::v1::AddedAndConfirmed,
+        event: event::email::v2::AddedAndConfirmed,
     ) -> Self::Iterator {
         use either::{Left, Right};
 
@@ -76,6 +85,62 @@ impl
 type SplitEmail = Either<
     array::IntoIter<Either<event::email::Added, event::email::Confirmed>, 1>,
     array::IntoIter<Either<event::email::Added, event::email::Confirmed>, 2>,
+>;
+
+impl<Ctx>
+    strategy::Customize<
+        event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
+        Ctx,
+    > for Adapter
+{
+    type Error = serde_json::Error;
+    type Transformed = Either<event::email::Added, event::email::Confirmed>;
+    type TransformedStream<'out> = CustomizedStream;
+
+    fn transform<'me, 'ctx, 'out>(
+        &'me self,
+        event: event::Raw<
+            event::email::v2::AddedAndConfirmed,
+            serde_json::Value,
+        >,
+        _context: &'ctx Ctx,
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+    {
+        match serde_json::from_value::<event::email::v2::AddedAndConfirmed>(
+            event.data,
+        ) {
+            Ok(ev) => {
+                let ok: fn(_) -> _ = Ok;
+                stream::iter(Adapter.split(ev).map(ok)).left_stream()
+            }
+            Err(err) => stream::once(future::ready(Err(err))).right_stream(),
+        }
+    }
+}
+
+type CustomizedStream = future::Either<
+    stream::Iter<
+        iter::Map<
+            SplitEmail,
+            fn(
+                Either<event::email::Added, event::email::Confirmed>,
+            ) -> Result<
+                Either<event::email::Added, event::email::Confirmed>,
+                serde_json::Error,
+            >,
+        >,
+    >,
+    stream::Once<
+        future::Ready<
+            Result<
+                Either<event::email::Added, event::email::Confirmed>,
+                serde_json::Error,
+            >,
+        >,
+    >,
 >;
 
 impl From<Either<event::email::Added, event::email::Confirmed>>

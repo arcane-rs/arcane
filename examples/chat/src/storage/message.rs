@@ -29,7 +29,7 @@ impl WithStrategy<event::chat::v1::Created> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl WithStrategy<event::email::v1::AddedAndConfirmed> for Adapter {
+impl WithStrategy<event::email::v2::AddedAndConfirmed> for Adapter {
     type Strategy = strategy::Skip;
 }
 
@@ -38,6 +38,14 @@ impl WithStrategy<event::email::Confirmed> for Adapter {
 }
 
 impl WithStrategy<event::email::Added> for Adapter {
+    type Strategy = strategy::Skip;
+}
+
+impl
+    WithStrategy<
+        event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
+    > for Adapter
+{
     type Strategy = strategy::Skip;
 }
 

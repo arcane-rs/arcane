@@ -18,7 +18,7 @@ impl<Adapter, Event, IntoEvent, InnerStrategy, Ctx>
     Strategy<Adapter, Event, Ctx> for Into<IntoEvent, InnerStrategy>
 where
     Ctx: ?Sized,
-    Event: event::Versioned,
+    Event: event::VersionedOrRaw,
     InnerStrategy: Strategy<Adapter, Event, Ctx>,
     InnerStrategy::Transformed: 'static,
     InnerStrategy::Error: 'static,

@@ -28,7 +28,6 @@ pub use self::{
 /// [`Versioned`]: event::Versioned
 pub trait Strategy<Adapter, Event, Ctx>
 where
-    Event: event::Versioned,
     Ctx: ?Sized,
 {
     /// Error of this [`Strategy`].
@@ -67,12 +66,12 @@ where
 impl<Event, Adapter, Ctx> Transformer<Event, Ctx> for adapter::Wrapper<Adapter>
 where
     Ctx: ?Sized,
-    Event: event::Versioned,
+    Event: event::VersionedOrRaw,
     Adapter: WithStrategy<Event> + adapter::Returning,
     Adapter::Strategy: Strategy<Adapter, Event, Ctx>,
-    <Adapter as adapter::Returning>::Transformed:
+    Adapter::Transformed:
         From<<Adapter::Strategy as Strategy<Adapter, Event, Ctx>>::Transformed>,
-    <Adapter as adapter::Returning>::Error:
+    Adapter::Error:
         From<<Adapter::Strategy as Strategy<Adapter, Event, Ctx>>::Error>,
 {
     type Error = <Adapter::Strategy as Strategy<Adapter, Event, Ctx>>::Error;

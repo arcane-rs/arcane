@@ -33,12 +33,12 @@ pub trait Splitter<From, Into> {
 impl<Adapter, Event, IntoEvent, Ctx> Strategy<Adapter, Event, Ctx>
     for Split<IntoEvent>
 where
-    Ctx: ?Sized,
-    Event: event::Versioned,
-    IntoEvent: 'static,
     Adapter: Splitter<Event, IntoEvent> + adapter::Returning,
     Adapter::Iterator: 'static,
     Adapter::Error: 'static,
+    Ctx: ?Sized,
+    Event: event::VersionedOrRaw,
+    IntoEvent: 'static,
 {
     type Error = Adapter::Error;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
