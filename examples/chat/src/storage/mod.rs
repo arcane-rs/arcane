@@ -40,7 +40,7 @@ pub enum EmailEvent {
 mod spec {
     use std::array;
 
-    use arcana::es::{EventAdapter as _, EventSourced as _};
+    use arcana::es::{Adapter as _, EventSourced as _};
     use futures::{stream, Stream, TryStreamExt as _};
     use serde_json::json;
 

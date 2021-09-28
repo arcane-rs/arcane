@@ -198,7 +198,7 @@ impl Definition {
     }
 
     /// Generates code to derive [`event::Sourced`][0] trait, by simply matching
-    /// each enum variant, which is expected to have itself
+    /// each enum variant, which is expected to have itself an
     /// [`event::Sourced`][0] implementation.
     ///
     /// [0]: arcana_core::es::event::Sourced
@@ -208,6 +208,7 @@ impl Definition {
         let (_, ty_gens, _) = self.generics.split_for_impl();
         let turbofish_gens = ty_gens.as_turbofish();
 
+        let var = self.variants.iter().map(|v| &v.ident);
         let var_ty = self.variant_types();
 
         let mut ext_gens = self.generics.clone();
@@ -216,8 +217,6 @@ impl Definition {
             Self: #( ::arcana::es::event::Sourced<#var_ty> )+*
         });
         let (impl_gens, _, where_clause) = ext_gens.split_for_impl();
-
-        let var = self.variants.iter().map(|v| &v.ident);
 
         let unreachable_arm = self.has_ignored_variants.then(|| {
             quote! { _ => unreachable!(), }
@@ -230,9 +229,11 @@ impl Definition {
             {
                 fn apply(&mut self, event: &#ty#ty_gens) {
                     match event {
-                        #(#ty#turbofish_gens::#var(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
-                        },)*
+                        #(
+                            #ty#turbofish_gens::#var(f) => {
+                                ::arcana::es::event::Sourced::apply(self, f);
+                            },
+                        )*
                         #unreachable_arm
                     }
                 }
@@ -390,19 +391,27 @@ impl Definition {
             syn::Token![,],
         > = parse_quote! {
             __A: ::arcana::es::adapter::Returning,
-            Self: #( ::arcana::es::adapter::Transformer<#var_type, __Ctx> )+*,
+            Self: #(
+                ::arcana::es::adapter::Transformer<#var_type, __Ctx>
+            )+*,
             <__A as ::arcana::es::adapter::Returning>::Transformed:
-                #( ::std::convert::From<<Self as ::arcana::es::adapter::
-                        Transformer<#var_type, __Ctx>>::Transformed> +)*
-                'static,
+                'static
+                #(
+                    + ::std::convert::From<<Self as ::arcana::es::adapter::
+                        Transformer<#var_type, __Ctx>>::Transformed>
+                )*,
             <__A as ::arcana::es::adapter::Returning>::Error:
-                #( ::std::convert::From<<Self as ::arcana::es::adapter::
-                        Transformer<#var_type, __Ctx>>::Error> +)*
-                'static,
-            #( <Self as ::arcana::es::adapter::Transformer<#var_type, __Ctx>>::
+                'static
+                #(
+                    + ::std::convert::From<<Self as ::arcana::es::adapter::
+                        Transformer<#var_type, __Ctx>>::Error>
+                )*,
+            #(
+                <Self as ::arcana::es::adapter::Transformer<#var_type, __Ctx>>::
                     Transformed: 'static,
-               <Self as ::arcana::es::adapter::Transformer<#var_type, __Ctx>>::
-                    Error: 'static, )*
+                <Self as ::arcana::es::adapter::Transformer<#var_type, __Ctx>>::
+                    Error: 'static,
+            )*
         };
 
         generics.params.extend(additional_generic_params);
@@ -476,7 +485,7 @@ impl Definition {
     }
 
     /// Generates code for implementation of a [`Transformer::transform()`][0]
-    /// fn.
+    /// method.
     ///
     /// Generated code matches over every [`Event`]'s variant and makes it
     /// compatible with [`Definition::transformed_stream()`] type with
@@ -598,10 +607,10 @@ mod spec {
                 fn apply(&mut self, event: &Event) {
                     match event {
                         Event::File(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                         Event::Chat(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                     }
                 }
@@ -616,17 +625,17 @@ mod spec {
                     ::arcana::es::adapter::Transformer<FileEvent, __Ctx> +
                     ::arcana::es::adapter::Transformer<ChatEvent, __Ctx>,
                 <__A as ::arcana::es::adapter::Returning>::Transformed:
+                    'static +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent, __Ctx> >::Transformed> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
-                        Transformer<ChatEvent, __Ctx> >::Transformed> +
-                    'static,
+                        Transformer<ChatEvent, __Ctx> >::Transformed>,
                 <__A as ::arcana::es::adapter::Returning>::Error:
+                    'static +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent, __Ctx> >::Error> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
-                        Transformer<ChatEvent, __Ctx> >::Error> +
-                    'static,
+                        Transformer<ChatEvent, __Ctx> >::Error>,
                 <Self as ::arcana::es::adapter::
                     Transformer<FileEvent, __Ctx> >::Transformed: 'static,
                 <Self as ::arcana::es::adapter::
@@ -865,10 +874,10 @@ mod spec {
                 fn apply(&mut self, event: &Event<'a, F, C>) {
                     match event {
                         Event::<'a, F, C>::File(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                         Event::<'a, F, C>::Chat(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                     }
                 }
@@ -884,17 +893,17 @@ mod spec {
                    ::arcana::es::adapter::Transformer<FileEvent<'a, F>, __Ctx> +
                    ::arcana::es::adapter::Transformer<ChatEvent<'a, C>, __Ctx>,
                 <__A as ::arcana::es::adapter::Returning>::Transformed:
+                    'static +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent<'a, F>, __Ctx> >::Transformed> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
-                        Transformer<ChatEvent<'a, C>, __Ctx> >::Transformed> +
-                    'static,
+                        Transformer<ChatEvent<'a, C>, __Ctx> >::Transformed>,
                 <__A as ::arcana::es::adapter::Returning>::Error:
+                    'static +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent<'a, F>, __Ctx> >::Error> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
-                        Transformer<ChatEvent<'a, C>, __Ctx> >::Error> +
-                    'static,
+                        Transformer<ChatEvent<'a, C>, __Ctx> >::Error>,
                 <Self as ::arcana::es::adapter::
                     Transformer<FileEvent<'a, F>, __Ctx> >::Transformed:
                         'static,
@@ -1157,10 +1166,10 @@ mod spec {
                 fn apply(&mut self, event: &Event) {
                     match event {
                         Event::File(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                         Event::Chat(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f)
+                            ::arcana::es::event::Sourced::apply(self, f);
                         },
                         _ => unreachable!(),
                     }
@@ -1176,17 +1185,17 @@ mod spec {
                     ::arcana::es::adapter::Transformer<FileEvent, __Ctx> +
                     ::arcana::es::adapter::Transformer<ChatEvent, __Ctx>,
                 <__A as ::arcana::es::adapter::Returning>::Transformed:
+                    'static +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent, __Ctx> >::Transformed> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
-                        Transformer<ChatEvent, __Ctx> >::Transformed> +
-                    'static,
+                        Transformer<ChatEvent, __Ctx> >::Transformed>,
                 <__A as ::arcana::es::adapter::Returning>::Error:
+                    'static +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
                         Transformer<FileEvent, __Ctx> >::Error> +
                     ::std::convert::From< <Self as ::arcana::es::adapter::
-                        Transformer<ChatEvent, __Ctx> >::Error> +
-                    'static,
+                        Transformer<ChatEvent, __Ctx> >::Error>,
                 <Self as ::arcana::es::adapter::
                     Transformer<FileEvent, __Ctx> >::Transformed: 'static,
                 <Self as ::arcana::es::adapter::

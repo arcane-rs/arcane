@@ -10,10 +10,9 @@ use super::Strategy;
 #[derive(Clone, Copy, Debug)]
 pub struct Custom;
 
-/// Convert `Event` into [`Stream`] of [`Transformed`] [`Event`]s for [`Custom`]
+/// Convert `Event` into [`Stream`] of [`Transformed`] for [`Custom`]
 /// [`Strategy`].
 ///
-/// [`Event`]: event::Event
 /// [`Transformed`]: Self::Transformed
 pub trait Customize<Event, Ctx>
 where

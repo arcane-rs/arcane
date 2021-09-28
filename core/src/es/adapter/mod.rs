@@ -48,7 +48,7 @@ pub trait Returning {
 /// #
 /// # use arcana::es::{
 /// #     adapter::{self, strategy},
-/// #     Event, EventAdapter as _, VersionedEvent,
+/// #     Event, Adapter as _, VersionedEvent,
 /// # };
 /// # use derive_more::From;
 /// # use futures::{stream, TryStreamExt as _};
@@ -219,8 +219,8 @@ where
     type Transformed = A::Transformed;
 }
 
-#[pin_project]
 /// [`Stream`] for [`Adapter`] blanket impl.
+#[pin_project]
 pub struct TransformedStream<'out, Adapter, Events, Ctx>
 where
     Adapter: Transformer<Events::Item, Ctx>,
