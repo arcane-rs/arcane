@@ -18,7 +18,7 @@ codegen = ["sealed"] # only enables codegen glue
 es = []
 
 [dependencies]
-derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false }
+derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "from", "into"], default-features = false }
 futures = { version = "0.3", default-features = false }
 pin-project = "1.0"
 ref-cast = "1.0"
