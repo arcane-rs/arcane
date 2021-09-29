@@ -26,6 +26,14 @@ pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
 /// Helper attributes of `#[derive(Event)]` macro placed on an enum variant.
 #[derive(Debug, Default, ParseAttrs)]
 pub struct VariantAttrs {
+    /// Indicator whether this enum variant should be used as
+    /// [`event::Initialized`] rather than [`event::Sourced`].
+    ///
+    /// [`event::Initialized`]: arcana_core::es::event::Initialized
+    /// [`event::Sourced`]: arcana_core::es::event::Sourced
+    #[parse(ident, alias = initial)]
+    pub init: Option<syn::Ident>,
+
     /// Indicator whether to ignore this enum variant for code generation.
     #[parse(ident, alias = skip)]
     pub ignore: Option<syn::Ident>,
@@ -44,11 +52,14 @@ pub struct Definition {
     pub generics: syn::Generics,
 
     /// Single-[`Field`] [`Variant`]s of this enum to consider in code
-    /// generation.
+    /// generation, along with the indicator whether this variant should use
+    /// [`event::Initialized`] rather than [`event::Sourced`].
     ///
+    /// [`event::Initialized`]: arcana_core::es::event::Initialized
+    /// [`event::Sourced`]: arcana_core::es::event::Sourced
     /// [`Field`]: syn::Field
     /// [`Variant`]: syn::Variant
-    pub variants: Vec<syn::Variant>,
+    pub variants: Vec<(syn::Variant, bool)>,
 
     /// Indicator whether this enum has any variants marked with
     /// `#[event(ignore)]` attribute.
@@ -98,12 +109,25 @@ impl Definition {
     /// # Errors
     ///
     /// - If [`VariantAttrs`] failed to parse.
+    /// - If [`VariantAttrs::init`] and [`VariantAttrs::ignore`] were specified
+    ///   simultaneously.
     /// - If [`syn::Variant`] doesn't have exactly one unnamed 1 [`syn::Field`]
     ///   and is not ignored.
     fn parse_variant(
         variant: &syn::Variant,
-    ) -> syn::Result<Option<syn::Variant>> {
+    ) -> syn::Result<Option<(syn::Variant, bool)>> {
         let attrs = VariantAttrs::parse_attrs("event", variant)?;
+
+        if let Some(init) = &attrs.init {
+            if attrs.ignore.is_some() {
+                return Err(syn::Error::new(
+                    init.span(),
+                    "`init` and `ignore`/`skip` arguments are mutually \
+                     exclusive",
+                ));
+            }
+        }
+
         if attrs.ignore.is_some() {
             return Ok(None);
         }
@@ -121,7 +145,7 @@ impl Definition {
             ));
         }
 
-        Ok(Some(variant.clone()))
+        Ok(Some((variant.clone(), attrs.init.is_some())))
     }
 
     /// Substitutes the given [`syn::Generics`] with trivial types.
@@ -150,7 +174,7 @@ impl Definition {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let var = self.variants.iter().map(|v| &v.ident).collect::<Vec<_>>();
+        let var = self.variants.iter().map(|v| &v.0.ident).collect::<Vec<_>>();
 
         let unreachable_arm = self.has_ignored_variants.then(|| {
             quote! { _ => unreachable!(), }
@@ -162,9 +186,7 @@ impl Definition {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
                         #(
-                            Self::#var(f) => ::arcana::es::Event::name(
-                                ::arcana::es::event::codegen::Borrow::borrow(f),
-                            ),
+                            Self::#var(f) => ::arcana::es::Event::name(f),
                         )*
                         #unreachable_arm
                     }
@@ -173,9 +195,7 @@ impl Definition {
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
                         #(
-                            Self::#var(f) => ::arcana::es::Event::version(
-                                ::arcana::es::event::codegen::Borrow::borrow(f),
-                            ),
+                            Self::#var(f) => ::arcana::es::Event::version(f),
                         )*
                         #unreachable_arm
                     }
@@ -195,9 +215,14 @@ impl Definition {
         let (_, ty_gens, _) = self.generics.split_for_impl();
         let turbofish_gens = ty_gens.as_turbofish();
 
-        let var = self.variants.iter().map(|v| &v.ident);
-        let var_ty =
-            self.variants.iter().flat_map(|v| &v.fields).map(|f| &f.ty);
+        let var_ty = self.variants.iter().map(|(v, is_initial)| {
+            let var_ty = v.fields.iter().next().map(|f| &f.ty);
+            if *is_initial {
+                quote! { ::arcana::es::event::Initial<#var_ty> }
+            } else {
+                quote! { #var_ty }
+            }
+        });
 
         let mut ext_gens = self.generics.clone();
         ext_gens.params.push(parse_quote! { __S });
@@ -206,6 +231,24 @@ impl Definition {
         });
         let (impl_gens, _, where_clause) = ext_gens.split_for_impl();
 
+        let arms = self.variants.iter().map(|(v, is_initial)| {
+            let var = &v.ident;
+            let var_ty = v.fields.iter().next().map(|f| &f.ty);
+
+            let event = if *is_initial {
+                quote! {
+                    <::arcana::es::event::Initial<#var_ty>
+                     as ::arcana::RefCast>::ref_cast(f)
+                }
+            } else {
+                quote! { f }
+            };
+            quote! {
+                #ty#turbofish_gens::#var(f) => {
+                    ::arcana::es::event::Sourced::apply(self, #event);
+                },
+            }
+        });
         let unreachable_arm = self.has_ignored_variants.then(|| {
             quote! { _ => unreachable!(), }
         });
@@ -217,11 +260,7 @@ impl Definition {
             {
                 fn apply(&mut self, event: &#ty#ty_gens) {
                     match event {
-                        #(
-                            #ty#turbofish_gens::#var(f) => {
-                                ::arcana::es::event::Sourced::apply(self, f);
-                            },
-                        )*
+                        #( #arms )*
                         #unreachable_arm
                     }
                 }
@@ -250,7 +289,7 @@ impl Definition {
         let var_ty = self
             .variants
             .iter()
-            .flat_map(|v| &v.fields)
+            .flat_map(|v| &v.0.fields)
             .map(|f| &f.ty)
             .collect::<Vec<_>>();
 
@@ -285,9 +324,7 @@ impl Definition {
 
                     let mut i = 0;
                     #({
-                        let events = <
-                            <#var_ty as #glue::Unpacked>::Type
-                        >::__arcana_events();
+                        let events = <#var_ty>::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -320,6 +357,7 @@ mod spec {
     fn derives_enum_impl() {
         let input = parse_quote! {
             enum Event {
+                #[event(init)]
                 File(FileEvent),
                 Chat(ChatEvent),
             }
@@ -330,23 +368,15 @@ mod spec {
             impl ::arcana::es::Event for Event {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
-                        Self::Chat(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
+                        Self::File(f) => ::arcana::es::Event::name(f),
+                        Self::Chat(f) => ::arcana::es::Event::name(f),
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
-                        Self::Chat(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
+                        Self::File(f) => ::arcana::es::Event::version(f),
+                        Self::Chat(f) => ::arcana::es::Event::version(f),
                     }
                 }
             }
@@ -354,13 +384,19 @@ mod spec {
             #[automatically_derived]
             impl<__S> ::arcana::es::event::Sourced<Event> for Option<__S>
             where
-                Self: ::arcana::es::event::Sourced<FileEvent> +
+                Self: ::arcana::es::event::Sourced<
+                          ::arcana::es::event::Initial<FileEvent>
+                      > +
                       ::arcana::es::event::Sourced<ChatEvent>
             {
                 fn apply(&mut self, event: &Event) {
                     match event {
                         Event::File(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f);
+                            ::arcana::es::event::Sourced::apply(
+                                self,
+                                <::arcana::es::event::Initial<FileEvent>
+                                 as ::arcana::RefCast>::ref_cast(f)
+                            );
                         },
                         Event::Chat(f) => {
                             ::arcana::es::event::Sourced::apply(self, f);
@@ -395,10 +431,7 @@ mod spec {
 
                     let mut i = 0;
                     {
-                        let events = <
-                            <FileEvent
-                             as ::arcana::es::event::codegen::Unpacked>::Type
-                        >::__arcana_events();
+                        let events = <FileEvent>::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -407,10 +440,7 @@ mod spec {
                         }
                     }
                     {
-                        let events = <
-                            <ChatEvent
-                             as ::arcana::es::event::codegen::Unpacked>::Type
-                        >::__arcana_events();
+                        let events = <ChatEvent>::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -443,6 +473,7 @@ mod spec {
     fn derives_enum_with_generics_impl() {
         let input = parse_quote! {
             enum Event<'a, F, C> {
+                #[event(init)]
                 File(FileEvent<'a, F>),
                 Chat(ChatEvent<'a, C>),
             }
@@ -453,23 +484,15 @@ mod spec {
             impl<'a, F, C> ::arcana::es::Event for Event<'a, F, C> {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
-                        Self::Chat(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
+                        Self::File(f) => ::arcana::es::Event::name(f),
+                        Self::Chat(f) => ::arcana::es::Event::name(f),
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
-                        Self::Chat(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
+                        Self::File(f) => ::arcana::es::Event::version(f),
+                        Self::Chat(f) => ::arcana::es::Event::version(f),
                     }
                 }
             }
@@ -478,13 +501,19 @@ mod spec {
             impl<'a, F, C, __S> ::arcana::es::event::Sourced<Event<'a, F, C> >
                 for Option<__S>
             where
-                Self: ::arcana::es::event::Sourced<FileEvent<'a, F> > +
+                Self: ::arcana::es::event::Sourced<
+                          ::arcana::es::event::Initial<FileEvent<'a, F> >
+                      > +
                       ::arcana::es::event::Sourced<ChatEvent<'a, C> >
             {
                 fn apply(&mut self, event: &Event<'a, F, C>) {
                     match event {
                         Event::<'a, F, C>::File(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f);
+                            ::arcana::es::event::Sourced::apply(
+                                self,
+                                <::arcana::es::event::Initial<FileEvent<'a, F> >
+                                 as ::arcana::RefCast>::ref_cast(f)
+                            );
                         },
                         Event::<'a, F, C>::Chat(f) => {
                             ::arcana::es::event::Sourced::apply(self, f);
@@ -521,10 +550,7 @@ mod spec {
 
                     let mut i = 0;
                     {
-                        let events = <
-                            <FileEvent<'a, F>
-                             as ::arcana::es::event::codegen::Unpacked>::Type
-                        >::__arcana_events();
+                        let events = <FileEvent<'a, F> >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -533,10 +559,7 @@ mod spec {
                         }
                     }
                     {
-                        let events = <
-                            <ChatEvent<'a, C>
-                             as ::arcana::es::event::codegen::Unpacked>::Type
-                        >::__arcana_events();
+                        let events = <ChatEvent<'a, C> >::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -589,24 +612,16 @@ mod spec {
             impl ::arcana::es::Event for Event {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
-                        Self::Chat(f) => ::arcana::es::Event::name(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
+                        Self::File(f) => ::arcana::es::Event::name(f),
+                        Self::Chat(f) => ::arcana::es::Event::name(f),
                         _ => unreachable!(),
                     }
                 }
 
                 fn version(&self) -> ::arcana::es::event::Version {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
-                        Self::Chat(f) => ::arcana::es::Event::version(
-                            ::arcana::es::event::codegen::Borrow::borrow(f),
-                        ),
+                        Self::File(f) => ::arcana::es::Event::version(f),
+                        Self::Chat(f) => ::arcana::es::Event::version(f),
                         _ => unreachable!(),
                     }
                 }
@@ -657,10 +672,7 @@ mod spec {
 
                     let mut i = 0;
                     {
-                        let events = <
-                            <FileEvent
-                             as ::arcana::es::event::codegen::Unpacked>::Type
-                        >::__arcana_events();
+                        let events = <FileEvent>::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -669,10 +681,7 @@ mod spec {
                         }
                     }
                     {
-                        let events = <
-                            <ChatEvent
-                             as ::arcana::es::event::codegen::Unpacked>::Type
-                        >::__arcana_events();
+                        let events = <ChatEvent>::__arcana_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -761,6 +770,23 @@ mod spec {
         assert_eq!(
             err.to_string(),
             "enum must have at least one non-ignored variant",
+        );
+    }
+
+    #[test]
+    fn errors_on_both_init_and_ignored_variant() {
+        let input = parse_quote! {
+            enum Event {
+                #[event(init, ignore)]
+                Event1(Event1),
+            }
+        };
+
+        let err = super::derive(input).unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            "`init` and `ignore`/`skip` arguments are mutually exclusive",
         );
     }
 }
