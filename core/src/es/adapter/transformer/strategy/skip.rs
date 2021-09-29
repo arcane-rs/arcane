@@ -12,28 +12,24 @@ use super::Strategy;
 #[derive(Clone, Copy, Debug)]
 pub struct Skip;
 
-impl<Adapter, Event, Ctx> Strategy<Adapter, Event, Ctx> for Skip
+impl<Adapter, Event> Strategy<Adapter, Event> for Skip
 where
-    Ctx: ?Sized,
     Event: event::VersionedOrRaw,
     Adapter: adapter::Returning,
     Adapter::Transformed: 'static,
     Adapter::Error: 'static,
 {
+    type Context = ();
     type Error = Adapter::Error;
     type Transformed = Adapter::Transformed;
-    type TransformedStream<'out> =
+    type TransformedStream<'o> =
         stream::Empty<Result<Self::Transformed, Self::Error>>;
 
-    fn transform<'me, 'ctx, 'out>(
-        _: &'me Adapter,
+    fn transform<'me: 'out, 'ctx: 'out, 'out>(
+        _: &Adapter,
         _: Event,
-        _: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>
-    where
-        'me: 'out,
-        'ctx: 'out,
-    {
+        _: &Self::Context,
+    ) -> Self::TransformedStream<'out> {
         stream::empty()
     }
 }

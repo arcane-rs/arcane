@@ -14,16 +14,16 @@ use super::{AsIs, Strategy};
 #[derive(Copy, Clone, Debug)]
 pub struct Into<I, InnerStrategy = AsIs>(PhantomData<(I, InnerStrategy)>);
 
-impl<Adapter, Event, IntoEvent, InnerStrategy, Ctx>
-    Strategy<Adapter, Event, Ctx> for Into<IntoEvent, InnerStrategy>
+impl<Adapter, Event, IntoEvent, InnerStrategy> Strategy<Adapter, Event>
+    for Into<IntoEvent, InnerStrategy>
 where
-    Ctx: ?Sized,
     Event: event::VersionedOrRaw,
-    InnerStrategy: Strategy<Adapter, Event, Ctx>,
+    InnerStrategy: Strategy<Adapter, Event>,
     InnerStrategy::Transformed: 'static,
     InnerStrategy::Error: 'static,
     IntoEvent: From<InnerStrategy::Transformed> + 'static,
 {
+    type Context = InnerStrategy::Context;
     type Error = InnerStrategy::Error;
     type Transformed = IntoEvent;
     type TransformedStream<'out> = stream::MapOk<
@@ -31,15 +31,11 @@ where
         IntoFn<InnerStrategy::Transformed, IntoEvent>,
     >;
 
-    fn transform<'me, 'ctx, 'out>(
+    fn transform<'me: 'out, 'ctx: 'out, 'out>(
         adapter: &'me Adapter,
         event: Event,
-        ctx: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>
-    where
-        'me: 'out,
-        'ctx: 'out,
-    {
+        ctx: &'ctx Self::Context,
+    ) -> Self::TransformedStream<'out> {
         InnerStrategy::transform(adapter, event, ctx).map_ok(IntoEvent::from)
     }
 }

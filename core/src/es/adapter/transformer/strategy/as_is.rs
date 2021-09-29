@@ -12,27 +12,23 @@ use super::Strategy;
 #[derive(Clone, Copy, Debug)]
 pub struct AsIs;
 
-impl<Adapter, Event, Ctx> Strategy<Adapter, Event, Ctx> for AsIs
+impl<Adapter, Event> Strategy<Adapter, Event> for AsIs
 where
     Adapter: adapter::Returning,
     Adapter::Error: 'static,
-    Ctx: ?Sized,
     Event: event::VersionedOrRaw + 'static,
 {
+    type Context = ();
     type Error = Adapter::Error;
     type Transformed = Event;
-    type TransformedStream<'out> =
+    type TransformedStream<'o> =
         stream::Once<future::Ready<Result<Self::Transformed, Self::Error>>>;
 
-    fn transform<'me, 'ctx, 'out>(
-        _: &'me Adapter,
+    fn transform<'me: 'out, 'ctx: 'out, 'out>(
+        _: &Adapter,
         event: Event,
-        _: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>
-    where
-        'me: 'out,
-        'ctx: 'out,
-    {
+        _: &Self::Context,
+    ) -> Self::TransformedStream<'out> {
         stream::once(future::ready(Ok(event)))
     }
 }

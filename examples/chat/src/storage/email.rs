@@ -1,7 +1,7 @@
 use std::{array, iter};
 
 use arcana::es::{
-    adapter::{self, strategy, strategy::Splitter, WithStrategy},
+    adapter::{self, strategy, strategy::Splitter, Adapt},
     event::Initial,
 };
 use either::Either;
@@ -17,37 +17,37 @@ impl adapter::Returning for Adapter {
 #[derive(Clone, Copy, Debug)]
 pub struct Adapter;
 
-impl WithStrategy<event::email::Added> for Adapter {
+impl Adapt<event::email::Added> for Adapter {
     type Strategy = strategy::Initialized;
 }
 
-impl WithStrategy<event::email::v2::AddedAndConfirmed> for Adapter {
+impl Adapt<event::email::v2::AddedAndConfirmed> for Adapter {
     type Strategy =
         strategy::Split<Either<event::email::Added, event::email::Confirmed>>;
 }
 
-impl WithStrategy<event::chat::public::Created> for Adapter {
+impl Adapt<event::chat::public::Created> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl WithStrategy<event::chat::private::Created> for Adapter {
+impl Adapt<event::chat::private::Created> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl WithStrategy<event::chat::v1::Created> for Adapter {
+impl Adapt<event::chat::v1::Created> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl WithStrategy<event::message::Posted> for Adapter {
+impl Adapt<event::message::Posted> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl WithStrategy<event::email::Confirmed> for Adapter {
+impl Adapt<event::email::Confirmed> for Adapter {
     type Strategy = strategy::Skip;
 }
 
 impl
-    WithStrategy<
+    Adapt<
         event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
     > for Adapter
 {

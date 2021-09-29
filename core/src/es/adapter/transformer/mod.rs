@@ -15,7 +15,7 @@ pub use strategy::Strategy;
 /// [`Event`]: crate::es::Event
 /// [`Returning`]: super::Returning
 /// [`VersionedEvent`]: crate::es::VersionedEvent
-pub trait WithStrategy<Event> {
+pub trait Adapt<Event> {
     /// [`Strategy`] to transform [`Event`] with.
     ///
     /// [`Event`]: crate::es::Event
@@ -40,7 +40,7 @@ pub trait WithStrategy<Event> {
 /// [`Skip`]: strategy::Skip
 /// [`Split`]: strategy::Split
 /// [`Version`]: crate::es::event::Version
-pub trait Transformer<Event, Ctx: ?Sized> {
+pub trait Transformer<'ctx, Event, Ctx: ?Sized> {
     /// Error of this [`Transformer`].
     type Error;
 
@@ -55,8 +55,8 @@ pub trait Transformer<Event, Ctx: ?Sized> {
     /// [`Transformed`]: Self::Transformed
     type TransformedStream<'out>: Stream<
             Item = Result<
-                <Self as Transformer<Event, Ctx>>::Transformed,
-                <Self as Transformer<Event, Ctx>>::Error,
+                <Self as Transformer<'ctx, Event, Ctx>>::Transformed,
+                <Self as Transformer<'ctx, Event, Ctx>>::Error,
             >,
         > + 'out;
 
@@ -64,7 +64,7 @@ pub trait Transformer<Event, Ctx: ?Sized> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    fn transform<'me, 'ctx, 'out>(
+    fn transform<'me, 'out>(
         &'me self,
         event: Event,
         context: &'ctx Ctx,

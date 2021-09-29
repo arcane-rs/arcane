@@ -14,11 +14,9 @@ pub struct Custom;
 /// [`Strategy`].
 ///
 /// [`Transformed`]: Self::Transformed
-pub trait Customize<Event, Ctx>
-where
-    Event: event::VersionedOrRaw,
-    Ctx: ?Sized,
-{
+pub trait Customize<Event: event::VersionedOrRaw> {
+    type Context: ?Sized;
+
     /// Error of this [`Strategy`].
     type Error;
 
@@ -33,8 +31,8 @@ where
     /// [`Transformed`]: Self::Transformed
     type TransformedStream<'out>: Stream<
             Item = Result<
-                <Self as Customize<Event, Ctx>>::Transformed,
-                <Self as Customize<Event, Ctx>>::Error,
+                <Self as Customize<Event>>::Transformed,
+                <Self as Customize<Event>>::Error,
             >,
         > + 'out;
 
@@ -42,34 +40,28 @@ where
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    fn transform<'me, 'ctx, 'out>(
+    fn transform<'me: 'out, 'ctx: 'out, 'out>(
         &'me self,
         event: Event,
-        context: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>
-    where
-        'me: 'out,
-        'ctx: 'out;
+        context: &'ctx Self::Context,
+    ) -> Self::TransformedStream<'out>;
 }
 
-impl<Adapter, Event, Ctx> Strategy<Adapter, Event, Ctx> for Custom
+impl<Adapter, Event> Strategy<Adapter, Event> for Custom
 where
-    Adapter: Customize<Event, Ctx>,
+    Adapter: Customize<Event>,
     Event: event::VersionedOrRaw,
 {
+    type Context = <Adapter as Customize<Event>>::Context;
     type Error = Adapter::Error;
     type Transformed = Adapter::Transformed;
     type TransformedStream<'out> = Adapter::TransformedStream<'out>;
 
-    fn transform<'me, 'ctx, 'out>(
+    fn transform<'me: 'out, 'ctx: 'out, 'out>(
         adapter: &'me Adapter,
         event: Event,
-        context: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>
-    where
-        'me: 'out,
-        'ctx: 'out,
-    {
+        context: &'ctx Self::Context,
+    ) -> Self::TransformedStream<'out> {
         Adapter::transform(adapter, event, context)
     }
 }

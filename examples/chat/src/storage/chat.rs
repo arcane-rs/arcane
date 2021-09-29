@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use arcana::es::adapter::{self, strategy, WithStrategy};
+use arcana::es::adapter::{self, strategy, Adapt};
 
 use crate::event;
 
@@ -12,39 +12,37 @@ impl adapter::Returning for Adapter {
 #[derive(Clone, Copy, Debug)]
 pub struct Adapter;
 
-impl WithStrategy<event::chat::public::Created> for Adapter {
+impl Adapt<event::chat::public::Created> for Adapter {
     type Strategy = strategy::Initialized;
 }
 
-impl WithStrategy<event::chat::private::Created> for Adapter {
+impl Adapt<event::chat::private::Created> for Adapter {
     type Strategy = strategy::Initialized;
 }
 
-impl WithStrategy<event::chat::v1::Created> for Adapter {
+impl Adapt<event::chat::v1::Created> for Adapter {
     type Strategy =
         strategy::Initialized<strategy::Into<event::chat::private::Created>>;
 }
 
-impl WithStrategy<event::message::Posted> for Adapter {
+impl Adapt<event::message::Posted> for Adapter {
     type Strategy = strategy::AsIs;
 }
 
-impl WithStrategy<event::email::v2::AddedAndConfirmed> for Adapter {
+impl Adapt<event::email::v2::AddedAndConfirmed> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl WithStrategy<event::email::Confirmed> for Adapter {
+impl Adapt<event::email::Confirmed> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl WithStrategy<event::email::Added> for Adapter {
+impl Adapt<event::email::Added> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl
-    WithStrategy<
-        event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
-    > for Adapter
+impl Adapt<event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>>
+    for Adapter
 {
     type Strategy = strategy::Skip;
 }

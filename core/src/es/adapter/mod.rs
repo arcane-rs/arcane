@@ -13,7 +13,7 @@ use pin_project::pin_project;
 use ref_cast::RefCast;
 
 #[doc(inline)]
-pub use self::transformer::{strategy, Strategy, Transformer, WithStrategy};
+pub use self::transformer::{strategy, Strategy, Transformer, Adapt};
 
 /// Specifies result of [`Adapter`].
 pub trait Returning {
@@ -89,15 +89,15 @@ pub trait Returning {
 ///     type Transformed = FileDomainEvent;
 /// }
 ///
-/// impl adapter::WithStrategy<FileEvent> for Adapter {
+/// impl adapter::Adapt<FileEvent> for Adapter {
 ///     type Strategy = strategy::AsIs;
 /// }
 ///
-/// impl adapter::WithStrategy<FileEventV1> for Adapter {
+/// impl adapter::Adapt<FileEventV1> for Adapter {
 ///     type Strategy = strategy::Into<FileEvent>;
 /// }
 ///
-/// impl adapter::WithStrategy<ChatEvent> for Adapter {
+/// impl adapter::Adapt<ChatEvent> for Adapter {
 ///     type Strategy = strategy::Skip;
 /// }
 ///
@@ -176,10 +176,12 @@ where
     A: Returning,
     Ctx: ?Sized,
     Events: Stream,
-    Wrapper<A>: Transformer<Events::Item, Ctx>,
-    A::Transformed:
-        From<<Wrapper<A> as Transformer<Events::Item, Ctx>>::Transformed>,
-    A::Error: From<<Wrapper<A> as Transformer<Events::Item, Ctx>>::Error>,
+    Wrapper<A>: for<'c> Transformer<'c, Events::Item, Ctx>,
+    A::Transformed: for<'c> From<
+        <Wrapper<A> as Transformer<'c, Events::Item, Ctx>>::Transformed,
+    >,
+    A::Error:
+        for<'c> From<<Wrapper<A> as Transformer<'c, Events::Item, Ctx>>::Error>,
 {
     type Error = <A as Returning>::Error;
     type Transformed = <A as Returning>::Transformed;
@@ -223,7 +225,7 @@ where
 #[pin_project]
 pub struct TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Adapter: Transformer<Events::Item, Ctx>,
+    Adapter: Transformer<'out, Events::Item, Ctx>,
     Ctx: ?Sized,
     Events: Stream,
 {
@@ -239,7 +241,7 @@ where
 impl<'out, Adapter, Events, Ctx> Debug
     for TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Adapter: Debug + Transformer<Events::Item, Ctx>,
+    Adapter: Debug + Transformer<'out, Events::Item, Ctx>,
     Ctx: Debug + ?Sized,
     Events: Debug + Stream,
 {
@@ -253,18 +255,18 @@ where
 }
 
 type AdapterTransformedStream<'out, Event, Adapter, Ctx> = future::Either<
-    <Adapter as Transformer<Event, Ctx>>::TransformedStream<'out>,
+    <Adapter as Transformer<'out, Event, Ctx>>::TransformedStream<'out>,
     stream::Empty<
         Result<
-            <Adapter as Transformer<Event, Ctx>>::Transformed,
-            <Adapter as Transformer<Event, Ctx>>::Error,
+            <Adapter as Transformer<'out, Event, Ctx>>::Transformed,
+            <Adapter as Transformer<'out, Event, Ctx>>::Error,
         >,
     >,
 >;
 
 impl<'out, Adapter, Events, Ctx> TransformedStream<'out, Adapter, Events, Ctx>
 where
-    Adapter: Transformer<Events::Item, Ctx>,
+    Adapter: for<'c> Transformer<'c, Events::Item, Ctx>,
     Ctx: ?Sized,
     Events: Stream,
 {
@@ -282,12 +284,12 @@ impl<'out, Adapter, Events, Ctx> Stream
     for TransformedStream<'out, Adapter, Events, Ctx>
 where
     Ctx: ?Sized,
-    Adapter: Transformer<Events::Item, Ctx> + Returning,
+    Adapter: Transformer<'out, Events::Item, Ctx> + Returning,
     Events: Stream,
     <Adapter as Returning>::Transformed:
-        From<<Adapter as Transformer<Events::Item, Ctx>>::Transformed>,
+        From<<Adapter as Transformer<'out, Events::Item, Ctx>>::Transformed>,
     <Adapter as Returning>::Error:
-        From<<Adapter as Transformer<Events::Item, Ctx>>::Error>,
+        From<<Adapter as Transformer<'out, Events::Item, Ctx>>::Error>,
 {
     type Item = Result<
         <Adapter as Returning>::Transformed,

@@ -30,29 +30,24 @@ pub trait Splitter<From, Into> {
     fn split(&self, event: From) -> Self::Iterator;
 }
 
-impl<Adapter, Event, IntoEvent, Ctx> Strategy<Adapter, Event, Ctx>
-    for Split<IntoEvent>
+impl<Adapter, Event, IntoEvent> Strategy<Adapter, Event> for Split<IntoEvent>
 where
     Adapter: Splitter<Event, IntoEvent> + adapter::Returning,
     Adapter::Iterator: 'static,
     Adapter::Error: 'static,
-    Ctx: ?Sized,
     Event: event::VersionedOrRaw,
     IntoEvent: 'static,
 {
+    type Context = ();
     type Error = Adapter::Error;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
-    type TransformedStream<'out> = SplitStream<Adapter, Event, IntoEvent>;
+    type TransformedStream<'o> = SplitStream<Adapter, Event, IntoEvent>;
 
-    fn transform<'me, 'ctx, 'out>(
-        adapter: &'me Adapter,
+    fn transform<'me: 'out, 'ctx: 'out, 'out>(
+        adapter: &Adapter,
         event: Event,
-        _: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>
-    where
-        'me: 'out,
-        'ctx: 'out,
-    {
+        _: &Self::Context,
+    ) -> Self::TransformedStream<'out> {
         stream::iter(adapter.split(event)).map(Ok)
     }
 }
