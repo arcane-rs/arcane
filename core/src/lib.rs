@@ -24,3 +24,5 @@
 
 #[cfg(feature = "es")]
 pub mod es;
+
+pub use ref_cast::RefCast;

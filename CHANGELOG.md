@@ -18,8 +18,8 @@ All user visible changes to this project will be documented in this file. This p
     - `EventSourced`
     - `EventInitialised`
   - Structs
-    - `InitialEvent` wrapper
     - `EventVersion`
+    - `event::Initial` specialization wrapper
   - Proc macros
     - `Event` derive
     - `VersionedEvent` derive

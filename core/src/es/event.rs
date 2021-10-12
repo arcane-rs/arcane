@@ -192,20 +192,9 @@ pub trait Initialized<Ev: ?Sized> {
 
 /// Wrapper type to mark an [`Event`] that makes some [`Sourced`] state being
 /// [`Initialized`].
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deref,
-    DerefMut,
-    Display,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    RefCast,
-)]
+///
+/// Exists solely to solve specialization problems.
+#[derive(Clone, Copy, Debug, Deref, DerefMut, Display, RefCast)]
 #[repr(transparent)]
 pub struct Initial<Ev: ?Sized>(pub Ev);
 
@@ -305,61 +294,10 @@ impl<Ev: Versioned> VersionedOrRaw for Ev {}
 #[cfg(feature = "codegen")]
 pub mod codegen {
     //! [`Event`] machinery aiding codegen.
-
-    use sealed::sealed;
-
-    use super::{Event, Initial, Raw};
+    //!
+    //! [`Event`]: super::Event
 
     pub use futures;
-
-    /// Custom [`Borrow`] codegen aiding trait for borrowing an [`Event`] either
-    /// from itself or from an [`Initial`] wrapper.
-    ///
-    /// [`Borrow`]: std::borrow::Borrow
-    #[sealed]
-    pub trait Borrow {
-        /// Type of a borrowed [`Event`].
-        type Event: ?Sized;
-
-        /// Borrows an [`Event`].
-        fn borrow(&self) -> &Self::Event;
-    }
-
-    #[sealed]
-    impl<T: Event + ?Sized> Borrow for T {
-        type Event = T;
-
-        fn borrow(&self) -> &Self::Event {
-            self
-        }
-    }
-
-    #[sealed]
-    impl<Ev: Event + ?Sized> Borrow for Initial<Ev> {
-        type Event = Ev;
-
-        fn borrow(&self) -> &Self::Event {
-            &self.0
-        }
-    }
-
-    /// Codegen aiding trait for retrieving a type of an [`Event`] either from
-    /// itself or from an [`Initial`] wrapper.
-    #[sealed]
-    pub trait Unpacked {
-        /// Type of [`Event`] to be retrieved.
-        type Type: ?Sized;
-    }
-
-    #[sealed]
-    impl<Ev: Event + ?Sized> Unpacked for Ev {
-        type Type = Ev;
-    }
-
-    #[sealed]
-    impl<Ev: Event + ?Sized> Unpacked for Initial<Ev> {
-        type Type = Ev;
-    }
 
     impl<Ev: ?Sized, Data> Raw<Ev, Data> {
         #[doc(hidden)]
@@ -376,12 +314,9 @@ pub mod codegen {
     pub trait Versioned {
         /// Number of [`VersionedEvent`]s in this [`Event`].
         ///
+        /// [`Event`]: super::Event
         /// [`VersionedEvent`]: super::Versioned
         const COUNT: usize;
-    }
-
-    impl<Ev: Versioned> Versioned for Initial<Ev> {
-        const COUNT: usize = Ev::COUNT;
     }
 
     impl<Ev: ?Sized, Data> Versioned for Raw<Ev, Data> {
@@ -404,6 +339,9 @@ pub mod codegen {
     /// Correctness is checked then with asserting this function at compile time
     /// in `const` context.
     ///
+    /// [`Event`]: super::Event
+    /// [`Event::name`]: super::Event::name
+    /// [`Event::version`]: super::Event::version
     /// [`event::Name`]: super::Name
     /// [`event::Version`]: super::Version
     /// [`event::Versioned`]: super::Versioned
