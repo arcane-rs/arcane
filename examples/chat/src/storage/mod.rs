@@ -41,7 +41,7 @@ mod spec {
     use std::array;
 
     use arcana::es::{Adapter as _, EventSourced as _};
-    use futures::{stream, Stream, TryStreamExt as _};
+    use futures::{future, stream, Stream, TryStreamExt as _};
     use serde_json::json;
 
     use crate::domain;
@@ -57,7 +57,7 @@ mod spec {
         let chat_events = chat::Adapter
             .transform_all(incoming_events(), &())
             .inspect_ok(|ev| chat.apply(ev))
-            .try_collect::<Vec<event::Chat>>()
+            .try_collect::<Vec<_>>()
             .await
             .unwrap();
 
@@ -86,7 +86,7 @@ mod spec {
         let email_events = email::Adapter
             .transform_all(incoming_events(), &())
             .inspect_ok(|ev| email.apply(ev))
-            .try_collect::<Vec<event::Email>>()
+            .try_collect::<Vec<_>>()
             .await
             .unwrap();
 
@@ -114,6 +114,23 @@ mod spec {
                 confirmed_by: Some("User".to_owned()),
             })
         );
+    }
+
+    #[allow(clippy::semicolon_if_nothing_returned)]
+    #[tokio::test]
+    async fn email_adapter_with_corrupted_event() {
+        let corrupted_event =
+            Event::from(EmailEvent::RawAddedAndConfirmed(event::Raw::new(
+                json!({ "corrupted": "raw@event.com", "confirmed_by": "User" }),
+                event::Version::try_new(1).unwrap(),
+            )));
+
+        let result = email::Adapter
+            .transform_all(stream::once(future::ready(corrupted_event)), &())
+            .try_collect::<Vec<_>>()
+            .await;
+
+        assert_eq!(result.unwrap_err().to_string(), "missing field `email`")
     }
 
     #[allow(clippy::semicolon_if_nothing_returned)]
