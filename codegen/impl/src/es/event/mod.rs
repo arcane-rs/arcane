@@ -383,7 +383,7 @@ impl Definition {
         quote! {
             #[automatically_derived]
             impl#impl_gen ::arcana::es::adapter::Transformer<
-                #event#type_gen, __Ctx
+                '__ctx, #event#type_gen, __Ctx
             > for ::arcana::es::adapter::Wrapper<__A> #where_clause
             {
                 type Error = <__A as ::arcana::es::adapter::Returning>::
@@ -392,16 +392,16 @@ impl Definition {
                     Transformed;
                 type TransformedStream<'out> = #transformed;
 
-                fn transform<'me, 'ctx, 'out>(
+                fn transform<'me, 'out>(
                     &'me self,
                     __event: #event#type_gen,
-                    __context: &'ctx __Ctx,
+                    __context: &'__ctx __Ctx,
                 ) -> <Self as ::arcana::es::adapter::
-                    Transformer<#event#type_gen, __Ctx>>::
+                    Transformer<'__ctx, #event#type_gen, __Ctx>>::
                         TransformedStream<'out>
                 where
                     'me: 'out,
-                    'ctx: 'out,
+                    '__ctx: 'out,
                 {
                     match __event {
                         #inner_match
@@ -427,7 +427,7 @@ impl Definition {
             syn::GenericParam,
             syn::Token![,],
         > = parse_quote! {
-            __A, __Ctx
+            '__ctx, __A, __Ctx
         };
         let transformer_bounds: Punctuated<
             syn::WherePredicate,
@@ -435,24 +435,24 @@ impl Definition {
         > = parse_quote! {
             __A: ::arcana::es::adapter::Returning,
             Self: #(
-                ::arcana::es::adapter::Transformer<#var_type, __Ctx>
+                ::arcana::es::adapter::Transformer<'__ctx, #var_type, __Ctx>
             )+*,
             <__A as ::arcana::es::adapter::Returning>::Transformed:
                 'static
                 #(
                     + ::std::convert::From<<Self as ::arcana::es::adapter::
-                        Transformer<#var_type, __Ctx>>::Transformed>
+                        Transformer<'__ctx, #var_type, __Ctx>>::Transformed>
                 )*,
             <__A as ::arcana::es::adapter::Returning>::Error:
                 'static
                 #(
                     + ::std::convert::From<<Self as ::arcana::es::adapter::
-                        Transformer<#var_type, __Ctx>>::Error>
+                        Transformer<'__ctx, #var_type, __Ctx>>::Error>
                 )*,
             #(
-                <Self as ::arcana::es::adapter::Transformer<#var_type, __Ctx>>::
+                <Self as ::arcana::es::adapter::Transformer<'__ctx, #var_type, __Ctx>>::
                     Transformed: 'static,
-                <Self as ::arcana::es::adapter::Transformer<#var_type, __Ctx>>::
+                <Self as ::arcana::es::adapter::Transformer<'__ctx, #var_type, __Ctx>>::
                     Error: 'static,
             )*
         };
@@ -488,20 +488,20 @@ impl Definition {
             quote! {
                 ::arcana::es::event::codegen::futures::stream::Map<
                     <Self as ::arcana::es::adapter::Transformer<
-                        #from, __Ctx
+                        '__ctx, #from, __Ctx
                     >>::TransformedStream<'out>,
                     fn(
                         ::std::result::Result<
                             <Self as ::arcana::es::adapter::
-                                Transformer<#from, __Ctx>>::Transformed,
+                                Transformer<'__ctx, #from, __Ctx>>::Transformed,
                             <Self as ::arcana::es::adapter::
-                                Transformer<#from, __Ctx>>::Error,
+                                Transformer<'__ctx, #from, __Ctx>>::Error,
                         >,
                     ) -> ::std::result::Result<
                         <Self as ::arcana::es::adapter::
-                            Transformer<#event#ty_gen, __Ctx>>::Transformed,
+                            Transformer<'__ctx, #event#ty_gen, __Ctx>>::Transformed,
                         <Self as ::arcana::es::adapter::
-                            Transformer<#event#ty_gen, __Ctx>>::Error,
+                            Transformer<'__ctx, #event#ty_gen, __Ctx>>::Error,
                     >
                 >
             }
@@ -548,14 +548,14 @@ impl Definition {
         self.variants
             .iter()
             .filter_map(|var| {
-                var.fields.iter().next().map(|f| (&var.ident, &f.ty))
+                var.0.fields.iter().next().map(|f| (&var.0.ident, &f.ty))
             })
             .enumerate()
             .map(|(i, (variant_ident, var_ty))| {
                 let stream_map = quote! {
                     ::arcana::es::event::codegen::futures::StreamExt::map(
                         <Self as ::arcana::es::adapter::Transformer<
-                            #var_ty, __Ctx
+                            '__ctx, #var_ty, __Ctx
                         > >::transform(self, __event, __context),
                         {
                             let __transform_fn: fn(_) -> _ = |__res| {

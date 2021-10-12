@@ -9,20 +9,24 @@ pub use event::{Initial, Raw, Version};
 
 #[derive(Debug, Event, From, PartialEq)]
 pub enum Chat {
-    PrivateCreated(event::Initial<chat::private::Created>),
-    PublicCreated(event::Initial<chat::public::Created>),
+    #[event(init)]
+    PrivateCreated(chat::private::Created),
+    #[event(init)]
+    PublicCreated(chat::public::Created),
     MessagePosted(message::Posted),
 }
 
 #[derive(Debug, Event, From, PartialEq)]
 pub enum Email {
-    Added(event::Initial<email::Added>),
+    #[event(init)]
+    Added(email::Added),
     Confirmed(email::Confirmed),
 }
 
 #[derive(Debug, Event, From, PartialEq)]
 pub enum Message {
-    MessagePosted(event::Initial<message::Posted>),
+    #[event(init)]
+    MessagePosted(message::Posted),
 }
 
 #[cfg(test)]

@@ -10,7 +10,7 @@ pub use self::adapter::Adapter;
 
 #[doc(inline)]
 pub use self::event::{
-    Event, Initialized as EventInitialized, Name as EventName,
+    Event, Initialized as EventInitialized, Name as EventName, Raw as RawEvent,
     Sourced as EventSourced, Sourcing as EventSourcing,
-    Version as EventVersion, Versioned as VersionedEvent,  Raw as RawEvent,
+    Version as EventVersion, Versioned as VersionedEvent,
 };

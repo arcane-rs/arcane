@@ -13,7 +13,7 @@ use pin_project::pin_project;
 use ref_cast::RefCast;
 
 #[doc(inline)]
-pub use self::transformer::{strategy, Strategy, Transformer, Adapt};
+pub use self::transformer::{strategy, Adapt, Strategy, Transformer};
 
 /// Specifies result of [`Adapter`].
 pub trait Returning {
@@ -133,7 +133,10 @@ pub trait Returning {
 /// [`Transformed`]: Self::Transformed
 /// [`Version`]: crate::es::event::Version
 /// [`VersionedEvent`]: crate::es::VersionedEvent
-pub trait Adapter<Events, Ctx: ?Sized> {
+pub trait Adapter<'ctx, Events, Ctx>
+where
+    Ctx: ?Sized + 'ctx,
+{
     /// Error of this [`Adapter`].
     type Error;
 
@@ -148,11 +151,12 @@ pub trait Adapter<Events, Ctx: ?Sized> {
     /// [`Transformed`]: Self::Transformed
     type TransformedStream<'out>: Stream<
             Item = Result<
-                <Self as Adapter<Events, Ctx>>::Transformed,
-                <Self as Adapter<Events, Ctx>>::Error,
+                <Self as Adapter<'ctx, Events, Ctx>>::Transformed,
+                <Self as Adapter<'ctx, Events, Ctx>>::Error,
             >,
         > + 'out
     where
+        'ctx: 'out,
         Ctx: 'out,
         Events: 'out,
         Self: 'out;
@@ -161,7 +165,7 @@ pub trait Adapter<Events, Ctx: ?Sized> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    fn transform_all<'me, 'ctx, 'out>(
+    fn transform_all<'me, 'out>(
         &'me self,
         events: Events,
         context: &'ctx Ctx,
@@ -171,28 +175,27 @@ pub trait Adapter<Events, Ctx: ?Sized> {
         'ctx: 'out;
 }
 
-impl<A, Events, Ctx> Adapter<Events, Ctx> for A
+impl<'ctx, A, Events, Ctx> Adapter<'ctx, Events, Ctx> for A
 where
     A: Returning,
-    Ctx: ?Sized,
+    Ctx: ?Sized + 'ctx,
     Events: Stream,
-    Wrapper<A>: for<'c> Transformer<'c, Events::Item, Ctx>,
-    A::Transformed: for<'c> From<
-        <Wrapper<A> as Transformer<'c, Events::Item, Ctx>>::Transformed,
-    >,
-    A::Error:
-        for<'c> From<<Wrapper<A> as Transformer<'c, Events::Item, Ctx>>::Error>,
+    Wrapper<A>: Transformer<'ctx, Events::Item, Ctx>,
+    A::Transformed:
+        From<<Wrapper<A> as Transformer<'ctx, Events::Item, Ctx>>::Transformed>,
+    A::Error: From<<Wrapper<A> as Transformer<'ctx, Events::Item, Ctx>>::Error>,
 {
     type Error = <A as Returning>::Error;
     type Transformed = <A as Returning>::Transformed;
     type TransformedStream<'out>
     where
+        'ctx: 'out,
         Ctx: 'out,
         Events: 'out,
         Self: 'out,
-    = TransformedStream<'out, Wrapper<A>, Events, Ctx>;
+    = TransformedStream<'ctx, 'out, Wrapper<A>, Events, Ctx>;
 
-    fn transform_all<'me, 'ctx, 'out>(
+    fn transform_all<'me, 'out>(
         &'me self,
         events: Events,
         context: &'ctx Ctx,
@@ -223,9 +226,9 @@ where
 
 /// [`Stream`] for [`Adapter`] blanket impl.
 #[pin_project]
-pub struct TransformedStream<'out, Adapter, Events, Ctx>
+pub struct TransformedStream<'ctx, 'out, Adapter, Events, Ctx>
 where
-    Adapter: Transformer<'out, Events::Item, Ctx>,
+    Adapter: Transformer<'ctx, Events::Item, Ctx>,
     Ctx: ?Sized,
     Events: Stream,
 {
@@ -233,15 +236,15 @@ where
     events: Events,
     #[pin]
     transformed_stream:
-        AdapterTransformedStream<'out, Events::Item, Adapter, Ctx>,
+        AdapterTransformedStream<'ctx, 'out, Events::Item, Adapter, Ctx>,
     adapter: &'out Adapter,
-    context: &'out Ctx,
+    context: &'ctx Ctx,
 }
 
-impl<'out, Adapter, Events, Ctx> Debug
-    for TransformedStream<'out, Adapter, Events, Ctx>
+impl<'ctx, 'out, Adapter, Events, Ctx> Debug
+    for TransformedStream<'ctx, 'out, Adapter, Events, Ctx>
 where
-    Adapter: Debug + Transformer<'out, Events::Item, Ctx>,
+    Adapter: Debug + Transformer<'ctx, Events::Item, Ctx>,
     Ctx: Debug + ?Sized,
     Events: Debug + Stream,
 {
@@ -254,23 +257,27 @@ where
     }
 }
 
-type AdapterTransformedStream<'out, Event, Adapter, Ctx> = future::Either<
-    <Adapter as Transformer<'out, Event, Ctx>>::TransformedStream<'out>,
+type AdapterTransformedStream<'ctx, 'out, Event, Adapter, Ctx> = future::Either<
+    <Adapter as Transformer<'ctx, Event, Ctx>>::TransformedStream<'out>,
     stream::Empty<
         Result<
-            <Adapter as Transformer<'out, Event, Ctx>>::Transformed,
-            <Adapter as Transformer<'out, Event, Ctx>>::Error,
+            <Adapter as Transformer<'ctx, Event, Ctx>>::Transformed,
+            <Adapter as Transformer<'ctx, Event, Ctx>>::Error,
         >,
     >,
 >;
 
-impl<'out, Adapter, Events, Ctx> TransformedStream<'out, Adapter, Events, Ctx>
+impl<'ctx, 'out, Adapter, Events, Ctx>
+    TransformedStream<'ctx, 'out, Adapter, Events, Ctx>
 where
-    Adapter: for<'c> Transformer<'c, Events::Item, Ctx>,
+    Adapter: Transformer<'ctx, Events::Item, Ctx>,
     Ctx: ?Sized,
     Events: Stream,
 {
-    fn new(adapter: &'out Adapter, events: Events, context: &'out Ctx) -> Self {
+    fn new(adapter: &'out Adapter, events: Events, context: &'ctx Ctx) -> Self
+    where
+        'ctx: 'out,
+    {
         Self {
             events,
             transformed_stream: stream::empty().right_stream(),
@@ -280,16 +287,17 @@ where
     }
 }
 
-impl<'out, Adapter, Events, Ctx> Stream
-    for TransformedStream<'out, Adapter, Events, Ctx>
+impl<'ctx, 'out, Adapter, Events, Ctx> Stream
+    for TransformedStream<'ctx, 'out, Adapter, Events, Ctx>
 where
+    'ctx: 'out,
     Ctx: ?Sized,
-    Adapter: Transformer<'out, Events::Item, Ctx> + Returning,
+    Adapter: Transformer<'ctx, Events::Item, Ctx> + Returning,
     Events: Stream,
     <Adapter as Returning>::Transformed:
-        From<<Adapter as Transformer<'out, Events::Item, Ctx>>::Transformed>,
+        From<<Adapter as Transformer<'ctx, Events::Item, Ctx>>::Transformed>,
     <Adapter as Returning>::Error:
-        From<<Adapter as Transformer<'out, Events::Item, Ctx>>::Error>,
+        From<<Adapter as Transformer<'ctx, Events::Item, Ctx>>::Error>,
 {
     type Item = Result<
         <Adapter as Returning>::Transformed,

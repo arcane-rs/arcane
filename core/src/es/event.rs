@@ -297,6 +297,8 @@ pub mod codegen {
     //!
     //! [`Event`]: super::Event
 
+    use super::Raw;
+
     pub use futures;
 
     impl<Ev: ?Sized, Data> Raw<Ev, Data> {

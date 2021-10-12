@@ -64,9 +64,9 @@ mod spec {
         assert_eq!(
             chat_events,
             vec![
-                event::Initial(event::chat::private::Created).into(),
-                event::Initial(event::chat::private::Created).into(),
-                event::Initial(event::chat::public::Created).into(),
+                event::chat::private::Created.into(),
+                event::chat::private::Created.into(),
+                event::chat::public::Created.into(),
                 event::message::Posted.into()
             ]
         );
@@ -93,13 +93,13 @@ mod spec {
         assert_eq!(
             email_events,
             vec![
-                event::Initial(event::email::Added {
+                event::email::Added {
                     email: "hello@world.com".to_string()
-                })
+                }
                 .into(),
-                event::Initial(event::email::Added {
+                event::email::Added {
                     email: "raw@event.com".to_string()
-                })
+                }
                 .into(),
                 event::email::Confirmed {
                     confirmed_by: "User".to_string()
@@ -121,16 +121,13 @@ mod spec {
     async fn message_adapter() {
         let mut message = Option::<domain::Message>::None;
         let message_events = message::Adapter
-            .transform_all(incoming_events(), &1)
+            .transform_all(incoming_events(), &())
             .inspect_ok(|ev| message.apply(ev))
             .try_collect::<Vec<event::Message>>()
             .await
             .unwrap();
 
-        assert_eq!(
-            message_events,
-            vec![event::Initial(event::message::Posted).into()],
-        );
+        assert_eq!(message_events, vec![event::message::Posted.into()],);
         assert_eq!(message, Some(domain::Message));
     }
 

@@ -1,9 +1,6 @@
-use std::{array, iter};
+use std::{array, borrow::Borrow, iter};
 
-use arcana::es::{
-    adapter::{self, strategy, strategy::Splitter, Adapt},
-    event::Initial,
-};
+use arcana::es::adapter::{self, strategy, strategy::Splitter, Adapt};
 use either::Either;
 use futures::{future, stream, StreamExt as _};
 
@@ -18,7 +15,7 @@ impl adapter::Returning for Adapter {
 pub struct Adapter;
 
 impl Adapt<event::email::Added> for Adapter {
-    type Strategy = strategy::Initialized;
+    type Strategy = strategy::AsIs;
 }
 
 impl Adapt<event::email::v2::AddedAndConfirmed> for Adapter {
@@ -46,10 +43,8 @@ impl Adapt<event::email::Confirmed> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl
-    Adapt<
-        event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
-    > for Adapter
+impl Adapt<event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>>
+    for Adapter
 {
     type Strategy = strategy::Custom;
 }
@@ -87,12 +82,12 @@ type SplitEmail = Either<
     array::IntoIter<Either<event::email::Added, event::email::Confirmed>, 2>,
 >;
 
-impl<Ctx>
+impl
     strategy::Customize<
         event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
-        Ctx,
     > for Adapter
 {
+    type Context = dyn Bound;
     type Error = serde_json::Error;
     type Transformed = Either<event::email::Added, event::email::Confirmed>;
     type TransformedStream<'out> = CustomizedStream;
@@ -103,7 +98,7 @@ impl<Ctx>
             event::email::v2::AddedAndConfirmed,
             serde_json::Value,
         >,
-        _context: &'ctx Ctx,
+        _context: &'ctx Self::Context,
     ) -> Self::TransformedStream<'out>
     where
         'me: 'out,
@@ -148,8 +143,18 @@ impl From<Either<event::email::Added, event::email::Confirmed>>
 {
     fn from(ev: Either<event::email::Added, event::email::Confirmed>) -> Self {
         match ev {
-            Either::Left(ev) => Initial(ev).into(),
+            Either::Left(ev) => ev.into(),
             Either::Right(ev) => ev.into(),
         }
+    }
+}
+
+pub trait Bound {}
+
+impl Bound for () {}
+
+impl Borrow<(dyn Bound + 'static)> for () {
+    fn borrow(&self) -> &(dyn Bound + 'static) {
+        self
     }
 }

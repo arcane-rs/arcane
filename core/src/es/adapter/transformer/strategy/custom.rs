@@ -15,6 +15,7 @@ pub struct Custom;
 ///
 /// [`Transformed`]: Self::Transformed
 pub trait Customize<Event: event::VersionedOrRaw> {
+    /// TODO
     type Context: ?Sized;
 
     /// Error of this [`Strategy`].

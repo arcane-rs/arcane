@@ -13,20 +13,19 @@ impl adapter::Returning for Adapter {
 pub struct Adapter;
 
 impl Adapt<event::chat::public::Created> for Adapter {
-    type Strategy = strategy::Initialized;
+    type Strategy = strategy::AsIs;
 }
 
 impl Adapt<event::chat::private::Created> for Adapter {
-    type Strategy = strategy::Initialized;
-}
-
-impl Adapt<event::chat::v1::Created> for Adapter {
-    type Strategy =
-        strategy::Initialized<strategy::Into<event::chat::private::Created>>;
+    type Strategy = strategy::AsIs;
 }
 
 impl Adapt<event::message::Posted> for Adapter {
     type Strategy = strategy::AsIs;
+}
+
+impl Adapt<event::chat::v1::Created> for Adapter {
+    type Strategy = strategy::Into<event::chat::private::Created>;
 }
 
 impl Adapt<event::email::v2::AddedAndConfirmed> for Adapter {

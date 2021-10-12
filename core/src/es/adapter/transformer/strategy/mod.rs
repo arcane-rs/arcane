@@ -12,7 +12,7 @@ use futures::Stream;
 
 use crate::es::{adapter, event};
 
-use super::{Transformer, Adapt};
+use super::{Adapt, Transformer};
 
 #[doc(inline)]
 pub use self::{
@@ -27,6 +27,7 @@ pub use self::{
 ///
 /// [`Versioned`]: event::Versioned
 pub trait Strategy<Adapter, Event> {
+    /// TODO
     type Context: ?Sized;
 
     /// Error of this [`Strategy`].

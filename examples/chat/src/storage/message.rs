@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{borrow::Borrow, convert::Infallible};
 
 use arcana::es::adapter::{self, strategy, Adapt};
 use futures::stream;
@@ -14,7 +14,7 @@ impl adapter::Returning for Adapter {
 pub struct Adapter;
 
 impl Adapt<event::message::Posted> for Adapter {
-    type Strategy = strategy::Initialized;
+    type Strategy = strategy::AsIs;
 }
 
 impl Adapt<event::chat::public::Created> for Adapter {
@@ -41,19 +41,15 @@ impl Adapt<event::email::Added> for Adapter {
     type Strategy = strategy::Skip;
 }
 
-impl
-    Adapt<
-        event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
-    > for Adapter
+impl Adapt<event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>>
+    for Adapter
 {
     type Strategy = strategy::Skip;
 }
 
 // Basically same as Skip, but with additional Ctx bounds
-impl<Ctx> strategy::Customize<event::chat::public::Created, Ctx> for Adapter
-where
-    Ctx: From<i32>,
-{
+impl strategy::Customize<event::chat::public::Created> for Adapter {
+    type Context = dyn Bound;
     type Error = Infallible;
     type Transformed = event::Message;
     type TransformedStream<'out> =
@@ -62,12 +58,22 @@ where
     fn transform<'me, 'ctx, 'out>(
         &'me self,
         _event: event::chat::public::Created,
-        _context: &'ctx Ctx,
+        _context: &'ctx Self::Context,
     ) -> Self::TransformedStream<'out>
     where
         'me: 'out,
         'ctx: 'out,
     {
         stream::empty()
+    }
+}
+
+pub trait Bound {}
+
+impl Bound for () {}
+
+impl Borrow<(dyn Bound + 'static)> for () {
+    fn borrow(&self) -> &(dyn Bound + 'static) {
+        self
     }
 }
