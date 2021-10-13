@@ -6,7 +6,7 @@ use futures::{stream, StreamExt as _};
 
 use crate::es::{adapter, event};
 
-use super::Strategy;
+use super::{AnyContext, Strategy};
 
 /// [`Strategy`] for splitting single [`Event`] into multiple. Implement
 /// [`Splitter`] to define splitting logic.
@@ -38,7 +38,7 @@ where
     Event: event::VersionedOrRaw,
     IntoEvent: 'static,
 {
-    type Context = ();
+    type Context = dyn AnyContext;
     type Error = Adapter::Error;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
     type TransformedStream<'o> = SplitStream<Adapter, Event, IntoEvent>;

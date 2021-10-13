@@ -4,7 +4,7 @@ use futures::stream;
 
 use crate::es::{adapter, event};
 
-use super::Strategy;
+use super::{AnyContext, Strategy};
 
 /// [`Strategy`] for skipping [`Event`]s.
 ///
@@ -19,7 +19,7 @@ where
     Adapter::Transformed: 'static,
     Adapter::Error: 'static,
 {
-    type Context = ();
+    type Context = dyn AnyContext;
     type Error = Adapter::Error;
     type Transformed = Adapter::Transformed;
     type TransformedStream<'o> =

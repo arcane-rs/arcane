@@ -27,7 +27,13 @@ pub use self::{
 ///
 /// [`Versioned`]: event::Versioned
 pub trait Strategy<Adapter, Event> {
-    /// TODO
+    /// Context of this [`Strategy`].
+    ///
+    /// In real world this is usually `dyn Trait`. In that case,
+    /// [`Adapter::transform_all()`][1] will expect concrete type which can be
+    /// [`Borrow`]ed as `dyn Trait`.
+    ///
+    /// [1]: adapter::Adapter
     type Context: ?Sized;
 
     /// Error of this [`Strategy`].
@@ -96,5 +102,16 @@ where
             event,
             context.borrow(),
         )
+    }
+}
+
+/// Context, that intended to be [`Borrow`]ed as `&dyn AnyContext`.
+pub trait AnyContext {}
+
+impl<T> AnyContext for T {}
+
+impl Borrow<(dyn AnyContext + 'static)> for () {
+    fn borrow(&self) -> &(dyn AnyContext + 'static) {
+        self
     }
 }

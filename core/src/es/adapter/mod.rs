@@ -126,6 +126,103 @@ pub trait Returning {
 /// # }
 /// ```
 ///
+/// In case you want to use custom context, it should implement [`Borrow`]
+/// `dyn `[`AnyContext`].
+///
+/// ```rust
+/// # #![feature(generic_associated_types)]
+/// #
+/// # use std::{borrow::Borrow, convert::Infallible};
+/// #
+/// # use arcana::es::{
+/// #     adapter::{self, strategy::{self, AnyContext}},
+/// #     Event, Adapter as _, VersionedEvent,
+/// # };
+/// # use derive_more::From;
+/// # use futures::{stream, TryStreamExt as _};
+/// #
+/// # #[derive(Clone, Copy, Debug, PartialEq, VersionedEvent)]
+/// # #[event(name = "chat", version = 1)]
+/// # struct ChatEvent;
+/// #
+/// # #[derive(Clone, Copy, Debug, PartialEq, VersionedEvent)]
+/// # #[event(name = "file", version = 2)]
+/// # struct FileEvent;
+/// #
+/// # // Some outdated Event.
+/// # #[derive(Clone, Copy, Debug, PartialEq, VersionedEvent)]
+/// # #[event(name = "file", version = 1)]
+/// # struct FileEventV1;
+/// #
+/// # // Repository-level Event, which is loaded from some Event Store and
+/// # // includes legacy Events.
+/// # #[derive(Clone, Copy, Debug, Event, PartialEq, From)]
+/// # enum RepositoryEvent {
+/// #     FileV1(FileEventV1),
+/// #     File(FileEvent),
+/// #     Chat(ChatEvent),
+/// # }
+/// #
+/// # // Actual Event we want to transform RepositoryEvent into
+/// # #[derive(Clone, Copy, Debug, Event, From, PartialEq)]
+/// # enum FileDomainEvent {
+/// #     File(FileEvent),
+/// # }
+/// #
+/// # #[derive(Clone, Copy)]
+/// # struct Adapter;
+/// #
+/// # impl adapter::Returning for Adapter {
+/// #     type Error = Infallible;
+/// #     type Transformed = FileDomainEvent;
+/// # }
+/// #
+/// # impl adapter::Adapt<FileEvent> for Adapter {
+/// #     type Strategy = strategy::AsIs;
+/// # }
+/// #
+/// # impl adapter::Adapt<FileEventV1> for Adapter {
+/// #     type Strategy = strategy::Into<FileEvent>;
+/// # }
+/// #
+/// # impl adapter::Adapt<ChatEvent> for Adapter {
+/// #     type Strategy = strategy::Skip;
+/// # }
+/// #
+/// # let assertion = async {
+/// # let events = stream::iter::<[RepositoryEvent; 3]>([
+/// #     FileEventV1.into(),
+/// #     FileEvent.into(),
+/// #     ChatEvent.into(),
+/// # ]);
+/// struct CustomContext;
+///
+/// impl Borrow<dyn AnyContext> for CustomContext {
+///     fn borrow(&self) -> &(dyn AnyContext + 'static) {
+///         self
+///     }
+/// }
+///
+/// let transformed = Adapter
+///     .transform_all(events, &CustomContext)
+///     .try_collect::<Vec<_>>()
+///     .await
+///     .unwrap();
+///
+/// assert_eq!(transformed, vec![FileEvent.into(), FileEvent.into()]);
+/// # };
+/// #
+/// # futures::executor::block_on(assertion);
+/// #
+/// # impl From<FileEventV1> for FileEvent {
+/// #     fn from(_: FileEventV1) -> Self {
+/// #         Self
+/// #     }
+/// # }
+/// ```
+///
+/// [`AnyContext`]: transformer::strategy::AnyContext
+/// [`Borrow`]: std::borrow::Borrow
 /// [`Error`]: Self::Error
 /// [`Event`]: crate::es::Event
 /// [`Skip`]: transformer::strategy::Skip

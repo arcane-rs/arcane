@@ -64,11 +64,23 @@ pub struct Definition {
     /// [`event::Sourced`]: arcana_core::es::event::Sourced
     /// [`Field`]: syn::Field
     /// [`Variant`]: syn::Variant
-    pub variants: Vec<(syn::Variant, bool)>,
+    pub variants: Vec<SingleFieldVariant>,
 
     /// Indicator whether this enum has any variants marked with
     /// `#[event(ignore)]` attribute.
     pub has_ignored_variants: bool,
+}
+
+/// Parsed single-field enum variant for [`Event`] derive macro.
+///
+/// [`Event`]: arcana_core::es::Event
+#[derive(Clone, Debug)]
+pub struct SingleFieldVariant {
+    /// [`syn::Variant`] itself
+    variant: syn::Variant,
+
+    /// Indicates, whether `#[event(init)]` attribute is present or not.
+    is_initial: bool,
 }
 
 impl TryFrom<syn::DeriveInput> for Definition {
@@ -120,7 +132,7 @@ impl Definition {
     ///   and is not ignored.
     fn parse_variant(
         variant: &syn::Variant,
-    ) -> syn::Result<Option<(syn::Variant, bool)>> {
+    ) -> syn::Result<Option<SingleFieldVariant>> {
         let attrs = VariantAttrs::parse_attrs("event", variant)?;
 
         if let Some(init) = &attrs.init {
@@ -150,7 +162,10 @@ impl Definition {
             ));
         }
 
-        Ok(Some((variant.clone(), attrs.init.is_some())))
+        Ok(Some(SingleFieldVariant {
+            variant: variant.clone(),
+            is_initial: attrs.init.is_some(),
+        }))
     }
 
     /// Substitutes the given [`syn::Generics`] with trivial types.
@@ -169,14 +184,6 @@ impl Definition {
         quote! { < #( #generics ),* > }
     }
 
-    /// Returns [`Iterator`] of enum variant [`syn::Type`]s.
-    #[must_use]
-    pub fn variant_types(&self) -> impl DoubleEndedIterator<Item = &syn::Type> {
-        self.variants
-            .iter()
-            .filter_map(|var| var.0.fields.iter().next().map(|f| &f.ty))
-    }
-
     /// Generates code to derive [`Event`][0] trait, by simply matching over
     /// each enum variant, which is expected to be itself an [`Event`][0]
     /// implementer.
@@ -187,7 +194,11 @@ impl Definition {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let var = self.variants.iter().map(|v| &v.0.ident).collect::<Vec<_>>();
+        let var = self
+            .variants
+            .iter()
+            .map(|v| &v.variant.ident)
+            .collect::<Vec<_>>();
 
         let unreachable_arm = self.has_ignored_variants.then(|| {
             quote! { _ => unreachable!(), }
@@ -228,9 +239,9 @@ impl Definition {
         let (_, ty_gens, _) = self.generics.split_for_impl();
         let turbofish_gens = ty_gens.as_turbofish();
 
-        let var_ty = self.variants.iter().map(|(v, is_initial)| {
-            let var_ty = v.fields.iter().next().map(|f| &f.ty);
-            if *is_initial {
+        let var_ty = self.variants.iter().map(|v| {
+            let var_ty = v.variant.fields.iter().next().map(|f| &f.ty);
+            if v.is_initial {
                 quote! { ::arcana::es::event::Initial<#var_ty> }
             } else {
                 quote! { #var_ty }
@@ -244,11 +255,11 @@ impl Definition {
         });
         let (impl_gens, _, where_clause) = ext_gens.split_for_impl();
 
-        let arms = self.variants.iter().map(|(v, is_initial)| {
-            let var = &v.ident;
-            let var_ty = v.fields.iter().next().map(|f| &f.ty);
+        let arms = self.variants.iter().map(|v| {
+            let var = &v.variant.ident;
+            let var_ty = v.variant.fields.iter().next().map(|f| &f.ty);
 
-            let event = if *is_initial {
+            let event = if v.is_initial {
                 quote! {
                     <::arcana::es::event::Initial<#var_ty>
                      as ::arcana::RefCast>::ref_cast(f)
@@ -302,7 +313,7 @@ impl Definition {
         let var_ty = self
             .variants
             .iter()
-            .flat_map(|v| &v.0.fields)
+            .flat_map(|v| &v.variant.fields)
             .map(|f| &f.ty)
             .collect::<Vec<_>>();
 
@@ -421,7 +432,11 @@ impl Definition {
     #[must_use]
     pub fn transformer_generics(&self) -> syn::Generics {
         let mut generics = self.generics.clone();
-        let var_type = self.variant_types().collect::<Vec<_>>();
+        let var_type = self
+            .variants
+            .iter()
+            .filter_map(|var| var.variant.fields.iter().next().map(|f| &f.ty))
+            .collect::<Vec<_>>();
 
         let additional_generic_params: Punctuated<
             syn::GenericParam,
@@ -511,7 +526,9 @@ impl Definition {
             }
         };
 
-        self.variant_types()
+        self.variants
+            .iter()
+            .filter_map(|var| var.variant.fields.iter().next().map(|f| &f.ty))
             .rev()
             .fold(None, |acc, ty| {
                 let variant_stream = transformed_stream(ty);
@@ -552,7 +569,11 @@ impl Definition {
         self.variants
             .iter()
             .filter_map(|var| {
-                var.0.fields.iter().next().map(|f| (&var.0.ident, &f.ty))
+                var.variant
+                    .fields
+                    .iter()
+                    .next()
+                    .map(|f| (&var.variant.ident, &f.ty))
             })
             .enumerate()
             .map(|(i, (variant_ident, var_ty))| {

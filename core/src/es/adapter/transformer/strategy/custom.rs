@@ -15,7 +15,13 @@ pub struct Custom;
 ///
 /// [`Transformed`]: Self::Transformed
 pub trait Customize<Event: event::VersionedOrRaw> {
-    /// TODO
+    /// Context of this [`Custom`] [`Strategy`].
+    ///
+    /// In real world this is usually `dyn Trait`. In that case,
+    /// [`Adapter::transform_all()`][1] will expect concrete type which can be
+    /// [`Borrow`]ed as `dyn Trait`.
+    ///
+    /// [1]: adapter::Adapter
     type Context: ?Sized;
 
     /// Error of this [`Strategy`].
