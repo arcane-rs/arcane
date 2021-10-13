@@ -133,10 +133,7 @@ pub trait Returning {
 /// [`Transformed`]: Self::Transformed
 /// [`Version`]: crate::es::event::Version
 /// [`VersionedEvent`]: crate::es::VersionedEvent
-pub trait Adapter<'ctx, Events, Ctx>
-where
-    Ctx: ?Sized + 'ctx,
-{
+pub trait Adapter<'ctx, Events, Ctx: ?Sized> {
     /// Error of this [`Adapter`].
     type Error;
 
@@ -157,7 +154,7 @@ where
         > + 'out
     where
         'ctx: 'out,
-        Ctx: 'out,
+        Ctx: 'ctx,
         Events: 'out,
         Self: 'out;
 
@@ -165,14 +162,11 @@ where
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    fn transform_all<'me, 'out>(
+    fn transform_all<'me: 'out, 'out>(
         &'me self,
         events: Events,
         context: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>
-    where
-        'me: 'out,
-        'ctx: 'out;
+    ) -> Self::TransformedStream<'out>;
 }
 
 impl<'ctx, A, Events, Ctx> Adapter<'ctx, Events, Ctx> for A
@@ -190,20 +184,16 @@ where
     type TransformedStream<'out>
     where
         'ctx: 'out,
-        Ctx: 'out,
+        Ctx: 'ctx,
         Events: 'out,
         Self: 'out,
     = TransformedStream<'ctx, 'out, Wrapper<A>, Events, Ctx>;
 
-    fn transform_all<'me, 'out>(
+    fn transform_all<'me: 'out, 'out>(
         &'me self,
         events: Events,
         context: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>
-    where
-        'me: 'out,
-        'ctx: 'out,
-    {
+    ) -> Self::TransformedStream<'out> {
         TransformedStream::new(RefCast::ref_cast(self), events, context)
     }
 }

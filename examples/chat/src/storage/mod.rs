@@ -144,7 +144,7 @@ mod spec {
             .await
             .unwrap();
 
-        assert_eq!(message_events, vec![event::message::Posted.into()],);
+        assert_eq!(message_events, vec![event::message::Posted.into()]);
         assert_eq!(message, Some(domain::Message));
     }
 
