@@ -23,7 +23,18 @@ All user visible changes to this project will be documented in this file. This p
   - Proc macros
     - `Event` derive
     - `VersionedEvent` derive
-
+  - Transforming Events
+    - Traits
+      - `Adapter`
+      - `Transformer`
+      - `Adapt`
+      - `Strategy`
+    - Structs
+      - `strategy::AsIs`
+      - `strategy::Custom`
+      - `strategy::Into`
+      - `strategy::Skip`
+      - `strategy::Split`
 
     
 
