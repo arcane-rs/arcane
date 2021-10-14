@@ -1,6 +1,8 @@
-use std::{array, borrow::Borrow, iter};
+use std::{array, iter};
 
-use arcana::es::adapter::{self, strategy, strategy::Splitter, Adapt};
+use arcana::es::adapter::{
+    self, strategy, strategy::Splitter, Adapt, AnyContext,
+};
 use either::Either;
 use futures::{future, stream, StreamExt as _};
 
@@ -87,7 +89,7 @@ impl
         event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
     > for Adapter
 {
-    type Context = dyn Bound;
+    type Context = dyn AnyContext;
     type Error = serde_json::Error;
     type Transformed = Either<event::email::Added, event::email::Confirmed>;
     type TransformedStream<'out> = CustomizedStream;
@@ -146,15 +148,5 @@ impl From<Either<event::email::Added, event::email::Confirmed>>
             Either::Left(ev) => ev.into(),
             Either::Right(ev) => ev.into(),
         }
-    }
-}
-
-pub trait Bound {}
-
-impl Bound for () {}
-
-impl Borrow<(dyn Bound + 'static)> for () {
-    fn borrow(&self) -> &(dyn Bound + 'static) {
-        self
     }
 }

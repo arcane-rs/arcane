@@ -1,6 +1,6 @@
-use std::convert::Infallible;
+use std::{borrow::Borrow, convert::Infallible};
 
-use arcana::es::adapter::{self, strategy, Adapt, AnyContext};
+use arcana::es::adapter::{self, strategy, Adapt};
 use futures::stream;
 
 use crate::event;
@@ -47,9 +47,9 @@ impl Adapt<event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>>
     type Strategy = strategy::Skip;
 }
 
-// Basically same as Skip
+// Basically same as Skip, but with additional Context bounds.
 impl strategy::Customize<event::chat::public::Created> for Adapter {
-    type Context = dyn AnyContext;
+    type Context = dyn Bound;
     type Error = Infallible;
     type Transformed = event::Message;
     type TransformedStream<'out> =
@@ -65,5 +65,15 @@ impl strategy::Customize<event::chat::public::Created> for Adapter {
         'ctx: 'out,
     {
         stream::empty()
+    }
+}
+
+pub trait Bound {}
+
+impl Bound for () {}
+
+impl Borrow<(dyn Bound + 'static)> for () {
+    fn borrow(&self) -> &(dyn Bound + 'static) {
+        self
     }
 }

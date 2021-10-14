@@ -33,7 +33,7 @@ pub trait Strategy<Adapter, Event> {
     /// [`Adapter::transform_all()`][1] will expect type which can be
     /// [`Borrow`]ed as `dyn Trait`.
     ///
-    /// [1]: adapter::Adapter
+    /// [1]: adapter::Adapter::transform_all
     type Context: ?Sized;
 
     /// Error of this [`Strategy`].

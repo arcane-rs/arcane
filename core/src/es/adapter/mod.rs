@@ -130,7 +130,8 @@ pub trait Returning {
 /// ```
 ///
 /// In case you want to use custom context, it should implement [`Borrow`]
-/// `dyn `[`AnyContext`] and all other used [`Strategy::Context`]s.
+/// `dyn `[`Strategy::Context`]s for all used [`Strategies`]. Default ones use
+/// [`AnyContext`].
 ///
 /// ```rust
 /// # #![feature(generic_associated_types)]
@@ -230,6 +231,7 @@ pub trait Returning {
 /// [`Event`]: crate::es::Event
 /// [`Skip`]: transformer::strategy::Skip
 /// [`Split`]: transformer::strategy::Split
+/// [`Strategies`]: Strategy
 /// [`Transformed`]: Self::Transformed
 /// [`Version`]: crate::es::event::Version
 /// [`VersionedEvent`]: crate::es::VersionedEvent
