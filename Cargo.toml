@@ -27,4 +27,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace]
-members = ["codegen", "codegen/impl", "codegen/shim", "core", "examples/chat"]
+members = [
+    "codegen", "codegen/impl", "codegen/shim",
+    "core",
+    "examples/chat",
+]
