@@ -13,7 +13,10 @@ use pin_project::pin_project;
 use ref_cast::RefCast;
 
 #[doc(inline)]
-pub use self::transformer::{strategy, Adapt, Strategy, Transformer};
+pub use self::transformer::{
+    strategy::{self, AnyContext},
+    Adapt, Strategy, Transformer,
+};
 
 /// Specifies result of [`Adapter`].
 pub trait Returning {
@@ -35,7 +38,7 @@ pub trait Returning {
 ///
 /// Usually provided as blanket impl, so you shouldn't implement it manually.
 /// For that you'll need to implement [`Returning`] to specify transformation
-/// result and [`WithStrategy`] for every [`VersionedEvent`] which is part of
+/// result and [`Adapt`] for every [`VersionedEvent`] which is part of
 /// transformed [`Event`]. And as long as [`Event`] is implemented via derive
 /// macro you should be good to go.
 ///
@@ -127,7 +130,7 @@ pub trait Returning {
 /// ```
 ///
 /// In case you want to use custom context, it should implement [`Borrow`]
-/// `dyn `[`AnyContext`].
+/// `dyn `[`AnyContext`] and all other used [`Strategy::Context`]s.
 ///
 /// ```rust
 /// # #![feature(generic_associated_types)]

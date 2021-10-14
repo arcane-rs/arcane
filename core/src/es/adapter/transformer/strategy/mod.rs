@@ -30,7 +30,7 @@ pub trait Strategy<Adapter, Event> {
     /// Context of this [`Strategy`].
     ///
     /// In real world this is usually `dyn Trait`. In that case,
-    /// [`Adapter::transform_all()`][1] will expect concrete type which can be
+    /// [`Adapter::transform_all()`][1] will expect type which can be
     /// [`Borrow`]ed as `dyn Trait`.
     ///
     /// [1]: adapter::Adapter
@@ -105,10 +105,10 @@ where
     }
 }
 
-/// Context, that intended to be [`Borrow`]ed as `&dyn AnyContext`.
+/// [`Strategy::Context`] implemented for every type.
 pub trait AnyContext {}
 
-impl<T> AnyContext for T {}
+impl<T: ?Sized> AnyContext for T {}
 
 impl Borrow<(dyn AnyContext + 'static)> for () {
     fn borrow(&self) -> &(dyn AnyContext + 'static) {

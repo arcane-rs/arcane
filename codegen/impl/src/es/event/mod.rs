@@ -71,12 +71,10 @@ pub struct Definition {
     pub has_ignored_variants: bool,
 }
 
-/// Parsed single-field enum variant for [`Event`] derive macro.
-///
-/// [`Event`]: arcana_core::es::Event
+/// Parsed single-field enum variant for `#[derive(Event)]` macro.
 #[derive(Clone, Debug)]
 pub struct SingleFieldVariant {
-    /// [`syn::Variant`] itself
+    /// [`syn::Variant`] itself.
     variant: syn::Variant,
 
     /// Indicates, whether `#[event(init)]` attribute is present or not.
@@ -262,7 +260,8 @@ impl Definition {
             let event = if v.is_initial {
                 quote! {
                     <::arcana::es::event::Initial<#var_ty>
-                     as ::arcana::RefCast>::ref_cast(f)
+                        as ::arcana::es::event::codegen::ref_cast::RefCast
+                    >::ref_cast(f)
                 }
             } else {
                 quote! { f }
@@ -672,8 +671,9 @@ mod spec {
                         Event::File(f) => {
                             ::arcana::es::event::Sourced::apply(
                                 self,
-                                <::arcana::es::event::Initial<FileEvent>
-                                 as ::arcana::RefCast>::ref_cast(f)
+                                <::arcana::es::event::Initial<FileEvent> as
+                                ::arcana::es::event::codegen::ref_cast::RefCast
+                                >::ref_cast(f)
                             );
                         },
                         Event::Chat(f) => {
@@ -952,7 +952,9 @@ mod spec {
                             ::arcana::es::event::Sourced::apply(
                                 self,
                                 <::arcana::es::event::Initial<FileEvent<'a, F> >
-                                 as ::arcana::RefCast>::ref_cast(f)
+                                    as ::arcana::es::event::codegen::ref_cast::
+                                        RefCast
+                                >::ref_cast(f)
                             );
                         },
                         Event::<'a, F, C>::Chat(f) => {

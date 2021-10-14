@@ -214,8 +214,8 @@ impl<Ev: Event + ?Sized, S: Initialized<Ev>> Sourced<Initial<Ev>>
     }
 }
 
-// TODO: Maybe replace `Ev` with `const Name` (same as `const &'static str`),
-//       once `adt_const_params` feature stabilizes.
+// TODO: Replace `Ev` with `const Name` (same as `const &'static str`), once
+//       `adt_const_params` feature stabilizes.
 //       https://github.com/rust-lang/rust/issues/44580
 /// Raw [`Versioned`] event.
 ///
@@ -300,6 +300,7 @@ pub mod codegen {
     use super::Raw;
 
     pub use futures;
+    pub use ref_cast;
 
     impl<Ev: ?Sized, Data> Raw<Ev, Data> {
         #[doc(hidden)]

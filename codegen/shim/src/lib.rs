@@ -44,7 +44,8 @@ use proc_macro::TokenStream;
 ///
 /// # Blanket implementations
 ///
-/// - [`Sourced`] for every state, which can be sourced from all enum variants;
+/// - [`event::Sourced`] for every state, which can be sourced from all enum
+///   variants;
 /// - [`Transformer`] for every [`Adapter`], that can transform all enum
 ///   variants.
 ///

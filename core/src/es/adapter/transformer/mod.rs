@@ -29,7 +29,7 @@ pub trait Adapt<Event> {
 /// - Transforming (ex: from one [`Version`] to another);
 /// - [`Split`]ting existing [`Event`]s into more granular ones.
 ///
-/// Provided with blanket impl for [`WithStrategy`] implementors, so usually you
+/// Provided with blanket impl for [`Adapt`] implementors, so usually you
 /// shouldn't implement it manually. For more flexibility consider using
 /// [`Custom`] or implementing your own [`Strategy`] in case it will be reused.
 /// See [`Adapter`] for more info.

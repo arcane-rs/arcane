@@ -3,9 +3,12 @@
 pub mod transformer;
 
 #[doc(inline)]
-pub use self::transformer::Transformer;
+pub use self::transformer::{
+    strategy::{self, AnyContext},
+    Adapt, Strategy, Transformer,
+};
 
 #[doc(inline)]
 pub use arcana_core::es::adapter::{
-    strategy, Adapt, Adapter, Returning, Strategy, TransformedStream, Wrapper,
+    Adapter, Returning, TransformedStream, Wrapper,
 };

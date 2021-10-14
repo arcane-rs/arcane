@@ -23,5 +23,3 @@
 
 #[cfg(feature = "es")]
 pub mod es;
-
-pub use arcana_core::RefCast;

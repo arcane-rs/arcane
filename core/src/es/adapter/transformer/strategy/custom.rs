@@ -21,7 +21,8 @@ pub trait Customize<Event: event::VersionedOrRaw> {
     /// [`Adapter::transform_all()`][1] will expect concrete type which can be
     /// [`Borrow`]ed as `dyn Trait`.
     ///
-    /// [1]: adapter::Adapter
+    /// [1]: crate::es::Adapter
+    /// [`Borrow`]: std::borrow::Borrow
     type Context: ?Sized;
 
     /// Error of this [`Strategy`].
