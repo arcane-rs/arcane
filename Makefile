@@ -33,7 +33,8 @@ lint: cargo.lint
 # Generate crates documentation from Rust sources.
 #
 # Usage:
-#	make cargo.doc [crate=<crate-name>] [open=(yes|no)] [clean=(no|yes)]
+#	make cargo.doc [crate=<crate-name>] [private=(yes|no)]
+#	    		   [open=(yes|no)] [clean=(no|yes)]
 
 cargo.doc:
 ifeq ($(clean),yes)
@@ -41,6 +42,7 @@ ifeq ($(clean),yes)
 endif
 	cargo +nightly doc $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
 		--all-features \
+		$(if $(call eq,$(private),no),,--document-private-items) \
 		$(if $(call eq,$(open),no),,--open)
 
 

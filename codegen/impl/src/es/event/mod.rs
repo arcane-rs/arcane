@@ -171,6 +171,8 @@ impl Definition {
     ///
     /// - [`syn::Lifetime`] -> `'static`;
     /// - [`syn::Type`] -> `()`.
+    ///
+    /// [`syn::Lifetime`]: struct@syn::Lifetime
     fn substitute_generics_trivially(generics: &syn::Generics) -> TokenStream {
         use syn::GenericParam::{Const, Lifetime, Type};
 
