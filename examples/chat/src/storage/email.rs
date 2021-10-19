@@ -1,7 +1,11 @@
-use std::{array, borrow::Borrow, iter};
+use std::{array, iter};
 
-use arcana::es::adapter::{
-    self, strategy, strategy::Splitter, Adapt, AnyContext,
+use arcana::es::{
+    self,
+    event::adapter::{
+        strategy::{self, AnyContext, Splitter},
+        Adapt,
+    },
 };
 use either::Either;
 use futures::{future, stream, StreamExt as _};

@@ -55,7 +55,7 @@ mod spec {
     async fn chat_adapter() {
         let mut chat = Option::<domain::Chat>::None;
         let chat_events = chat::Adapter
-            .transform_all(incoming_events(), &"test")
+            .transform_all(incoming_events(), &())
             .inspect_ok(|ev| chat.apply(ev))
             .try_collect::<Vec<_>>()
             .await
@@ -84,7 +84,7 @@ mod spec {
     async fn email_adapter() {
         let mut email = Option::<domain::Email>::None;
         let email_events = email::Adapter
-            .transform_all(incoming_events(), &1)
+            .transform_all(incoming_events(), &())
             .inspect_ok(|ev| email.apply(ev))
             .try_collect::<Vec<_>>()
             .await

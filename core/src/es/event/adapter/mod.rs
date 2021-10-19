@@ -135,7 +135,7 @@ pub trait Returning {
 /// # use std::{borrow::Borrow, convert::Infallible};
 /// #
 /// # use arcana::es::{
-/// #     event::adapter::{self, strategy},
+/// #     event::adapter::{self, strategy::{self, AnyContext}},
 /// #     Event, EventAdapter, VersionedEvent,
 /// # };
 /// # use derive_more::From;
