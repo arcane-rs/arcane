@@ -10,7 +10,7 @@ use std::borrow::Borrow;
 
 use futures::Stream;
 
-use crate::es::{adapter, event};
+use crate::es::{event, event::adapter};
 
 use super::{Adapt, Transformer};
 

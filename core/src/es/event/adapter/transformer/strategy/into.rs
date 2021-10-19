@@ -28,7 +28,7 @@ where
     type Transformed = IntoEvent;
     type TransformedStream<'out> = stream::MapOk<
         InnerStrategy::TransformedStream<'out>,
-        fn(InnerStrategy::Transformed) -> IntoEvent,
+        IntoFn<InnerStrategy::Transformed, IntoEvent>,
     >;
 
     fn transform<'me: 'out, 'ctx: 'out, 'out>(
@@ -39,3 +39,5 @@ where
         InnerStrategy::transform(adapter, event, ctx).map_ok(IntoEvent::from)
     }
 }
+
+type IntoFn<FromEvent, IntoEvent> = fn(FromEvent) -> IntoEvent;

@@ -5,6 +5,11 @@ use std::{convert::TryFrom, marker::PhantomData, num::NonZeroU16};
 use derive_more::{Deref, DerefMut, Display, Into};
 use ref_cast::RefCast;
 
+pub mod adapter;
+
+#[doc(inline)]
+pub use self::adapter::Adapter;
+
 /// Fully qualified name of an [`Event`].
 pub type Name = &'static str;
 
@@ -234,7 +239,7 @@ impl<Ev: Event + ?Sized, S: Initialized<Ev>> Sourced<Initial<Ev>>
 /// >              considered as a fallback for [`Version`]s not covered with
 /// >              those concrete types.
 ///
-/// [`Adapter`]: crate::es::Adapter
+/// [`Adapter`]: crate::es::event::Adapter
 #[derive(
     Clone, Copy, Debug, Deref, DerefMut, Eq, Hash, Ord, PartialEq, PartialOrd,
 )]
@@ -279,7 +284,7 @@ where
 /// Marker trait for [`Versioned`] or [`Raw`] [`Event`]s. Used for [`Adapter`]
 /// specialization.
 ///
-/// [`Adapter`]: crate::es::Adapter
+/// [`Adapter`]: crate::es::event::Adapter
 pub trait VersionedOrRaw {}
 
 impl<Ev, Data> VersionedOrRaw for Raw<Ev, Data>

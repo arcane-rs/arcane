@@ -11,7 +11,7 @@ pub use strategy::Strategy;
 /// for every [`VersionedEvent`] involved with this [`Event`] and implement
 /// [`Returning`] on [`Adapter`] itself.
 ///
-/// [`Adapter`]: crate::es::Adapter
+/// [`Adapter`]: crate::es::event::Adapter
 /// [`Event`]: crate::es::Event
 /// [`Returning`]: super::Returning
 /// [`VersionedEvent`]: crate::es::VersionedEvent
@@ -34,7 +34,7 @@ pub trait Adapt<Event> {
 /// [`Custom`] or implementing your own [`Strategy`] in case it will be reused.
 /// See [`Adapter`] for more info.
 ///
-/// [`Adapter`]: crate::es::Adapter
+/// [`Adapter`]: crate::es::event::Adapter
 /// [`Custom`]: strategy::Custom
 /// [`Event`]: crate::es::Event
 /// [`Skip`]: strategy::Skip

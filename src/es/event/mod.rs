@@ -1,14 +1,16 @@
 //! [`Event`] machinery.
 
+pub mod adapter;
+
 #[doc(inline)]
 pub use arcana_core::es::event::{
-    Event, Initial, Initialized, Name, Raw, Sourced, Sourcing, Version,
-    Versioned, VersionedOrRaw,
+    Adapter, Event, Initial, Initialized, Name, Raw, Sourced, Sourcing,
+    Version, Versioned, VersionedOrRaw,
 };
 
 #[cfg(feature = "derive")]
 #[doc(inline)]
-pub use arcana_codegen::es::event::{Event, Versioned};
+pub use arcana_codegen::es::event::{Adapter, Event, Versioned};
 #[cfg(feature = "derive")]
 #[doc(hidden)]
 // Named so long for better error messages

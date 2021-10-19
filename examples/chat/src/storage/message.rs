@@ -1,16 +1,15 @@
 use std::{borrow::Borrow, convert::Infallible};
 
-use arcana::es::adapter::{self, strategy, Adapt};
+use arcana::es::{
+    self,
+    event::adapter::{strategy, Adapt},
+};
 use futures::stream;
 
 use crate::event;
 
-impl adapter::Returning for Adapter {
-    type Error = Infallible;
-    type Transformed = event::Message;
-}
-
-#[derive(Debug)]
+#[derive(es::EventAdapter, Debug)]
+#[adapter(into = event::Message)]
 pub struct Adapter;
 
 impl Adapt<event::message::Posted> for Adapter {

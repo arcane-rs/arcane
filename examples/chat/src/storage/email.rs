@@ -1,4 +1,4 @@
-use std::{array, iter};
+use std::{array, borrow::Borrow, iter};
 
 use arcana::es::adapter::{
     self, strategy, strategy::Splitter, Adapt, AnyContext,
@@ -8,12 +8,8 @@ use futures::{future, stream, StreamExt as _};
 
 use crate::event;
 
-impl adapter::Returning for Adapter {
-    type Error = serde_json::Error;
-    type Transformed = event::Email;
-}
-
-#[derive(Clone, Copy, Debug)]
+#[derive(es::EventAdapter, Clone, Copy, Debug)]
+#[adapter(into = event::Email, err = serde_json::Error)]
 pub struct Adapter;
 
 impl Adapt<event::email::Added> for Adapter {

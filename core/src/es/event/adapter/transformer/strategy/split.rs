@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 
 use futures::{stream, StreamExt as _};
 
-use crate::es::{adapter, event};
+use crate::es::{event, event::adapter};
 
 use super::{AnyContext, Strategy};
 

@@ -50,8 +50,8 @@ pub trait Returning {
 /// # use std::convert::Infallible;
 /// #
 /// # use arcana::es::{
-/// #     adapter::{self, strategy},
-/// #     Event, Adapter as _, VersionedEvent,
+/// #     event::adapter::{self, strategy},
+/// #     Event, EventAdapter, VersionedEvent,
 /// # };
 /// # use derive_more::From;
 /// # use futures::{stream, TryStreamExt as _};
@@ -84,13 +84,9 @@ pub trait Returning {
 ///     File(FileEvent),
 /// }
 ///
-/// #[derive(Clone, Copy)]
+/// #[derive(Clone, Copy, EventAdapter)]
+/// #[adapter(into = FileDomainEvent)]
 /// struct Adapter;
-///
-/// impl adapter::Returning for Adapter {
-///     type Error = Infallible;
-///     type Transformed = FileDomainEvent;
-/// }
 ///
 /// impl adapter::Adapt<FileEvent> for Adapter {
 ///     type Strategy = strategy::AsIs;
@@ -139,8 +135,8 @@ pub trait Returning {
 /// # use std::{borrow::Borrow, convert::Infallible};
 /// #
 /// # use arcana::es::{
-/// #     adapter::{self, strategy::{self, AnyContext}},
-/// #     Event, Adapter as _, VersionedEvent,
+/// #     event::adapter::{self, strategy},
+/// #     Event, EventAdapter, VersionedEvent,
 /// # };
 /// # use derive_more::From;
 /// # use futures::{stream, TryStreamExt as _};
@@ -173,13 +169,9 @@ pub trait Returning {
 /// #     File(FileEvent),
 /// # }
 /// #
-/// # #[derive(Clone, Copy)]
+/// # #[derive(Clone, Copy, EventAdapter)]
+/// # #[adapter(into = FileDomainEvent)]
 /// # struct Adapter;
-/// #
-/// # impl adapter::Returning for Adapter {
-/// #     type Error = Infallible;
-/// #     type Transformed = FileDomainEvent;
-/// # }
 /// #
 /// # impl adapter::Adapt<FileEvent> for Adapter {
 /// #     type Strategy = strategy::AsIs;

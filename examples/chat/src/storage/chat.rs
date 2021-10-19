@@ -1,15 +1,12 @@
-use std::convert::Infallible;
-
-use arcana::es::adapter::{self, strategy, Adapt};
+use arcana::es::{
+    self,
+    event::adapter::{strategy, Adapt},
+};
 
 use crate::event;
 
-impl adapter::Returning for Adapter {
-    type Error = Infallible;
-    type Transformed = event::Chat;
-}
-
-#[derive(Clone, Copy, Debug)]
+#[derive(es::EventAdapter, Clone, Copy, Debug)]
+#[adapter(into = event::Chat)]
 pub struct Adapter;
 
 impl Adapt<event::chat::public::Created> for Adapter {
