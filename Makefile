@@ -15,6 +15,9 @@ eq = $(if $(or $(1),$(2)),$(and $(findstring $(1),$(2)),\
 # Aliases #
 ###########
 
+all: fmt lint test docs
+
+
 docs: cargo.doc
 
 
@@ -22,6 +25,9 @@ fmt: cargo.fmt
 
 
 lint: cargo.lint
+
+
+test: test.cargo
 
 
 
@@ -33,7 +39,8 @@ lint: cargo.lint
 # Generate crates documentation from Rust sources.
 #
 # Usage:
-#	make cargo.doc [crate=<crate-name>] [open=(yes|no)] [clean=(no|yes)]
+#	make cargo.doc [crate=<crate-name>] [private=(yes|no)]
+#	               [open=(yes|no)] [clean=(no|yes)]
 
 cargo.doc:
 ifeq ($(clean),yes)
@@ -41,6 +48,7 @@ ifeq ($(clean),yes)
 endif
 	cargo +nightly doc $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
 		--all-features \
+		$(if $(call eq,$(private),no),,--document-private-items) \
 		$(if $(call eq,$(open),no),,--open)
 
 
@@ -59,7 +67,10 @@ cargo.fmt:
 #	make cargo.lint
 
 cargo.lint:
-	cargo +nightly clippy --workspace -- -D clippy::pedantic -D warnings
+	cargo +nightly clippy --workspace --all-features -- -D warnings
+
+
+cargo.test: test.cargo
 
 
 
@@ -71,9 +82,9 @@ cargo.lint:
 # Run Rust tests of project.
 #
 # Usage:
-#	make test [crate=<crate-name>]
+#	make test.cargo [crate=<crate-name>]
 
-test:
+test.cargo:
 	cargo +nightly test $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
 		--all-features
 
@@ -84,5 +95,6 @@ test:
 # .PHONY section #
 ##################
 
-.PHONY: docs fmt lint test \
-        cargo.doc cargo.fmt cargo.lint
+.PHONY: all docs fmt lint test \
+        cargo.doc cargo.fmt cargo.lint cargo.test \
+        test.cargo
