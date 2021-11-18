@@ -40,7 +40,7 @@ impl Version {
     #[inline]
     #[must_use]
     pub const unsafe fn new_unchecked(value: u16) -> Self {
-        Self(NonZeroU16::new_unchecked(value))
+        Self(unsafe { NonZeroU16::new_unchecked(value) })
     }
 
     /// Returns the value of this [`Version`] as a primitive type.

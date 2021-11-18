@@ -1,8 +1,8 @@
 [package]
 name = "arcana"
 version = "0.1.0-dev"
-edition = "2018"
-resolver = "2"
+edition = "2021"
+rust-version = "1.56"
 description = "Opionated CQRS/ES framework with type magic."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
@@ -13,6 +13,10 @@ homepage = "https://github.com/arcana-rs/arcana"
 repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [features]
 doc = ["arcana-codegen/doc"] # only for generating documentation
 derive = ["arcana-codegen", "arcana-core/codegen"]
@@ -21,10 +25,6 @@ es = ["arcana-core/es"]
 [dependencies]
 arcana-core = { version = "0.1.0-dev", path = "./core" }
 arcana-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
-
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace]
 members = [

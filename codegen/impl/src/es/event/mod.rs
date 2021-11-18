@@ -207,7 +207,7 @@ impl Definition {
 
         quote! {
             #[automatically_derived]
-            impl #impl_gens ::arcana::es::Event for #ty#ty_gens #where_clause {
+            impl #impl_gens ::arcana::es::Event for #ty #ty_gens #where_clause {
                 fn name(&self) -> ::arcana::es::event::Name {
                     match self {
                         #(
@@ -240,7 +240,7 @@ impl Definition {
         let (_, ty_gens, _) = self.generics.split_for_impl();
         let turbofish_gens = ty_gens.as_turbofish();
 
-        let var_ty = self.variants.iter().map(|v| {
+        let var_tys = self.variants.iter().map(|v| {
             let var_ty = v.variant.fields.iter().next().map(|f| &f.ty);
             if v.is_initial {
                 quote! { ::arcana::es::event::Initial<#var_ty> }
@@ -252,7 +252,7 @@ impl Definition {
         let mut ext_gens = self.generics.clone();
         ext_gens.params.push(parse_quote! { __S });
         ext_gens.make_where_clause().predicates.push(parse_quote! {
-            Self: #( ::arcana::es::event::Sourced<#var_ty> )+*
+            Self: #( ::arcana::es::event::Sourced<#var_tys> )+*
         });
         let (impl_gens, _, where_clause) = ext_gens.split_for_impl();
 
@@ -270,7 +270,7 @@ impl Definition {
                 quote! { f }
             };
             quote! {
-                #ty#turbofish_gens::#var(f) => {
+                #ty #turbofish_gens::#var(f) => {
                     ::arcana::es::event::Sourced::apply(self, #event);
                 },
             }
@@ -281,10 +281,10 @@ impl Definition {
 
         quote! {
             #[automatically_derived]
-            impl #impl_gens ::arcana::es::event::Sourced<#ty#ty_gens>
+            impl #impl_gens ::arcana::es::event::Sourced<#ty #ty_gens>
                 for Option<__S> #where_clause
             {
-                fn apply(&mut self, event: &#ty#ty_gens) {
+                fn apply(&mut self, event: &#ty #ty_gens) {
                     match event {
                         #( #arms )*
                         #unreachable_arm
@@ -328,7 +328,7 @@ impl Definition {
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens #glue::Versioned for #ty#ty_gens
+            impl #impl_gens #glue::Versioned for #ty #ty_gens
                  #where_clause
             {
                 #[doc(hidden)]
@@ -338,7 +338,7 @@ impl Definition {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl #ty#ty_gens {
+            impl #ty #ty_gens {
                 #[doc(hidden)]
                 pub const fn __arcana_events() -> [
                     (&'static str, &'static str, u16);

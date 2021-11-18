@@ -53,6 +53,41 @@ jobs:
   # Testing #
   ###########
 
+  cargo-feature:
+    name: Cargo feature
+    if: ${{ github.ref == 'refs/heads/master'
+            || startsWith(github.ref, 'refs/tags/v')
+            || !contains(github.event.head_commit.message, '[skip ci]') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { features: "<none>", crate: "arcana-core" }
+          - { features: "codegen", crate: "arcana-core" }
+          - { features: "es", crate: "arcana-core" }
+          - { features: "es,codegen", crate: "arcana-core" }
+          - { features: "<none>", crate: "arcana" }
+          - { features: "derive", crate: "arcana" }
+          - { features: "es", crate: "arcana" }
+          - { features: "es,derive", crate: "arcana" }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - run: cargo +nightly update -Z minimal-versions
+
+      - run: cargo check -p ${{ matrix.crate }} --no-default-features
+                   ${{ matrix.features != '<none>'
+                       && format('--features {0}', matrix.features)
+                       || '' }}
+        env:
+          RUSTFLAGS: -D warnings
+
   test:
     if: ${{ github.ref == 'refs/heads/master'
             || startsWith(github.ref, 'refs/tags/arcana-')
@@ -94,7 +129,7 @@ jobs:
 #    strategy:
 #      fail-fast: false
 #      matrix:
-#        msrv: [ '1.54.0' ]
+#        msrv: ["1.56.0"]
 #        os:
 #          - ubuntu
 #          - macOS
@@ -145,4 +180,4 @@ jobs:
           toolchain: nightly
           override: true
 
-      - run: make cargo.doc crate=${{ matrix.crate }} open=no
+      - run: make cargo.doc crate=${{ matrix.crate }} private=yes open=no

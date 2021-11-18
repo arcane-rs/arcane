@@ -1,8 +1,8 @@
 [package]
 name = "arcana-core"
 version = "0.1.0-dev"
-edition = "2018"
-resolver = "2"
+edition = "2021"
+rust-version = "1.56"
 description = "Core abstractions and implementations of `arcana` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
@@ -13,12 +13,16 @@ homepage = "https://github.com/arcana-rs/arcana/tree/master/core"
 repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [features]
 codegen = ["sealed"] # only enables codegen glue
-es = []
+es = ["derive_more"]
 
 [dependencies]
-derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "from", "into"], default-features = false }
+derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "from", "into"], default-features = false, optional = true }
 futures = { version = "0.3.11", default-features = false }
 pin-project = "1.0"
 ref-cast = "1.0"
@@ -27,7 +31,3 @@ sealed = { version = "0.3", optional = true }
 [dev-dependencies]
 arcana = { version = "0.1.0-dev", path = "..", features = ["derive", "es"] }
 futures = "0.3"
-
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]

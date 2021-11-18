@@ -1,6 +1,6 @@
 //! `#[derive(event::Versioned)]` macro implementation.
 
-use std::{convert::TryFrom, num::NonZeroU16};
+use std::num::NonZeroU16;
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -102,7 +102,7 @@ impl Definition {
 
         quote! {
             #[automatically_derived]
-            impl #impl_gens ::arcana::es::event::Versioned for #ty#ty_gens
+            impl #impl_gens ::arcana::es::event::Versioned for #ty #ty_gens
                  #where_clause
             {
                 const NAME: ::arcana::es::event::Name = #event_name;
@@ -132,7 +132,7 @@ impl Definition {
             #[automatically_derived]
             #[doc(hidden)]
             impl #impl_gens ::arcana::es::event::codegen::Versioned for
-                 #ty#ty_gens #where_clause
+                 #ty #ty_gens #where_clause
             {
                 #[doc(hidden)]
                 const COUNT: usize = 1;
@@ -140,7 +140,7 @@ impl Definition {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens #ty#ty_gens #where_clause {
+            impl #impl_gens #ty #ty_gens #where_clause {
                 #[doc(hidden)]
                 #[inline]
                 pub const fn __arcana_events() ->

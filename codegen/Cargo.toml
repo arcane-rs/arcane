@@ -1,8 +1,8 @@
 [package]
 name = "arcana-codegen"
 version = "0.1.0-dev"
-edition = "2018"
-resolver = "2"
+edition = "2021"
+rust-version = "1.56"
 description = "Code generation for `arcana` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
@@ -12,6 +12,10 @@ documentation = "https://docs.rs/arcana-codegen"
 homepage = "https://github.com/arcana-rs/arcana/tree/master/codegen"
 repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 doc = ["arcana-codegen-shim/doc", "arcana-core", "futures"] # only for generating documentation
@@ -23,7 +27,3 @@ static_assertions = { version = "1.1", default-features = false }
 # `doc` feature
 arcana-core = { version = "0.1.0-dev", path = "../core", features = ["es"], optional = true }
 futures = { version = "0.3", default-features = false, optional = true }
-
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
