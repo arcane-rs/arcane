@@ -2,10 +2,7 @@ use std::{array, iter};
 
 use arcana::es::{
     self,
-    event::adapter::{
-        strategy::{self, AnyContext, Splitter},
-        Adapt,
-    },
+    event::adapter::{strategy, strategy::Splitter, Adapt},
 };
 use either::Either;
 use futures::{future, stream, StreamExt as _};
@@ -89,7 +86,7 @@ impl
         event::Raw<event::email::v2::AddedAndConfirmed, serde_json::Value>,
     > for Adapter
 {
-    type Context = dyn AnyContext;
+    type Context = ();
     type Error = serde_json::Error;
     type Transformed = Either<event::email::Added, event::email::Confirmed>;
     type TransformedStream<'out> = CustomizedStream;

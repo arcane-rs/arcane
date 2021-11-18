@@ -9,6 +9,7 @@ pub mod split;
 use std::borrow::Borrow;
 
 use futures::Stream;
+use ref_cast::RefCast;
 
 use crate::es::{event, event::adapter};
 
@@ -105,13 +106,24 @@ where
     }
 }
 
-/// [`Strategy::Context`] implemented for every type.
-pub trait AnyContext {}
+/// TODO
+#[derive(Clone, Copy, Debug, RefCast)]
+#[repr(transparent)]
+pub struct Context<T: ?Sized>(pub T);
 
-impl<T: ?Sized> AnyContext for T {}
+/// TODO
+#[derive(Clone, Copy, Debug, RefCast)]
+#[repr(transparent)]
+pub struct InnerContext<T: ?Sized>(pub T);
 
-impl Borrow<(dyn AnyContext + 'static)> for () {
-    fn borrow(&self) -> &(dyn AnyContext + 'static) {
-        self
+impl<T: ?Sized> Borrow<()> for Context<T> {
+    fn borrow(&self) -> &() {
+        &()
+    }
+}
+
+impl<X: ?Sized, Y: ?Sized + Borrow<X>> Borrow<InnerContext<X>> for Context<Y> {
+    fn borrow(&self) -> &InnerContext<X> {
+        RefCast::ref_cast(self.0.borrow())
     }
 }

@@ -13,10 +13,7 @@ use pin_project::pin_project;
 use ref_cast::RefCast;
 
 #[doc(inline)]
-pub use self::transformer::{
-    strategy::{self, AnyContext},
-    Adapt, Strategy, Transformer,
-};
+pub use self::transformer::{strategy, Adapt, Strategy, Transformer};
 
 /// Specifies result of [`Adapter`].
 pub trait Returning {
@@ -125,9 +122,10 @@ pub trait Returning {
 /// # }
 /// ```
 ///
+/// TODO: reconsider
 /// In case you want to use custom context, it should implement [`Borrow`]
 /// `dyn `[`Strategy::Context`]s for all used [`Strategies`]. Default ones use
-/// [`AnyContext`].
+/// `AnyContext`.
 ///
 /// ```rust
 /// # #![feature(generic_associated_types)]
@@ -135,7 +133,7 @@ pub trait Returning {
 /// # use std::{borrow::Borrow, convert::Infallible};
 /// #
 /// # use arcana::es::{
-/// #     event::adapter::{self, strategy::{self, AnyContext}},
+/// #     event::adapter::{self, strategy},
 /// #     Event, EventAdapter, VersionedEvent,
 /// # };
 /// # use derive_more::From;
@@ -193,12 +191,6 @@ pub trait Returning {
 /// # ]);
 /// struct CustomContext;
 ///
-/// impl Borrow<dyn AnyContext> for CustomContext {
-///     fn borrow(&self) -> &(dyn AnyContext + 'static) {
-///         self
-///     }
-/// }
-///
 /// let transformed = Adapter
 ///     .transform_all(events, &CustomContext)
 ///     .try_collect::<Vec<_>>()
@@ -217,7 +209,6 @@ pub trait Returning {
 /// # }
 /// ```
 ///
-/// [`AnyContext`]: transformer::strategy::AnyContext
 /// [`Borrow`]: std::borrow::Borrow
 /// [`Error`]: Self::Error
 /// [`Event`]: crate::es::Event
@@ -268,10 +259,21 @@ where
     A: Returning,
     Ctx: ?Sized + 'ctx,
     Events: Stream,
-    Wrapper<A>: Transformer<'ctx, Events::Item, Ctx>,
-    A::Transformed:
-        From<<Wrapper<A> as Transformer<'ctx, Events::Item, Ctx>>::Transformed>,
-    A::Error: From<<Wrapper<A> as Transformer<'ctx, Events::Item, Ctx>>::Error>,
+    Wrapper<A>: Transformer<'ctx, Events::Item, strategy::Context<Ctx>>,
+    A::Transformed: From<
+        <Wrapper<A> as Transformer<
+            'ctx,
+            Events::Item,
+            strategy::Context<Ctx>,
+        >>::Transformed,
+    >,
+    A::Error: From<
+        <Wrapper<A> as Transformer<
+            'ctx,
+            Events::Item,
+            strategy::Context<Ctx>,
+        >>::Error,
+    >,
 {
     type Error = <A as Returning>::Error;
     type Transformed = <A as Returning>::Transformed;
@@ -281,14 +283,18 @@ where
         Ctx: 'ctx,
         Events: 'out,
         Self: 'out,
-    = TransformedStream<'ctx, 'out, Wrapper<A>, Events, Ctx>;
+    = TransformedStream<'ctx, 'out, Wrapper<A>, Events, strategy::Context<Ctx>>;
 
     fn transform_all<'me: 'out, 'out>(
         &'me self,
         events: Events,
         context: &'ctx Ctx,
     ) -> Self::TransformedStream<'out> {
-        TransformedStream::new(RefCast::ref_cast(self), events, context)
+        TransformedStream::new(
+            RefCast::ref_cast(self),
+            events,
+            RefCast::ref_cast(context),
+        )
     }
 }
 
