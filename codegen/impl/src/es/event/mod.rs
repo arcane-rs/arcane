@@ -395,8 +395,8 @@ impl Definition {
 
         quote! {
             #[automatically_derived]
-            impl#impl_gen ::arcana::es::event::adapter::Transformer<
-                '__ctx, #event#type_gen, __Ctx
+            impl #impl_gen ::arcana::es::event::adapter::Transformer<
+                '__ctx, #event #type_gen, __Ctx
             > for ::arcana::es::event::adapter::Wrapper<__A> #where_clause
             {
                 type Error = <__A as ::arcana::es::event::adapter::Returning>::
@@ -408,10 +408,10 @@ impl Definition {
 
                 fn transform<'me, 'out>(
                     &'me self,
-                    __event: #event#type_gen,
+                    __event: #event #type_gen,
                     __context: &'__ctx __Ctx,
                 ) -> <Self as ::arcana::es::event::adapter::
-                    Transformer<'__ctx, #event#type_gen, __Ctx>>::
+                    Transformer<'__ctx, #event #type_gen, __Ctx>>::
                         TransformedStream<'out>
                 where
                     'me: 'out,
@@ -528,10 +528,10 @@ impl Definition {
                         >,
                     ) -> ::std::result::Result<
                         <Self as ::arcana::es::event::adapter::
-                            Transformer<'__ctx, #event#ty_gen, __Ctx>>::
+                            Transformer<'__ctx, #event #ty_gen, __Ctx>>::
                                 Transformed,
                         <Self as ::arcana::es::event::adapter::
-                            Transformer<'__ctx, #event#ty_gen, __Ctx>>::Error,
+                            Transformer<'__ctx, #event #ty_gen, __Ctx>>::Error,
                     >
                 >
             }
@@ -627,7 +627,7 @@ impl Definition {
                     });
 
                 quote! {
-                    #event#turbofish_gens::#variant_ident(__event) => {
+                    #event #turbofish_gens::#variant_ident(__event) => {
                         #transformed_stream
                     },
                 }

@@ -89,7 +89,7 @@ impl Definition {
         quote! {
             #[automatically_derived]
             impl #impl_gens ::arcana::es::event::adapter::Returning for
-                 #ty#ty_gens
+                 #ty #ty_gens
                  #where_clause
             {
                 type Error = #error;
