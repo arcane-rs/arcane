@@ -2,9 +2,7 @@
 
 use futures::Stream;
 
-use crate::es::event;
-
-use super::Strategy;
+use super::{event, Strategy};
 
 /// [`Strategy`] for some custom conversion provided by [`Customize`].
 #[derive(Clone, Copy, Debug)]
@@ -17,12 +15,15 @@ pub struct Custom;
 pub trait Customize<Event: event::VersionedOrRaw> {
     /// Context of this [`Custom`] [`Strategy`].
     ///
-    /// In real world this is usually `dyn Trait`. In that case,
-    /// [`Adapter::transform_all()`][1] will expect concrete type which can be
-    /// [`Borrow`]ed as `dyn Trait`.
+    /// This should be one of 2 things:
+    /// - `()`
+    ///   In case you want to accept any struct as a `context`.
+    /// - [`spell::Borrowed`]`<dyn Trait>`
+    ///   In that case `context` should be able to be [`Borrow`]ed as
+    ///   `dyn Trait`.
     ///
-    /// [1]: crate::es::event::Adapter
     /// [`Borrow`]: std::borrow::Borrow
+    /// [`spell::Borrowed`]: crate::spell::Borrowed
     type Context: ?Sized;
 
     /// Error of this [`Strategy`].

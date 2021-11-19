@@ -22,15 +22,15 @@ pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
 /// Helper attributes of `#[derive(event::Adapter)]` macro.
 #[derive(Debug, Default, ParseAttrs)]
 pub struct Attrs {
-    /// [`Returning::Transformed`][1] associated type.
+    /// [`Returning::Transformed`][0] associated type.
     ///
-    /// [1]: arcana_core::es::event::adapter::Returning::Transformed
+    /// [0]: arcana_core::es::event::adapter::Returning::Transformed
     #[parse(value, alias = into)]
     pub transformed: Required<syn::Type>,
 
-    /// [`Returning::Error`][1] associated type.
+    /// [`Returning::Error`][0] associated type.
     ///
-    /// [1]: arcana_core::es::event::adapter::Returning::Error
+    /// [0]: arcana_core::es::event::adapter::Returning::Error
     #[parse(value, alias = err)]
     pub error: Option<syn::Type>,
 }
@@ -48,14 +48,14 @@ pub struct Definition {
     /// [`syn::Generics`] of this type.
     pub generics: syn::Generics,
 
-    /// [`Returning::Transformed`][1] associated type.
+    /// [`Returning::Transformed`][0] associated type.
     ///
-    /// [1]: arcana_core::es::event::adapter::Returning::Transformed
+    /// [0]: arcana_core::es::event::adapter::Returning::Transformed
     pub transformed: syn::Type,
 
-    /// [`Returning::Error`][1] associated type.
+    /// [`Returning::Error`][0] associated type.
     ///
-    /// [1]: arcana_core::es::event::adapter::Returning::Error
+    /// [0]: arcana_core::es::event::adapter::Returning::Error
     pub error: syn::Type,
 }
 
@@ -71,15 +71,15 @@ impl TryFrom<syn::DeriveInput> for Definition {
             transformed: attrs.transformed.into_inner(),
             error: attrs
                 .error
-                .unwrap_or_else(|| parse_quote!(::std::convert::Infallible)),
+                .unwrap_or_else(|| parse_quote! { ::std::convert::Infallible }),
         })
     }
 }
 
 impl Definition {
-    /// Generates code to derive [`Returning`][1] trait.
+    /// Generates code to derive [`Returning`][0] trait.
     ///
-    /// [1]: arcana_core::es::event::adapter::Returning
+    /// [0]: arcana_core::es::event::adapter::Returning
     #[must_use]
     pub fn impl_returning(&self) -> TokenStream {
         let ty = &self.ident;

@@ -263,9 +263,13 @@ pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
 /// ```rust
 /// # use arcana::es::event;
 /// #
-/// #[derive(event::Versioned)]
-/// #[event(name = "event", version = 1)]
-/// struct Event;
+/// # #[derive(event::Versioned)]
+/// # #[event(name = "event", version = 1)]
+/// # struct Event;
+/// #
+/// #[derive(event::Adapter, Clone, Copy, Debug)]
+/// #[adapter(into = Event)]
+/// struct Adapter;
 /// ```
 ///
 /// [`Adapter`]: arcana_core::es::event::Adapter

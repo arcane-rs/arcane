@@ -3,19 +3,25 @@
 pub mod transformer;
 
 use std::{
+    borrow::Borrow,
     fmt::{Debug, Formatter},
     pin::Pin,
-    task::{Context, Poll},
+    task,
 };
 
 use futures::{future, stream, Stream, StreamExt as _};
 use pin_project::pin_project;
 use ref_cast::RefCast;
 
+use crate::spell;
+
 #[doc(inline)]
 pub use self::transformer::{strategy, Adapt, Strategy, Transformer};
 
 /// Specifies result of [`Adapter`].
+///
+/// Consider using [`Adapter`] derive macro instead of implementing this
+/// manually.
 pub trait Returning {
     /// Error of this [`Adapter`].
     type Error;
@@ -68,7 +74,7 @@ pub trait Returning {
 ///
 /// // Repository-level Event, which is loaded from some Event Store and
 /// // includes legacy Events.
-/// #[derive(Clone, Copy, Debug, Event, PartialEq, From)]
+/// #[derive(Clone, Copy, Debug, Event, From, PartialEq)]
 /// enum RepositoryEvent {
 ///     FileV1(FileEventV1),
 ///     File(FileEvent),
@@ -122,19 +128,21 @@ pub trait Returning {
 /// # }
 /// ```
 ///
-/// TODO: reconsider
-/// In case you want to use custom context, it should implement [`Borrow`]
-/// `dyn `[`Strategy::Context`]s for all used [`Strategies`]. Default ones use
-/// `AnyContext`.
+/// In case some of your [`Strategies`] are [`Custom`] with non-`()`
+/// [`Customize::Context`], provided `context` should be able to be [`Borrow`]ed
+/// as `dyn Trait`.
 ///
 /// ```rust
 /// # #![feature(generic_associated_types)]
 /// #
 /// # use std::{borrow::Borrow, convert::Infallible};
 /// #
-/// # use arcana::es::{
-/// #     event::adapter::{self, strategy},
-/// #     Event, EventAdapter, VersionedEvent,
+/// # use arcana::{
+/// #     es::{
+/// #         event::adapter::{self, strategy},
+/// #         Event, EventAdapter, VersionedEvent,
+/// #     },
+/// #     spell,
 /// # };
 /// # use derive_more::From;
 /// # use futures::{stream, TryStreamExt as _};
@@ -179,9 +187,46 @@ pub trait Returning {
 /// #     type Strategy = strategy::Into<FileEvent>;
 /// # }
 /// #
-/// # impl adapter::Adapt<ChatEvent> for Adapter {
-/// #     type Strategy = strategy::Skip;
-/// # }
+/// impl adapter::Adapt<ChatEvent> for Adapter {
+///     type Strategy = strategy::Custom;
+/// }
+///
+/// impl strategy::Customize<ChatEvent> for Adapter {
+///     type Context = spell::Borrowed<
+///         dyn Empty<Result<Self::Transformed, Self::Error>>
+///     >;
+///     type Error = Infallible;
+///     type Transformed = FileDomainEvent;
+///     type TransformedStream<'o> = stream::Empty<
+///         Result<Self::Transformed, Self::Error>
+///     >;
+///
+///     fn transform<'me: 'out, 'ctx: 'out, 'out>(
+///         &'me self,
+///         _event: ChatEvent,
+///         context: &'ctx Self::Context
+///     ) -> Self::TransformedStream<'out> {
+///         context.stream()
+///     }
+///
+/// }
+///
+/// pub struct EmptyProvider;
+///
+/// pub trait Empty<T> {
+///     fn stream(&self) -> stream::Empty<T> {
+///         stream::empty()
+///     }
+/// }
+///
+/// impl<T> Empty<T> for EmptyProvider {}
+///
+/// impl<T> Borrow<(dyn Empty<T> + 'static)> for EmptyProvider {
+///     fn borrow(&self) -> &(dyn Empty<T> + 'static) {
+///         self
+///     }
+/// }
+///
 /// #
 /// # let assertion = async {
 /// # let events = stream::iter::<[RepositoryEvent; 3]>([
@@ -189,10 +234,8 @@ pub trait Returning {
 /// #     FileEvent.into(),
 /// #     ChatEvent.into(),
 /// # ]);
-/// struct CustomContext;
-///
 /// let transformed = Adapter
-///     .transform_all(events, &CustomContext)
+///     .transform_all(events, &EmptyProvider)
 ///     .try_collect::<Vec<_>>()
 ///     .await
 ///     .unwrap();
@@ -210,6 +253,8 @@ pub trait Returning {
 /// ```
 ///
 /// [`Borrow`]: std::borrow::Borrow
+/// [`Custom`]: transformer::strategy::Custom
+/// [`Customize::Context`]: transformer::strategy::Customize::Context
 /// [`Error`]: Self::Error
 /// [`Event`]: crate::es::Event
 /// [`Skip`]: transformer::strategy::Skip
@@ -259,19 +304,19 @@ where
     A: Returning,
     Ctx: ?Sized + 'ctx,
     Events: Stream,
-    Wrapper<A>: Transformer<'ctx, Events::Item, strategy::Context<Ctx>>,
+    Adapted<A>: Transformer<'ctx, Events::Item, Context<Ctx>>,
     A::Transformed: From<
-        <Wrapper<A> as Transformer<
+        <Adapted<A> as Transformer<
             'ctx,
             Events::Item,
-            strategy::Context<Ctx>,
+            Context<Ctx>,
         >>::Transformed,
     >,
     A::Error: From<
-        <Wrapper<A> as Transformer<
+        <Adapted<A> as Transformer<
             'ctx,
             Events::Item,
-            strategy::Context<Ctx>,
+            Context<Ctx>,
         >>::Error,
     >,
 {
@@ -283,7 +328,7 @@ where
         Ctx: 'ctx,
         Events: 'out,
         Self: 'out,
-    = TransformedStream<'ctx, 'out, Wrapper<A>, Events, strategy::Context<Ctx>>;
+    = TransformedStream<'ctx, 'out, Adapted<A>, Events, Context<Ctx>>;
 
     fn transform_all<'me: 'out, 'out>(
         &'me self,
@@ -298,15 +343,36 @@ where
     }
 }
 
+/// Wrapper around `context` in [`Adapter::transform_all()`] method use in pair
+/// with [`spell::Borrowed`] to hack around orphan rules. Shouldn't be used
+/// manually.
+#[derive(Clone, Copy, Debug, RefCast)]
+#[repr(transparent)]
+pub struct Context<T: ?Sized>(pub T);
+
+impl<T: ?Sized> Borrow<()> for Context<T> {
+    fn borrow(&self) -> &() {
+        &()
+    }
+}
+
+impl<X: ?Sized, Y: ?Sized + Borrow<X>> Borrow<spell::Borrowed<X>>
+    for Context<Y>
+{
+    fn borrow(&self) -> &spell::Borrowed<X> {
+        RefCast::ref_cast(self.0.borrow())
+    }
+}
+
 /// Wrapper type for [`Adapter`] to satisfy orphan rules on [`Event`] derive
 /// macro. Shouldn't be used manually.
 ///
 /// [`Event`]: crate::es::Event
 #[derive(Debug, RefCast)]
 #[repr(transparent)]
-pub struct Wrapper<A>(pub A);
+pub struct Adapted<A>(pub A);
 
-impl<A> Returning for Wrapper<A>
+impl<A> Returning for Adapted<A>
 where
     A: Returning,
 {
@@ -315,6 +381,9 @@ where
 }
 
 /// [`Stream`] for [`Adapter`] blanket impl.
+///
+/// Basically applies [`Transformer::transform()`] to every element of
+/// [`Adapter`]s `Events` [`Stream`] and flattens it.
 #[pin_project]
 pub struct TransformedStream<'ctx, 'out, Adapter, Events, Ctx>
 where
@@ -322,12 +391,21 @@ where
     Ctx: ?Sized,
     Events: Stream,
 {
+    /// [`Stream`] of [`Event`]s to [`Transformer::transform()`].
+    ///
+    /// [`Event`]: crate::es::Event
     #[pin]
     events: Events,
+
+    /// [`Transformer::transform()`] [`Stream`] to flatten.
     #[pin]
     transformed_stream:
         AdapterTransformedStream<'ctx, 'out, Events::Item, Adapter, Ctx>,
+
+    /// [`Adapter`] implementor reference.
     adapter: &'out Adapter,
+
+    /// [`Adapter`]'s `Context` reference.
     context: &'ctx Ctx,
 }
 
@@ -347,6 +425,7 @@ where
     }
 }
 
+/// Alias for [`TransformedStream::transformed_stream`].
 type AdapterTransformedStream<'ctx, 'out, Event, Adapter, Ctx> = future::Either<
     <Adapter as Transformer<'ctx, Event, Ctx>>::TransformedStream<'out>,
     stream::Empty<
@@ -364,6 +443,7 @@ where
     Ctx: ?Sized,
     Events: Stream,
 {
+    /// Creates a new [`TransformedStream`].
     fn new(adapter: &'out Adapter, events: Events, context: &'ctx Ctx) -> Self
     where
         'ctx: 'out,
@@ -396,26 +476,26 @@ where
 
     fn poll_next(
         self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+        cx: &mut task::Context<'_>,
+    ) -> task::Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         loop {
-            let res =
+            let flattened_res =
                 futures::ready!(this.transformed_stream.as_mut().poll_next(cx));
-            if let Some(ev) = res {
-                return Poll::Ready(Some(
+            if let Some(ev) = flattened_res {
+                return task::Poll::Ready(Some(
                     ev.map(Into::into).map_err(Into::into),
                 ));
             }
 
-            let res = futures::ready!(this.events.as_mut().poll_next(cx));
-            if let Some(event) = res {
+            let outer_res = futures::ready!(this.events.as_mut().poll_next(cx));
+            if let Some(event) = outer_res {
                 let new_stream =
                     Adapter::transform(*this.adapter, event, *this.context);
                 this.transformed_stream.set(new_stream.left_stream());
             } else {
-                return Poll::Ready(None);
+                return task::Poll::Ready(None);
             }
         }
     }

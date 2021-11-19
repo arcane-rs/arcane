@@ -7,7 +7,7 @@ pub use self::transformer::{strategy, Adapt, Strategy, Transformer};
 
 #[doc(inline)]
 pub use arcana_core::es::event::adapter::{
-    Adapter, Returning, TransformedStream, Wrapper,
+    Adapted, Adapter, Returning, TransformedStream,
 };
 
 #[cfg(feature = "derive")]

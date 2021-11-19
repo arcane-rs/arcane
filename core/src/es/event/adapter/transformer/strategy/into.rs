@@ -40,4 +40,5 @@ where
     }
 }
 
+/// Alias for [`From::from()`].
 type IntoFn<FromEvent, IntoEvent> = fn(FromEvent) -> IntoEvent;

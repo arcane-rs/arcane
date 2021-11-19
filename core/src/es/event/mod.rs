@@ -259,7 +259,7 @@ pub struct Raw<Ev: ?Sized, Data> {
 impl<Ev: ?Sized, Data> Raw<Ev, Data> {
     /// Creates a new [`Raw`].
     #[must_use]
-    pub fn new(data: Data, version: Version) -> Self {
+    pub const fn new(data: Data, version: Version) -> Self {
         Self {
             data,
             version,
@@ -290,7 +290,7 @@ pub trait VersionedOrRaw {}
 impl<Ev, Data> VersionedOrRaw for Raw<Ev, Data>
 where
     Ev: ?Sized,
-    Raw<Ev, Data>: Event,
+    Self: Event,
 {
 }
 

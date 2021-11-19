@@ -2,9 +2,10 @@
 
 use futures::{future, stream};
 
-use crate::es::{event, event::adapter};
-
-use super::Strategy;
+use super::{
+    event::{self, adapter},
+    Strategy,
+};
 
 /// [`Strategy`] for passing [`Event`]s as is, without any conversions.
 ///
@@ -21,9 +22,11 @@ where
     type Context = ();
     type Error = Adapter::Error;
     type Transformed = Event;
+    #[allow(unused_lifetimes)] // false positive
     type TransformedStream<'o> =
         stream::Once<future::Ready<Result<Self::Transformed, Self::Error>>>;
 
+    #[allow(unused_lifetimes)] // false positive
     fn transform<'me: 'out, 'ctx: 'out, 'out>(
         _: &Adapter,
         event: Event,

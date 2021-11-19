@@ -89,3 +89,4 @@
 
 #[cfg(feature = "es")]
 pub mod es;
+pub mod spell;

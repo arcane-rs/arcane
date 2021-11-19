@@ -22,9 +22,11 @@ where
     type Context = ();
     type Error = Adapter::Error;
     type Transformed = Adapter::Transformed;
+    #[allow(unused_lifetimes)] // false positive
     type TransformedStream<'o> =
         stream::Empty<Result<Self::Transformed, Self::Error>>;
 
+    #[allow(unused_lifetimes)] // false positive
     fn transform<'me: 'out, 'ctx: 'out, 'out>(
         _: &Adapter,
         _: Event,

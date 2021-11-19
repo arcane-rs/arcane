@@ -376,7 +376,7 @@ impl Definition {
     /// [`Adapter`][2], which can transform every enum variant.
     ///
     /// [0]: arcana_core::es::event::adapter::Transformer
-    /// [1]: arcana_core::es::event::adapter::Wrapper
+    /// [1]: arcana_core::es::event::adapter::Adapted
     /// [2]: arcana_core::es::event::Adapter
     #[must_use]
     pub fn impl_transformer(&self) -> TokenStream {
@@ -397,7 +397,7 @@ impl Definition {
             #[automatically_derived]
             impl #impl_gen ::arcana::es::event::adapter::Transformer<
                 '__ctx, #event #type_gen, __Ctx
-            > for ::arcana::es::event::adapter::Wrapper<__A> #where_clause
+            > for ::arcana::es::event::adapter::Adapted<__A> #where_clause
             {
                 type Error = <__A as ::arcana::es::event::adapter::Returning>::
                     Error;
@@ -429,7 +429,7 @@ impl Definition {
     /// Generates [`syn::Generics`] to for [wrapped][0] [`Adapter`][1], which
     /// [`transform`][2]s every enum variant.
     ///
-    /// [0]: arcana_core::es::event::adapter::Wrapper
+    /// [0]: arcana_core::es::event::adapter::Adapted
     /// [1]: arcana_core::es::event::Adapter
     /// [2]: arcana_core::es::event::adapter::Transformer::transform
     #[must_use]
@@ -544,12 +544,12 @@ impl Definition {
             .fold(None, |acc, ty| {
                 let variant_stream = transformed_stream(ty);
                 Some(
-                    acc.map(|acc| {
+                    acc.map(|stream| {
                         quote! {
                             ::arcana::es::event::codegen::futures::future::
                             Either<
                                 #variant_stream,
-                                #acc,
+                                #stream,
                             >
                         }
                     })
@@ -698,7 +698,7 @@ mod spec {
             #[automatically_derived]
             impl<'__ctx, __A, __Ctx> ::arcana::es::event::adapter::Transformer<
                 '__ctx, Event, __Ctx
-            > for ::arcana::es::event::adapter::Wrapper<__A>
+            > for ::arcana::es::event::adapter::Adapted<__A>
             where
                 __A: ::arcana::es::event::adapter::Returning,
                 Self:
@@ -992,7 +992,7 @@ mod spec {
             #[automatically_derived]
             impl<'a, '__ctx, F, C, __A, __Ctx> ::arcana::es::event::adapter::
                 Transformer<'__ctx, Event<'a, F, C>, __Ctx> for
-                    ::arcana::es::event::adapter::Wrapper<__A>
+                    ::arcana::es::event::adapter::Adapted<__A>
             where
                 __A: ::arcana::es::event::adapter::Returning,
                 Self:
@@ -1291,7 +1291,7 @@ mod spec {
             #[automatically_derived]
             impl<'__ctx, __A, __Ctx> ::arcana::es::event::adapter::Transformer<
                 '__ctx, Event, __Ctx
-            > for ::arcana::es::event::adapter::Wrapper<__A>
+            > for ::arcana::es::event::adapter::Adapted<__A>
             where
                 __A: ::arcana::es::event::adapter::Returning,
                 Self:

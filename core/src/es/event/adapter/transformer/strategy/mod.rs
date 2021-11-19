@@ -9,7 +9,6 @@ pub mod split;
 use std::borrow::Borrow;
 
 use futures::Stream;
-use ref_cast::RefCast;
 
 use crate::es::{event, event::adapter};
 
@@ -30,11 +29,11 @@ pub use self::{
 pub trait Strategy<Adapter, Event> {
     /// Context of this [`Strategy`].
     ///
-    /// In real world this is usually `dyn Trait`. In that case,
-    /// [`Adapter::transform_all()`][1] will expect type which can be
-    /// [`Borrow`]ed as `dyn Trait`.
+    /// [`Adapter::transform_all()`][0] will expect type which can be
+    /// [`Borrow`]ed as [`Context`].
     ///
-    /// [1]: adapter::Adapter::transform_all
+    /// [0]: adapter::Adapter::transform_all
+    /// [`Context`]: Self::Context
     type Context: ?Sized;
 
     /// Error of this [`Strategy`].
@@ -68,7 +67,7 @@ pub trait Strategy<Adapter, Event> {
 }
 
 impl<'ctx, Event, Adapter, Ctx> Transformer<'ctx, Event, Ctx>
-    for adapter::Wrapper<Adapter>
+    for adapter::Adapted<Adapter>
 where
     Event: event::VersionedOrRaw,
     Adapter: Adapt<Event> + adapter::Returning,
@@ -103,27 +102,5 @@ where
             event,
             context.borrow(),
         )
-    }
-}
-
-/// TODO
-#[derive(Clone, Copy, Debug, RefCast)]
-#[repr(transparent)]
-pub struct Context<T: ?Sized>(pub T);
-
-/// TODO
-#[derive(Clone, Copy, Debug, RefCast)]
-#[repr(transparent)]
-pub struct InnerContext<T: ?Sized>(pub T);
-
-impl<T: ?Sized> Borrow<()> for Context<T> {
-    fn borrow(&self) -> &() {
-        &()
-    }
-}
-
-impl<X: ?Sized, Y: ?Sized + Borrow<X>> Borrow<InnerContext<X>> for Context<Y> {
-    fn borrow(&self) -> &InnerContext<X> {
-        RefCast::ref_cast(self.0.borrow())
     }
 }

@@ -85,3 +85,10 @@
 
 #[cfg(feature = "es")]
 pub mod es;
+
+pub mod spell {
+    //! Helpers with a little bit of type magic 🪄.
+
+    #[doc(inline)]
+    pub use arcana_core::spell::Borrowed;
+}

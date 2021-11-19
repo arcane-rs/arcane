@@ -41,8 +41,10 @@ where
     type Context = ();
     type Error = Adapter::Error;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
+    #[allow(unused_lifetimes)] // false positive
     type TransformedStream<'o> = SplitStream<Adapter, Event, IntoEvent>;
 
+    #[allow(unused_lifetimes)] // false positive
     fn transform<'me: 'out, 'ctx: 'out, 'out>(
         adapter: &Adapter,
         event: Event,
@@ -52,6 +54,7 @@ where
     }
 }
 
+/// [`Strategy::TransformedStream`] for [`Split`].
 type SplitStream<Adapter, From, Into> = stream::Map<
     stream::Iter<<Adapter as Splitter<From, Into>>::Iterator>,
     fn(
