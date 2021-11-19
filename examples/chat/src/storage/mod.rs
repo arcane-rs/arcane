@@ -14,6 +14,7 @@ pub enum Event {
     Email(EmailEvent),
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, es::Event, From)]
 pub enum ChatEvent {
     Created(event::chat::v1::Created),
