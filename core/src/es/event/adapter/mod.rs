@@ -16,7 +16,9 @@ use ref_cast::RefCast;
 use crate::spell;
 
 #[doc(inline)]
-pub use self::transformer::{strategy, Adapt, Strategy, Transformer};
+pub use self::transformer::{
+    strategy, Adapt, Strategy, Transformer, Types as TransformerTypes,
+};
 
 /// Specifies result of [`Adapter`].
 ///
@@ -305,20 +307,22 @@ where
     Ctx: ?Sized + 'ctx,
     Events: Stream,
     Adapted<A>: Transformer<'ctx, Events::Item, Context<Ctx>>,
-    A::Transformed: From<
-        <Adapted<A> as Transformer<
-            'ctx,
-            Events::Item,
-            Context<Ctx>,
-        >>::Transformed,
-    >,
-    A::Error: From<
-        <Adapted<A> as Transformer<
-            'ctx,
-            Events::Item,
-            Context<Ctx>,
-        >>::Error,
-    >,
+    A::Transformed:
+        From<
+            <Adapted<A> as TransformerTypes<
+                'ctx,
+                Events::Item,
+                Context<Ctx>,
+            >>::Transformed,
+        >,
+    A::Error:
+        From<
+            <Adapted<A> as TransformerTypes<
+                'ctx,
+                Events::Item,
+                Context<Ctx>,
+            >>::Error,
+        >,
 {
     type Error = <A as Returning>::Error;
     type Transformed = <A as Returning>::Transformed;
@@ -384,10 +388,12 @@ where
 ///
 /// Basically applies [`Transformer::transform()`] to every element of
 /// [`Adapter`]s `Events` [`Stream`] and flattens it.
+#[allow(explicit_outlives_requirements)] // false positive
 #[pin_project]
 pub struct TransformedStream<'ctx, 'out, Adapter, Events, Ctx>
 where
-    Adapter: Transformer<'ctx, Events::Item, Ctx>,
+    'ctx: 'out,
+    Adapter: Transformer<'ctx, Events::Item, Ctx> + 'out,
     Ctx: ?Sized,
     Events: Stream,
 {
@@ -427,11 +433,11 @@ where
 
 /// Alias for [`TransformedStream::transformed_stream`].
 type AdapterTransformedStream<'ctx, 'out, Event, Adapter, Ctx> = future::Either<
-    <Adapter as Transformer<'ctx, Event, Ctx>>::TransformedStream<'out>,
+    <Adapter as TransformerTypes<'ctx, Event, Ctx>>::TransformedStream<'out>,
     stream::Empty<
         Result<
-            <Adapter as Transformer<'ctx, Event, Ctx>>::Transformed,
-            <Adapter as Transformer<'ctx, Event, Ctx>>::Error,
+            <Adapter as TransformerTypes<'ctx, Event, Ctx>>::Transformed,
+            <Adapter as TransformerTypes<'ctx, Event, Ctx>>::Error,
         >,
     >,
 >;
@@ -464,10 +470,11 @@ where
     Ctx: ?Sized,
     Adapter: Transformer<'ctx, Events::Item, Ctx> + Returning,
     Events: Stream,
-    <Adapter as Returning>::Transformed:
-        From<<Adapter as Transformer<'ctx, Events::Item, Ctx>>::Transformed>,
+    <Adapter as Returning>::Transformed: From<
+        <Adapter as TransformerTypes<'ctx, Events::Item, Ctx>>::Transformed,
+    >,
     <Adapter as Returning>::Error:
-        From<<Adapter as Transformer<'ctx, Events::Item, Ctx>>::Error>,
+        From<<Adapter as TransformerTypes<'ctx, Events::Item, Ctx>>::Error>,
 {
     type Item = Result<
         <Adapter as Returning>::Transformed,

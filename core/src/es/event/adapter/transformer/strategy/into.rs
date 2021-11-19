@@ -26,7 +26,10 @@ where
     type Context = InnerStrategy::Context;
     type Error = InnerStrategy::Error;
     type Transformed = IntoEvent;
-    type TransformedStream<'out> = stream::MapOk<
+    type TransformedStream<'out>
+    where
+        Adapter: 'out,
+    = stream::MapOk<
         InnerStrategy::TransformedStream<'out>,
         IntoFn<InnerStrategy::Transformed, IntoEvent>,
     >;

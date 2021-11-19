@@ -12,7 +12,7 @@ use futures::Stream;
 
 use crate::es::{event, event::adapter};
 
-use super::{Adapt, Transformer};
+use super::{Adapt, Transformer, Types};
 
 #[doc(inline)]
 pub use self::{
@@ -53,7 +53,9 @@ pub trait Strategy<Adapter, Event> {
                 <Self as Strategy<Adapter, Event>>::Transformed,
                 <Self as Strategy<Adapter, Event>>::Error,
             >,
-        > + 'out;
+        > + 'out
+    where
+        Adapter: 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
@@ -66,7 +68,7 @@ pub trait Strategy<Adapter, Event> {
     ) -> Self::TransformedStream<'out>;
 }
 
-impl<'ctx, Event, Adapter, Ctx> Transformer<'ctx, Event, Ctx>
+impl<'ctx, Event, Adapter, Ctx> Types<'ctx, Event, Ctx>
     for adapter::Adapted<Adapter>
 where
     Event: event::VersionedOrRaw,
@@ -77,17 +79,38 @@ where
     Adapter::Error:
         From<<Adapter::Strategy as Strategy<Adapter, Event>>::Error>,
     Ctx: Borrow<<Adapter::Strategy as Strategy<Adapter, Event>>::Context>
-        + ?Sized,
+        + ?Sized
+        + 'ctx,
     <Adapter::Strategy as Strategy<Adapter, Event>>::Context: 'ctx,
 {
     type Error = <Adapter::Strategy as Strategy<Adapter, Event>>::Error;
     type Transformed =
         <Adapter::Strategy as Strategy<Adapter, Event>>::Transformed;
-    type TransformedStream<'out> = <Adapter::Strategy as Strategy<
-        Adapter,
-        Event,
-    >>::TransformedStream<'out>;
+    type TransformedStream<'out>
+    where
+        Self: 'out,
+    = <Adapter::Strategy as Strategy<Adapter, Event>>::TransformedStream<'out>;
+}
 
+impl<'ctx, Event, Adapter, Ctx> Transformer<'ctx, Event, Ctx>
+    for adapter::Adapted<Adapter>
+where
+    Self: Types<'ctx, Event, Ctx>,
+    Event: event::VersionedOrRaw,
+    Adapter: Adapt<Event> + adapter::Returning,
+    Adapter::Strategy: Strategy<Adapter, Event>,
+    Adapter::Transformed:
+        From<<Adapter::Strategy as Strategy<Adapter, Event>>::Transformed>,
+    Adapter::Error:
+        From<<Adapter::Strategy as Strategy<Adapter, Event>>::Error>,
+    Ctx: Borrow<<Adapter::Strategy as Strategy<Adapter, Event>>::Context>
+        + ?Sized
+        + 'ctx,
+    <Adapter::Strategy as Strategy<Adapter, Event>>::Context: 'ctx,
+    for<'o> <Self as Types<'ctx, Event, Ctx>>::TransformedStream<'o>: From<
+        <Adapter::Strategy as Strategy<Adapter, Event>>::TransformedStream<'o>,
+    >,
+{
     fn transform<'me, 'out>(
         &'me self,
         event: Event,
@@ -102,5 +125,6 @@ where
             event,
             context.borrow(),
         )
+        .into()
     }
 }

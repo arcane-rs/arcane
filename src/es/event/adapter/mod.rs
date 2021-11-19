@@ -3,7 +3,9 @@
 pub mod transformer;
 
 #[doc(inline)]
-pub use self::transformer::{strategy, Adapt, Strategy, Transformer};
+pub use self::transformer::{
+    strategy, Adapt, Strategy, Transformer, Types as TransformerTypes,
+};
 
 #[doc(inline)]
 pub use arcana_core::es::event::adapter::{
