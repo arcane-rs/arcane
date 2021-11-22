@@ -41,7 +41,6 @@ where
     type Context = ();
     type Error = Adapter::Error;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
-    #[allow(unused_lifetimes)] // false positive
     type TransformedStream<'o>
     where
         Adapter: 'o,

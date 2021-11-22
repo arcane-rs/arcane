@@ -1,8 +1,8 @@
 [package]
 name = "arcana-example-chat"
 version = "0.0.0"
-edition = "2018"
-resolver = "2"
+edition = "2021"
+rust-version = "1.56"
 description = "Simple chat app using arcana framework."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
