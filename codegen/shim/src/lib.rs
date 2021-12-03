@@ -87,6 +87,9 @@
     variant_size_differences
 )]
 
+// Only for doc tests.
+#[cfg(test)]
+use arcana as _;
 // Only for generating documentation.
 #[cfg(feature = "doc")]
 use arcana_core as _;

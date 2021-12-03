@@ -337,11 +337,14 @@ impl Definition {
                 }
             }
 
-            ::arcana::es::event::
-           each_combination_of_name_and_version_must_correspond_to_single_type!(
+            #[automatically_derived]
+            #[doc(hidden)]
+            const _: () = ::std::assert!(
                 !#glue::has_different_types_with_same_name_and_ver(
-                    #ty::#ty_subst_gens::__arcana_events()
-                )
+                    #ty::#ty_subst_gens::__arcana_events(),
+                ),
+                "having different `Event` types with the same name and version \
+                 inside a single enum is forbidden",
             );
         }
     }
@@ -453,12 +456,15 @@ mod spec {
                 }
             }
 
-            ::arcana::es::event::
-           each_combination_of_name_and_version_must_correspond_to_single_type!(
+            #[automatically_derived]
+            #[doc(hidden)]
+            const _: () = ::std::assert!(
                 !::arcana::es::event::codegen::
                     has_different_types_with_same_name_and_ver(
-                        Event::<>::__arcana_events()
-                    )
+                        Event::<>::__arcana_events(),
+                    ),
+                "having different `Event` types with the same name and version \
+                 inside a single enum is forbidden",
             );
         };
 
@@ -572,12 +578,15 @@ mod spec {
                 }
             }
 
-            ::arcana::es::event::
-           each_combination_of_name_and_version_must_correspond_to_single_type!(
+            #[automatically_derived]
+            #[doc(hidden)]
+            const _: () = ::std::assert!(
                 !::arcana::es::event::codegen::
                     has_different_types_with_same_name_and_ver(
-                        Event::<'static, (), ()>::__arcana_events()
-                    )
+                        Event::<'static, (), ()>::__arcana_events(),
+                    ),
+                "having different `Event` types with the same name and version \
+                 inside a single enum is forbidden",
             );
         };
 
@@ -694,12 +703,15 @@ mod spec {
                 }
             }
 
-            ::arcana::es::event::
-           each_combination_of_name_and_version_must_correspond_to_single_type!(
+            #[automatically_derived]
+            #[doc(hidden)]
+            const _: () = ::std::assert!(
                 !::arcana::es::event::codegen::
                     has_different_types_with_same_name_and_ver(
-                        Event::<>::__arcana_events()
-                    )
+                        Event::<>::__arcana_events(),
+                    ),
+                "having different `Event` types with the same name and version \
+                 inside a single enum is forbidden",
             );
         };
 

@@ -2,7 +2,7 @@
 name = "arcana-codegen-impl"
 version = "0.1.0-dev"
 edition = "2021"
-rust-version = "1.56"
+rust-version = "1.57"
 description = "Code generation implementation of `arcana-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",

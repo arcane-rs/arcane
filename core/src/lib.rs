@@ -91,6 +91,10 @@
 #[cfg(feature = "es")]
 pub mod es;
 
+// Only for doc tests.
+#[cfg(test)]
+use arcana as _;
+
 pub use ref_cast::RefCast;
 
 #[cfg(feature = "codegen")]

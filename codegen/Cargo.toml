@@ -2,7 +2,7 @@
 name = "arcana-codegen"
 version = "0.1.0-dev"
 edition = "2021"
-rust-version = "1.56"
+rust-version = "1.57"
 description = "Code generation for `arcana` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
@@ -22,7 +22,6 @@ doc = ["arcana-codegen-shim/doc", "arcana-core"] # only for generating documenta
 
 [dependencies]
 arcana-codegen-shim = { version = "0.1.0-dev", path = "./shim" }
-static_assertions = { version = "1.1", default-features = false }
 
 # `doc` feature
 arcana-core = { version = "0.1.0-dev", path = "../core", features = ["es"], optional = true }

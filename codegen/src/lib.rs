@@ -92,5 +92,3 @@ pub mod es;
 // Only for generating documentation.
 #[cfg(feature = "doc")]
 use arcana_core as _;
-
-pub use static_assertions as sa;
