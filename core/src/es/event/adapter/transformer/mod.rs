@@ -22,35 +22,6 @@ pub trait Adapt<Event> {
     type Strategy;
 }
 
-/// Types of [`Transformer`] trait.
-///
-/// Exists only because current `GATs` implementation seems to be broken.
-/// More detailed explanation: [comment].
-///
-/// [comment]: https://github.com/arcana-rs/arcana/pull/4#issuecomment-974068300
-pub trait Types<'ctx, Event, Ctx: ?Sized + 'ctx> {
-    /// Error of this [`Transformer`].
-    type Error;
-
-    /// Converted [`Event`].
-    ///
-    /// [`Event`]: crate::es::Event
-    type Transformed;
-
-    /// [`Stream`] of [`Transformed`] [`Event`]s.
-    ///
-    /// [`Event`]: crate::es::Event
-    /// [`Transformed`]: Self::Transformed
-    type TransformedStream<'out>: Stream<
-            Item = Result<
-                <Self as Types<'ctx, Event, Ctx>>::Transformed,
-                <Self as Types<'ctx, Event, Ctx>>::Error,
-            >,
-        > + 'out
-    where
-        Self: 'out;
-}
-
 /// Facility to convert [`Event`]s.
 /// Typical use cases include (but are not limited to):
 ///
@@ -69,13 +40,30 @@ pub trait Types<'ctx, Event, Ctx: ?Sized + 'ctx> {
 /// [`Skip`]: strategy::Skip
 /// [`Split`]: strategy::Split
 /// [`Version`]: crate::es::event::Version
-pub trait Transformer<'ctx, Event, Ctx: ?Sized + 'ctx>:
-    Types<'ctx, Event, Ctx>
-{
+pub trait Transformer<'ctx, Event, Ctx: ?Sized> {
+    /// Error of this [`Transformer`].
+    type Error;
+
+    /// Converted [`Event`].
+    ///
+    /// [`Event`]: crate::es::Event
+    type Transformed;
+
+    /// [`Stream`] of [`Transformed`] [`Event`]s.
+    ///
+    /// [`Event`]: crate::es::Event
+    /// [`Transformed`]: Self::Transformed
+    type TransformedStream<'out>: Stream<
+            Item = Result<
+                <Self as Transformer<'ctx, Event, Ctx>>::Transformed,
+                <Self as Transformer<'ctx, Event, Ctx>>::Error,
+            >,
+        > + 'out;
+
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
     /// [`Event`]: crate::es::Event
-    /// [`Transformed`]: TransformerTypes::Transformed
+    /// [`Transformed`]: Self::Transformed
     fn transform<'me, 'out>(
         &'me self,
         event: Event,

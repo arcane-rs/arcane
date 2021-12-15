@@ -43,9 +43,7 @@ pub trait Customize<Event: event::VersionedOrRaw> {
                 <Self as Customize<Event>>::Transformed,
                 <Self as Customize<Event>>::Error,
             >,
-        > + 'out
-    where
-        Self: 'out;
+        > + 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
@@ -66,10 +64,7 @@ where
     type Context = <Adapter as Customize<Event>>::Context;
     type Error = Adapter::Error;
     type Transformed = Adapter::Transformed;
-    type TransformedStream<'out>
-    where
-        Adapter: 'out,
-    = Adapter::TransformedStream<'out>;
+    type TransformedStream<'out> = Adapter::TransformedStream<'out>;
 
     fn transform<'me: 'out, 'ctx: 'out, 'out>(
         adapter: &'me Adapter,

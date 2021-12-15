@@ -42,10 +42,7 @@ where
     type Error = Adapter::Error;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
     #[allow(unused_lifetimes)] // false positive
-    type TransformedStream<'o>
-    where
-        Adapter: 'o,
-    = SplitStream<Adapter, Event, IntoEvent>;
+    type TransformedStream<'o> = SplitStream<Adapter, Event, IntoEvent>;
 
     #[allow(unused_lifetimes)] // false positive
     fn transform<'me: 'out, 'ctx: 'out, 'out>(

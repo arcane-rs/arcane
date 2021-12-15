@@ -23,10 +23,8 @@ where
     type Error = Adapter::Error;
     type Transformed = Event;
     #[allow(unused_lifetimes)] // false positive
-    type TransformedStream<'o>
-    where
-        Adapter: 'o,
-    = stream::Once<future::Ready<Result<Self::Transformed, Self::Error>>>;
+    type TransformedStream<'o> =
+        stream::Once<future::Ready<Result<Self::Transformed, Self::Error>>>;
 
     #[allow(unused_lifetimes)] // false positive
     fn transform<'me: 'out, 'ctx: 'out, 'out>(
