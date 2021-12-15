@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![feature(generic_associated_types)]
 #![deny(
     macro_use_extern_crate,
     nonstandard_style,
@@ -90,15 +91,4 @@
 
 #[cfg(feature = "es")]
 pub mod es;
-
-// Only for doc tests.
-#[cfg(test)]
-use arcana as _;
-
-pub use ref_cast::RefCast;
-
-#[cfg(feature = "codegen")]
-/// See [`sealed`] crate documentation.
-///
-/// [`sealed`]: https://docs.rs/sealed
-pub use sealed::sealed;
+pub mod spell;

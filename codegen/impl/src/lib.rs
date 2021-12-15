@@ -92,3 +92,5 @@ pub mod es;
 // Only for generating documentation.
 #[cfg(feature = "doc")]
 use arcana_core as _;
+#[cfg(feature = "doc")]
+use futures as _;

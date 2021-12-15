@@ -26,9 +26,9 @@ es = ["arcana-core/es"]
 arcana-core = { version = "0.1.0-dev", path = "./core" }
 arcana-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
 
-[[example]]
-name = "event"
-required-features = ["derive", "es"]
-
 [workspace]
-members = ["codegen", "codegen/impl", "codegen/shim", "core"]
+members = [
+    "codegen", "codegen/impl", "codegen/shim",
+    "core",
+    "examples/chat",
+]

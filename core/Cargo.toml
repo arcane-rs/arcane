@@ -18,13 +18,15 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-codegen = ["sealed"] # only enables codegen glue
-es = ["derive_more"]
+codegen = [] # only enables codegen glue
+es = ["futures", "pin-project"]
 
 [dependencies]
-derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false, optional = true }
+derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "from", "into"], default-features = false }
+futures = { version = "0.3.11", default-features = false, optional = true }
+pin-project = { version = "1.0", optional = true }
 ref-cast = "1.0"
-sealed = { version = "0.3", optional = true }
 
 [dev-dependencies]
 arcana = { version = "0.1.0-dev", path = "..", features = ["derive", "es"] }
+futures = "0.3"

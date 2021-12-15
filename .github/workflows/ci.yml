@@ -100,6 +100,7 @@ jobs:
           - arcana-codegen-shim
           - arcana-codegen
           - arcana
+          - arcana-example-chat
         os:
           - ubuntu
           - macOS
@@ -168,6 +169,7 @@ jobs:
           - arcana-codegen-shim
           - arcana-codegen
           - arcana
+          - arcana-example-chat
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

@@ -88,13 +88,13 @@
 #[cfg(feature = "es")]
 pub mod es;
 
-#[cfg(feature = "derive")]
+pub mod spell {
+    //! Helpers with a little bit of type magic 🪄.
+
+    #[doc(inline)]
+    pub use arcana_core::spell::Borrowed;
+}
+
+// To avoid lint errors in case `derive` feature is enabled and `es` isn't.
+#[cfg(all(feature = "derive", not(feature = "es")))]
 use arcana_codegen as _;
-
-pub use arcana_core::RefCast;
-
-#[cfg(feature = "derive")]
-/// See [`sealed`] crate documentation.
-///
-/// [`sealed`]: https://docs.rs/sealed
-pub use arcana_core::sealed;

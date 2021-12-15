@@ -113,6 +113,13 @@ use proc_macro::TokenStream;
 /// >              clause because of `const` evaluation limitations. Should be
 /// >              lifted once [rust-lang/rust#57775] is resolved.
 ///
+/// # Blanket implementations
+///
+/// - [`event::Sourced`] for every state, which can be sourced from all enum
+///   variants;
+/// - [`Transformer`] for every [`Adapter`], that can transform all enum
+///   variants.
+///
 /// # Variant attributes
 ///
 /// #### `#[event(init)]` (optional)
@@ -135,6 +142,8 @@ use proc_macro::TokenStream;
 /// # Example
 ///
 /// ```rust,compile_fail,E0080
+/// # #![feature(generic_associated_types)]
+/// #
 /// # use arcana::es::{event, Event};
 /// #
 /// #[derive(event::Versioned)]
@@ -155,6 +164,8 @@ use proc_macro::TokenStream;
 /// ```
 ///
 /// ```rust
+/// # #![feature(generic_associated_types)]
+/// #
 /// # use arcana::es::{event, Event};
 /// #
 /// # #[derive(event::Versioned)]
@@ -182,9 +193,11 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
+/// [`Adapter`]: arcana_core::es::event::Adapter
 /// [`Event`]: arcana_core::es::Event
 /// [`event::Initialized`]: arcana_core::es::event::Initialized
 /// [`event::Sourced`]: arcana_core::es::event::Sourced
+/// [`Transformer`]: arcana_core::es::event::adapter::Transformer
 /// [`Versioned`]: arcana_core::es::event::Versioned
 /// [0]: arcana_core::es::Event::name()
 /// [1]: arcana_core::es::Event::version()
@@ -229,6 +242,49 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(VersionedEvent, attributes(event))]
 pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
     codegen::es::event::versioned::derive(input.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Macro for deriving [`adapter::Returning`][0] which is required for
+/// [`Adapter`] blanket impl.
+///
+/// # Attributes
+///
+/// #### `#[adapter(transformed = <ty>)]`
+///
+/// Aliases: `#[adapter(into = <ty>)]`
+///
+/// [`adapter::Returning::Transformed`][1] associated type.
+///
+/// #### `#[adapter(error = <ty>)]` (optional)
+///
+/// Aliases: `#[adapter(err = <ty>)]`
+///
+/// [`adapter::Returning::Error`][2] associated type. [`Infallible`] by default.
+///
+/// # Example
+///
+/// ```rust
+/// # use arcana::es::event;
+/// #
+/// # #[derive(event::Versioned)]
+/// # #[event(name = "event", version = 1)]
+/// # struct Event;
+/// #
+/// #[derive(event::Adapter, Clone, Copy, Debug)]
+/// #[adapter(into = Event)]
+/// struct Adapter;
+/// ```
+///
+/// [`Adapter`]: arcana_core::es::event::Adapter
+/// [`Infallible`]: std::convert::Infallible
+/// [0]: arcana_core::es::event::adapter::Returning
+/// [1]: arcana_core::es::event::adapter::Returning::Transformed
+/// [2]: arcana_core::es::event::adapter::Returning::Error
+#[proc_macro_derive(EventAdapter, attributes(adapter))]
+pub fn derive_event_adapter(input: TokenStream) -> TokenStream {
+    codegen::es::event::adapter::derive(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
