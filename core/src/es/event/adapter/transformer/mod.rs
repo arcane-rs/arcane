@@ -22,8 +22,6 @@ pub trait Adapt<Event> {
     type Strategy;
 }
 
-// TODO: Merge this trait back into Transformer once issue is resolved:
-//       https://github.com/rust-lang/rust/issues/91036#issuecomment-974127413
 /// Types of [`Transformer`] trait.
 ///
 /// Exists only because current `GATs` implementation seems to be broken.
@@ -77,7 +75,7 @@ pub trait Transformer<'ctx, Event, Ctx: ?Sized + 'ctx>:
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
     /// [`Event`]: crate::es::Event
-    /// [`Transformed`]: Types::Transformed
+    /// [`Transformed`]: TransformerTypes::Transformed
     fn transform<'me, 'out>(
         &'me self,
         event: Event,
