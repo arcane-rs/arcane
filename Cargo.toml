@@ -2,7 +2,7 @@
 name = "arcana"
 version = "0.1.0-dev"
 edition = "2021"
-rust-version = "1.56"
+rust-version = "1.57"
 description = "Opionated CQRS/ES framework with type magic."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",

@@ -22,6 +22,7 @@
     clippy::decimal_literal_representation,
     clippy::else_if_without_else,
     clippy::empty_line_after_outer_attr,
+    clippy::equatable_if_let,
     clippy::exit,
     clippy::expect_used,
     clippy::fallible_impl_from,
@@ -48,6 +49,7 @@
     clippy::rc_buffer,
     clippy::rc_mutex,
     clippy::rest_pat_in_fully_bound_structs,
+    clippy::same_name_method,
     clippy::shadow_unrelated,
     clippy::str_to_string,
     clippy::string_add,
@@ -85,6 +87,9 @@
     variant_size_differences
 )]
 
+// Only for doc tests.
+#[cfg(test)]
+use arcana as _;
 // Only for generating documentation.
 #[cfg(feature = "doc")]
 use arcana_core as _;
