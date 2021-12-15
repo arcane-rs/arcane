@@ -51,6 +51,7 @@ mod spec {
         chat, email, event, message, ChatEvent, EmailEvent, Event, MessageEvent,
     };
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     #[tokio::test]
     async fn chat_adapter() {
         let mut chat = Option::<domain::Chat>::None;
@@ -79,6 +80,7 @@ mod spec {
         );
     }
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     #[tokio::test]
     async fn email_adapter() {
         let mut email = Option::<domain::Email>::None;
@@ -115,6 +117,7 @@ mod spec {
         );
     }
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     #[tokio::test]
     async fn email_adapter_with_corrupted_event() {
         let corrupted_event =
@@ -131,6 +134,7 @@ mod spec {
         assert_eq!(result.unwrap_err().to_string(), "missing field `email`")
     }
 
+    #[allow(clippy::semicolon_if_nothing_returned)]
     #[tokio::test]
     async fn message_adapter() {
         let mut message = Option::<domain::Message>::None;

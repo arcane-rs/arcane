@@ -8,8 +8,8 @@ use futures::Stream;
 pub use strategy::Strategy;
 
 /// To use [`Adapter`] with some [`Event`], you should provide [`Strategy`]
-/// for every [`VersionedEvent`] involved with this [`Event`] and use
-/// [`Adapter`] derive macro on struct itself.
+/// for every [`VersionedEvent`] involved with this [`Event`] and implement
+/// [`Returning`] on [`Adapter`] itself.
 ///
 /// [`Adapter`]: crate::es::event::Adapter
 /// [`Event`]: crate::es::Event
@@ -23,11 +23,11 @@ pub trait Adapt<Event> {
 }
 
 // TODO: Merge this trait back into Transformer once issue is resolved:
-//       https://github.com/rust-lang/rust/issues/91036
+//       https://github.com/rust-lang/rust/issues/91036#issuecomment-974127413
 /// Types of [`Transformer`] trait.
 ///
-/// Exists only because current `GATs` implementation seems to be broken. More
-/// detailed explanation: [comment].
+/// Exists only because current `GATs` implementation seems to be broken.
+/// More detailed explanation: [comment].
 ///
 /// [comment]: https://github.com/arcana-rs/arcana/pull/4#issuecomment-974068300
 pub trait Types<'ctx, Event, Ctx: ?Sized + 'ctx> {

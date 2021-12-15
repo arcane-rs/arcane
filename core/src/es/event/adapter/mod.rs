@@ -130,9 +130,9 @@ pub trait Returning {
 /// # }
 /// ```
 ///
-/// In case some of your [`Strategies`] are [`Custom`] or manual impl with
-/// non-`()` [`Strategy::Context`], provided `context` should be able to be
-/// [`Borrow`]ed as `dyn Trait`.
+/// In case some of your [`Strategies`] are [`Custom`] with non-`()`
+/// [`Customize::Context`], provided `context` should be able to be [`Borrow`]ed
+/// as `dyn Trait`.
 ///
 /// ```rust
 /// # #![feature(generic_associated_types)]
@@ -256,12 +256,12 @@ pub trait Returning {
 ///
 /// [`Borrow`]: std::borrow::Borrow
 /// [`Custom`]: transformer::strategy::Custom
+/// [`Customize::Context`]: transformer::strategy::Customize::Context
 /// [`Error`]: Self::Error
 /// [`Event`]: crate::es::Event
 /// [`Skip`]: transformer::strategy::Skip
 /// [`Split`]: transformer::strategy::Split
 /// [`Strategies`]: Strategy
-/// [`Strategy::Context`]: transformer::Strategy::Context
 /// [`Transformed`]: Self::Transformed
 /// [`Version`]: crate::es::event::Version
 /// [`VersionedEvent`]: crate::es::VersionedEvent
@@ -347,7 +347,7 @@ where
     }
 }
 
-/// Wrapper around `context` in [`Adapter::transform_all()`] method used in pair
+/// Wrapper around `context` in [`Adapter::transform_all()`] method use in pair
 /// with [`spell::Borrowed`] to hack around orphan rules. Shouldn't be used
 /// manually.
 #[derive(Clone, Copy, Debug, RefCast)]

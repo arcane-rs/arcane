@@ -22,6 +22,7 @@ where
     type Context = ();
     type Error = Adapter::Error;
     type Transformed = Adapter::Transformed;
+    #[allow(unused_lifetimes)] // false positive
     type TransformedStream<'o>
     where
         Adapter: 'o,

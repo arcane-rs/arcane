@@ -5,10 +5,6 @@ use futures::Stream;
 use super::{event, Strategy};
 
 /// [`Strategy`] for some custom conversion provided by [`Customize`].
-///
-/// This [`Strategy`] should be used in case you don't plan to reuse
-/// [`Customize`] impl. Otherwise you should implement [`Strategy`] on your
-/// custom struct and reuse it.
 #[derive(Clone, Copy, Debug)]
 pub struct Custom;
 
