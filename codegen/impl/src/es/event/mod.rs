@@ -404,7 +404,12 @@ impl Definition {
                 type Transformed =
                     <__A as ::arcana::es::event::adapter::Returning>::
                         Transformed;
-                type TransformedStream<'out> = #transformed;
+                type TransformedStream<'out>
+                where
+                    '__ctx: 'out,
+                    __A: 'out,
+                    __Ctx: '__ctx + 'out,
+                = #transformed;
 
                 fn transform<'me, 'out>(
                     &'me self,
@@ -750,7 +755,12 @@ mod spec {
                 type Transformed =
                     <__A as ::arcana::es::event::adapter::Returning>::
                         Transformed;
-                type TransformedStream<'out> =
+                type TransformedStream<'out>
+                where
+                    '__ctx: 'out,
+                    __A: 'out,
+                    __Ctx: '__ctx + 'out,
+                =
                     ::arcana::es::event::codegen::futures::future::Either<
                         ::arcana::es::event::codegen::futures::stream::Map<
                             <Self as ::arcana::es::event::adapter::Transformer<
@@ -1042,7 +1052,12 @@ mod spec {
                 type Transformed =
                     <__A as ::arcana::es::event::adapter::Returning>::
                         Transformed;
-                type TransformedStream<'out> =
+                type TransformedStream<'out>
+                where
+                    '__ctx: 'out,
+                    __A: 'out,
+                    __Ctx: '__ctx + 'out,
+                =
                     ::arcana::es::event::codegen::futures::future::Either<
                         ::arcana::es::event::codegen::futures::stream::Map<
                             <Self as ::arcana::es::event::adapter::Transformer<
@@ -1341,7 +1356,12 @@ mod spec {
                 type Transformed =
                     <__A as ::arcana::es::event::adapter::Returning>::
                         Transformed;
-                type TransformedStream<'out> =
+                type TransformedStream<'out>
+                where
+                    '__ctx: 'out,
+                    __A: 'out,
+                    __Ctx: '__ctx + 'out,
+                =
                     ::arcana::es::event::codegen::futures::future::Either<
                         ::arcana::es::event::codegen::futures::stream::Map<
                             <Self as ::arcana::es::event::adapter::Transformer<

@@ -62,16 +62,16 @@ impl
     ) -> Self::Iterator {
         use either::{Left, Right};
 
-        #[allow(clippy::option_if_let_else)] // use of moved value
         if let Some(confirmed_by) = event.confirmed_by {
-            Right(array::IntoIter::new([
-                Left(event::email::Added { email: event.email }),
-                Right(event::email::Confirmed { confirmed_by }),
-            ]))
+            Right(
+                [
+                    Left(event::email::Added { email: event.email }),
+                    Right(event::email::Confirmed { confirmed_by }),
+                ]
+                .into_iter(),
+            )
         } else {
-            Left(array::IntoIter::new([Left(event::email::Added {
-                email: event.email,
-            })]))
+            Left([Left(event::email::Added { email: event.email })].into_iter())
         }
     }
 }

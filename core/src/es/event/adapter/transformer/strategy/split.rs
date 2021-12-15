@@ -41,14 +41,15 @@ where
     type Context = ();
     type Error = Adapter::Error;
     type Transformed = <Adapter::Iterator as Iterator>::Item;
-    #[allow(unused_lifetimes)] // false positive
-    type TransformedStream<'o> = SplitStream<Adapter, Event, IntoEvent>;
+    type TransformedStream<'o>
+    where
+        Adapter: 'o,
+    = SplitStream<Adapter, Event, IntoEvent>;
 
-    #[allow(unused_lifetimes)] // false positive
     fn transform<'me: 'out, 'ctx: 'out, 'out>(
-        adapter: &Adapter,
+        adapter: &'me Adapter,
         event: Event,
-        _: &Self::Context,
+        _: &'ctx Self::Context,
     ) -> Self::TransformedStream<'out> {
         stream::iter(adapter.split(event)).map(Ok)
     }

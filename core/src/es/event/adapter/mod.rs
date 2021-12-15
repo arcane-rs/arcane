@@ -128,9 +128,9 @@ pub trait Returning {
 /// # }
 /// ```
 ///
-/// In case some of your [`Strategies`] are [`Custom`] with non-`()`
-/// [`Customize::Context`], provided `context` should be able to be [`Borrow`]ed
-/// as `dyn Trait`.
+/// In case some of your [`Strategies`] are [`Custom`] or manual impl with
+/// non-`()` [`Strategy::Context`], provided `context` should be able to be
+/// [`Borrow`]ed as `dyn Trait`.
 ///
 /// ```rust
 /// # #![feature(generic_associated_types)]
@@ -254,7 +254,6 @@ pub trait Returning {
 ///
 /// [`Borrow`]: std::borrow::Borrow
 /// [`Custom`]: transformer::strategy::Custom
-/// [`Customize::Context`]: transformer::strategy::Customize::Context
 /// [`Error`]: Self::Error
 /// [`Event`]: crate::es::Event
 /// [`Skip`]: transformer::strategy::Skip
@@ -292,11 +291,15 @@ pub trait Adapter<'ctx, Events, Ctx: ?Sized> {
     ///
     /// [`Event`]: crate::es::Event
     /// [`Transformed`]: Self::Transformed
-    fn transform_all<'me: 'out, 'out>(
+    fn transform_all<'me, 'out>(
         &'me self,
         events: Events,
         context: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out>;
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+        Events: 'out;
 }
 
 impl<'ctx, A, Events, Ctx> Adapter<'ctx, Events, Ctx> for A
@@ -330,11 +333,16 @@ where
         Self: 'out,
     = TransformedStream<'ctx, 'out, Adapted<A>, Events, Context<Ctx>>;
 
-    fn transform_all<'me: 'out, 'out>(
+    fn transform_all<'me, 'out>(
         &'me self,
         events: Events,
         context: &'ctx Ctx,
-    ) -> Self::TransformedStream<'out> {
+    ) -> Self::TransformedStream<'out>
+    where
+        'me: 'out,
+        'ctx: 'out,
+        Events: 'out,
+    {
         TransformedStream::new(
             RefCast::ref_cast(self),
             events,
@@ -343,7 +351,7 @@ where
     }
 }
 
-/// Wrapper around `context` in [`Adapter::transform_all()`] method use in pair
+/// Wrapper around `context` in [`Adapter::transform_all()`] method used in pair
 /// with [`spell::Borrowed`] to hack around orphan rules. Shouldn't be used
 /// manually.
 #[derive(Clone, Copy, Debug, RefCast)]
@@ -384,11 +392,13 @@ where
 ///
 /// Basically applies [`Transformer::transform()`] to every element of
 /// [`Adapter`]s `Events` [`Stream`] and flattens it.
+#[allow(explicit_outlives_requirements)] // false positive
 #[pin_project]
 pub struct TransformedStream<'ctx, 'out, Adapter, Events, Ctx>
 where
-    Adapter: Transformer<'ctx, Events::Item, Ctx>,
-    Ctx: ?Sized,
+    'ctx: 'out,
+    Adapter: Transformer<'ctx, Events::Item, Ctx> + 'out,
+    Ctx: ?Sized + 'ctx,
     Events: Stream,
 {
     /// [`Stream`] of [`Event`]s to [`Transformer::transform()`].

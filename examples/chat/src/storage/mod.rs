@@ -14,6 +14,7 @@ pub enum Event {
     Email(EmailEvent),
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, es::Event, From)]
 pub enum ChatEvent {
     Created(event::chat::v1::Created),
@@ -38,8 +39,6 @@ pub enum EmailEvent {
 
 #[cfg(test)]
 mod spec {
-    use std::array;
-
     use arcana::es::{EventAdapter as _, EventSourced as _};
     use futures::{future, stream, Stream, TryStreamExt as _};
     use serde_json::json;
@@ -50,7 +49,6 @@ mod spec {
         chat, email, event, message, ChatEvent, EmailEvent, Event, MessageEvent,
     };
 
-    #[allow(clippy::semicolon_if_nothing_returned)]
     #[tokio::test]
     async fn chat_adapter() {
         let mut chat = Option::<domain::Chat>::None;
@@ -79,7 +77,6 @@ mod spec {
         );
     }
 
-    #[allow(clippy::semicolon_if_nothing_returned)]
     #[tokio::test]
     async fn email_adapter() {
         let mut email = Option::<domain::Email>::None;
@@ -116,7 +113,6 @@ mod spec {
         );
     }
 
-    #[allow(clippy::semicolon_if_nothing_returned)]
     #[tokio::test]
     async fn email_adapter_with_corrupted_event() {
         let corrupted_event =
@@ -133,7 +129,6 @@ mod spec {
         assert_eq!(result.unwrap_err().to_string(), "missing field `email`")
     }
 
-    #[allow(clippy::semicolon_if_nothing_returned)]
     #[tokio::test]
     async fn message_adapter() {
         let mut message = Option::<domain::Message>::None;
@@ -149,23 +144,26 @@ mod spec {
     }
 
     fn incoming_events() -> impl Stream<Item = Event> {
-        stream::iter(array::IntoIter::new([
-            ChatEvent::Created(event::chat::v1::Created).into(),
-            ChatEvent::PrivateCreated(event::chat::private::Created).into(),
-            ChatEvent::PublicCreated(event::chat::public::Created).into(),
-            MessageEvent::Posted(event::message::Posted).into(),
-            EmailEvent::AddedAndConfirmed(
-                event::email::v2::AddedAndConfirmed {
-                    email: "hello@world.com".to_owned(),
-                    confirmed_by: None,
-                },
-            )
-            .into(),
-            EmailEvent::RawAddedAndConfirmed(event::Raw::new(
-                json!({ "email": "raw@event.com", "confirmed_by": "User" }),
-                event::Version::try_new(1).unwrap(),
-            ))
-            .into(),
-        ]))
+        stream::iter(
+            [
+                ChatEvent::Created(event::chat::v1::Created).into(),
+                ChatEvent::PrivateCreated(event::chat::private::Created).into(),
+                ChatEvent::PublicCreated(event::chat::public::Created).into(),
+                MessageEvent::Posted(event::message::Posted).into(),
+                EmailEvent::AddedAndConfirmed(
+                    event::email::v2::AddedAndConfirmed {
+                        email: "hello@world.com".to_owned(),
+                        confirmed_by: None,
+                    },
+                )
+                .into(),
+                EmailEvent::RawAddedAndConfirmed(event::Raw::new(
+                    json!({ "email": "raw@event.com", "confirmed_by": "User" }),
+                    event::Version::try_new(1).unwrap(),
+                ))
+                .into(),
+            ]
+            .into_iter(),
+        )
     }
 }

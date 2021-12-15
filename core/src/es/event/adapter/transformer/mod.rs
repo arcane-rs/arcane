@@ -8,8 +8,8 @@ use futures::Stream;
 pub use strategy::Strategy;
 
 /// To use [`Adapter`] with some [`Event`], you should provide [`Strategy`]
-/// for every [`VersionedEvent`] involved with this [`Event`] and implement
-/// [`Returning`] on [`Adapter`] itself.
+/// for every [`VersionedEvent`] involved with this [`Event`] and use
+/// [`Adapter`] derive macro on struct itself.
 ///
 /// [`Adapter`]: crate::es::event::Adapter
 /// [`Event`]: crate::es::Event
@@ -58,7 +58,11 @@ pub trait Transformer<'ctx, Event, Ctx: ?Sized> {
                 <Self as Transformer<'ctx, Event, Ctx>>::Transformed,
                 <Self as Transformer<'ctx, Event, Ctx>>::Error,
             >,
-        > + 'out;
+        > + 'out
+    where
+        'ctx: 'out,
+        Ctx: 'ctx + 'out,
+        Self: 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///

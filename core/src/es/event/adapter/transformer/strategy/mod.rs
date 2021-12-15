@@ -53,7 +53,9 @@ pub trait Strategy<Adapter, Event> {
                 <Self as Strategy<Adapter, Event>>::Transformed,
                 <Self as Strategy<Adapter, Event>>::Error,
             >,
-        > + 'out;
+        > + 'out
+    where
+        Adapter: 'out;
 
     /// Converts incoming [`Event`] into [`Transformed`].
     ///
@@ -83,10 +85,12 @@ where
     type Error = <Adapter::Strategy as Strategy<Adapter, Event>>::Error;
     type Transformed =
         <Adapter::Strategy as Strategy<Adapter, Event>>::Transformed;
-    type TransformedStream<'out> = <Adapter::Strategy as Strategy<
-        Adapter,
-        Event,
-    >>::TransformedStream<'out>;
+    type TransformedStream<'out>
+    where
+        'ctx: 'out,
+        Adapter: 'out,
+        Ctx: 'ctx + 'out,
+    = <Adapter::Strategy as Strategy<Adapter, Event>>::TransformedStream<'out>;
 
     fn transform<'me, 'out>(
         &'me self,

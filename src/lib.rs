@@ -92,3 +92,7 @@ pub mod spell {
     #[doc(inline)]
     pub use arcana_core::spell::Borrowed;
 }
+
+// To avoid lint errors in case `derive` feature is enabled and `es` isn't.
+#[cfg(all(feature = "derive", not(feature = "es")))]
+use arcana_codegen as _;
