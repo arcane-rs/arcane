@@ -35,6 +35,7 @@ impl Version {
     #[inline]
     #[must_use]
     pub const unsafe fn new_unchecked(value: u16) -> Self {
+        // SAFETY: Safety invariants are the same as for this method.
         Self(unsafe { NonZeroU16::new_unchecked(value) })
     }
 
