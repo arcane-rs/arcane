@@ -2,7 +2,7 @@
 name = "arcana-codegen-impl"
 version = "0.1.0-dev"
 edition = "2021"
-rust-version = "1.57"
+rust-version = "1.60"
 description = "Code generation implementation of `arcana-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
@@ -18,7 +18,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-doc = ["arcana-core"] # only for generating documentation
+doc = ["dep:arcana-core"] # only for generating documentation
 
 [dependencies]
 proc-macro2 = { version = "1.0.4", default-features = false }

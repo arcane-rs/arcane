@@ -2,7 +2,7 @@
 name = "arcana-core"
 version = "0.1.0-dev"
 edition = "2021"
-rust-version = "1.57"
+rust-version = "1.60"
 description = "Core abstractions and implementations of `arcana` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
@@ -18,8 +18,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-codegen = ["sealed"] # only enables codegen glue
-es = ["derive_more"]
+codegen = ["dep:sealed"] # only enables codegen glue
+es = ["dep:derive_more"]
 
 [dependencies]
 derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false, optional = true }

@@ -2,7 +2,7 @@
 name = "arcana-codegen-shim"
 version = "0.1.0-dev"
 edition = "2021"
-rust-version = "1.57"
+rust-version = "1.60"
 description = "Internal proc macro shim of `arcana-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
@@ -21,7 +21,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 proc-macro = true
 
 [features]
-doc = ["arcana-codegen-impl/doc", "arcana-core"] # only for generating documentation
+doc = ["arcana-codegen-impl/doc", "dep:arcana-core"] # only for generating documentation
 
 [dependencies]
 arcana-codegen-impl = { version = "0.1.0-dev", path = "../impl" }
