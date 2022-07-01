@@ -9,7 +9,7 @@ authors = [
     "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcana-core"
-homepage = "https://github.com/arcana-rs/arcana/tree/master/core"
+homepage = "https://github.com/arcana-rs/arcana/tree/main/core"
 repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 

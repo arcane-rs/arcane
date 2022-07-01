@@ -9,7 +9,7 @@ authors = [
     "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcana-codegen"
-homepage = "https://github.com/arcana-rs/arcana/tree/master/codegen"
+homepage = "https://github.com/arcana-rs/arcana/tree/main/codegen"
 repository = "https://github.com/arcana-rs/arcana"
 readme = "README.md"
 
