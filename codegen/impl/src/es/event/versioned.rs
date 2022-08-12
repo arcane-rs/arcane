@@ -37,8 +37,8 @@ pub struct Attrs {
 }
 
 /// Checks whether the given `value` can be parsed as [`NonZeroU16`].
-fn can_parse_as_non_zero_u16(val: &Required<syn::LitInt>) -> syn::Result<()> {
-    syn::LitInt::base10_parse::<NonZeroU16>(&**val).map(drop)
+fn can_parse_as_non_zero_u16(value: &Required<syn::LitInt>) -> syn::Result<()> {
+    syn::LitInt::base10_parse::<NonZeroU16>(value).map(drop)
 }
 
 /// Representation of a struct implementing [`event::Versioned`][0], used for
