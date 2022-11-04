@@ -24,9 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: nightly
           components: clippy
 
@@ -36,9 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: nightly
           components: rustfmt
 
@@ -67,11 +65,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: nightly
-          override: true
+      - run: rustup default nightly
 
       - run: cargo +nightly update -Z minimal-versions
 
@@ -101,11 +98,10 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          override: true
+      - run: rustup default ${{ matrix.toolchain }}
 
       - run: make test crate=${{ matrix.crate }}
 
@@ -124,15 +120,13 @@ jobs:
 #    runs-on: ${{ matrix.os }}-latest
 #    steps:
 #      - uses: actions/checkout@v3
-#      - uses: actions-rs/toolchain@v1
+#      - uses: dtolnay/rust-toolchain@v1
 #        with:
-#          profile: minimal
-#          toolchain: nightly
-#      - uses: actions-rs/toolchain@v1
-#        with:
-#          profile: minimal
 #          toolchain: ${{ matrix.msrv }}
-#          override: true
+#      - run: rustup default ${{ matrix.msrv }}
+#      - uses: dtolnay/rust-toolchain@v1
+#        with:
+#          toolchain: nightly
 #
 #      - run: cargo +nightly update -Z minimal-versions
 #
@@ -157,11 +151,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: nightly
-          override: true
+      - run: rustup default nightly
 
       - run: make cargo.doc crate=${{ matrix.crate }}
                             private=yes docsrs=yes
