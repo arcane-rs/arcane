@@ -129,7 +129,7 @@ use proc_macro::TokenStream;
 /// Also, provides a blanket [`event::Sourced`] implementation for every state,
 /// which can be sourced from all the enum variants.
 ///
-/// > __WARNING:__ Currently may not work with complex generics using where
+/// > **WARNING:** Currently may not work with complex generics using where
 /// >              clause because of `const` evaluation limitations. Should be
 /// >              lifted once [rust-lang/rust#57775] is resolved.
 ///
@@ -149,7 +149,7 @@ use proc_macro::TokenStream;
 /// Use this on a particular enum variant to completely ignore it in code
 /// generation.
 ///
-/// > __WARNING:__ Calling [`Event::name()`][0] or [`Event::version()`][1] on
+/// > **WARNING:** Calling [`Event::name()`][0] or [`Event::version()`][1] on
 /// >              ignored variants will result in [`unreachable!`] panic.
 ///
 /// # Example
