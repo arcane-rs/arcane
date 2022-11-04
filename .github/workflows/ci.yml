@@ -101,9 +101,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
+          components: rust-src
       - run: rustup default ${{ matrix.toolchain }}
 
-      - run: make test crate=${{ matrix.crate }}
+      - run: cargo install cargo-careful
+        if: ${{ matrix.toolchain == 'nightly' }}
+
+      - run: make test.cargo crate=${{ matrix.crate }}
+                  careful=${{ (matrix.toolchain == 'nightly' && 'yes')
+                           ||                                   'no' }}
 
 # TODO: MSRV currently has no sense since we sit on nightly Rust.
 #       Re-enable once again on stable Rust.
@@ -130,7 +136,7 @@ jobs:
 #
 #      - run: cargo +nightly update -Z minimal-versions
 #
-#      - run: make test
+#      - run: make test.cargo
 
 
 
