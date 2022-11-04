@@ -48,7 +48,8 @@ ifeq ($(clean),yes)
 	@rm -rf target/doc/
 endif
 	$(if $(call eq,$(docsrs),yes),RUSTDOCFLAGS='--cfg docsrs',) \
-	cargo +nightly doc $(if $(call eq,$(crate),),--workspace,-p $(crate)) \
+	cargo $(if $(call eq,$(docsrs),yes),+nightly,) doc \
+		$(if $(call eq,$(crate),),--workspace,-p $(crate)) \
 		--all-features \
 		$(if $(call eq,$(private),no),,--document-private-items) \
 		$(if $(call eq,$(open),no),,--open)
@@ -69,7 +70,7 @@ cargo.fmt:
 #	make cargo.lint
 
 cargo.lint:
-	cargo +nightly clippy --workspace --all-features -- -D warnings
+	cargo clippy --workspace --all-features -- -D warnings
 
 
 cargo.test: test.cargo
@@ -96,7 +97,7 @@ ifeq ($(shell rustup component list --toolchain=nightly \
 	rustup component add --toolchain=nightly rust-src
 endif
 endif
-	cargo $(if $(call eq,$(careful),yes),+nightly careful,+nightly) test \
+	cargo $(if $(call eq,$(careful),yes),+nightly careful,) test \
 		$(if $(call eq,$(crate),),--workspace,-p $(crate)) \
 		--all-features
 

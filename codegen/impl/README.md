@@ -2,7 +2,7 @@ arcana-codegen-impl
 ===================
 
 [![Rust docs](https://docs.rs/arcana-codegen-impl/badge.svg "Rust docs")](https://docs.rs/arcana-codegen-impl)
-[![Rust 1.56+](https://img.shields.io/badge/rustc-1.56+-lightgray.svg "Rust 1.56+")](https://blog.rust-lang.org/2021/10/21/Rust-1.56.0.html)
+[![Rust 1.65+](https://img.shields.io/badge/rustc-1.65+-lightgray.svg "Rust 1.65+")](https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html)
 [![Unsafe Forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg "Unsafe forbidden")](https://github.com/rust-secure-code/safety-dance)
 
 Code generation implementation of [`arcana-codegen`] crate.
