@@ -1,16 +1,16 @@
 [package]
-name = "arcana-core"
+name = "arcane-core"
 version = "0.1.0-dev"
 edition = "2021"
 rust-version = "1.60"
-description = "Core abstractions and implementations of `arcana` crate."
+description = "Core abstractions and implementations of `arcane` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
     "Kai Ren <tyranron@gmail.com>",
 ]
-documentation = "https://docs.rs/arcana-core"
-homepage = "https://github.com/arcana-rs/arcana/tree/main/core"
-repository = "https://github.com/arcana-rs/arcana"
+documentation = "https://docs.rs/arcane-core"
+homepage = "https://github.com/arcane-rs/arcane/tree/main/core"
+repository = "https://github.com/arcane-rs/arcane"
 readme = "README.md"
 
 [package.metadata.docs.rs]
@@ -27,4 +27,4 @@ ref-cast = "1.0"
 sealed = { version = "0.4", optional = true }
 
 [dev-dependencies]
-arcana = { version = "0.1.0-dev", path = "..", features = ["derive", "es"] }
+arcane = { version = "0.1.0-dev", path = "..", features = ["derive", "es"] }

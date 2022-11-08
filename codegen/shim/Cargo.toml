@@ -1,16 +1,16 @@
 [package]
-name = "arcana-codegen-shim"
+name = "arcane-codegen-shim"
 version = "0.1.0-dev"
 edition = "2021"
 rust-version = "1.60"
-description = "Internal proc macro shim of `arcana-codegen` crate."
+description = "Internal proc macro shim of `arcane-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
     "Kai Ren <tyranron@gmail.com>",
 ]
-documentation = "https://docs.rs/arcana-codegen"
-homepage = "https://github.com/arcana-rs/arcana/tree/main/codegen/shim"
-repository = "https://github.com/arcana-rs/arcana"
+documentation = "https://docs.rs/arcane-codegen"
+homepage = "https://github.com/arcane-rs/arcane/tree/main/codegen/shim"
+repository = "https://github.com/arcane-rs/arcane"
 readme = "README.md"
 
 [package.metadata.docs.rs]
@@ -21,14 +21,14 @@ rustdoc-args = ["--cfg", "docsrs"]
 proc-macro = true
 
 [features]
-doc = ["arcana-codegen-impl/doc", "dep:arcana-core"] # only for generating documentation
+doc = ["arcane-codegen-impl/doc", "dep:arcane-core"] # only for generating documentation
 
 [dependencies]
-arcana-codegen-impl = { version = "0.1.0-dev", path = "../impl" }
+arcane-codegen-impl = { version = "0.1.0-dev", path = "../impl" }
 syn = { version = "1.0.72", features = ["proc-macro"], default-features = false }
 
 # `doc` feature
-arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }
+arcane-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }
 
 [dev-dependencies]
-arcana = { path = "../..", features = ["derive", "es"] }
+arcane = { path = "../..", features = ["derive", "es"] }

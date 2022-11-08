@@ -1,14 +1,14 @@
-arcana-core
+arcane-core
 ===========
 
-[![Rust docs](https://docs.rs/arcana-core/badge.svg "Rust docs")](https://docs.rs/arcana-core)
+[![Rust docs](https://docs.rs/arcane-core/badge.svg "Rust docs")](https://docs.rs/arcane-core)
 [![Rust 1.65+](https://img.shields.io/badge/rustc-1.65+-lightgray.svg "Rust 1.65+")](https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html)
 
-Core abstractions and implementations of [`arcana`] crate.
+Core abstractions and implementations of [`arcane`] crate.
 
-DO NOT use it directly, use [`arcana`] crate instead.
-
-
+DO NOT use it directly, use [`arcane`] crate instead.
 
 
-[`arcana`]: https://docs.rs/arcana
+
+
+[`arcane`]: https://docs.rs/arcane

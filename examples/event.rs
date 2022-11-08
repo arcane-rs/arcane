@@ -1,4 +1,4 @@
-use arcana::es::event::{self, Event, Initialized, Sourced, Sourcing};
+use arcane::es::event::{self, Event, Initialized, Sourced, Sourcing};
 
 #[derive(event::Versioned)]
 #[event(name = "chat.created", version = 1)]

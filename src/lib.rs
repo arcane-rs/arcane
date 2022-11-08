@@ -109,12 +109,12 @@
 pub mod es;
 
 #[cfg(feature = "derive")]
-use arcana_codegen as _;
+use arcane_codegen as _;
 
-pub use arcana_core::RefCast;
+pub use arcane_core::RefCast;
 
 #[cfg(feature = "derive")]
 /// See [`sealed`] crate documentation.
 ///
 /// [`sealed`]: https://docs.rs/sealed
-pub use arcana_core::sealed;
+pub use arcane_core::sealed;

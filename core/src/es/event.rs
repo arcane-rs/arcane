@@ -134,7 +134,7 @@ impl<'e, S: Sourced<dyn Event + Send + Sync + 'e>>
 /// # Example
 ///
 /// ```rust
-/// # use arcana::es::event::{self, Sourced as _};
+/// # use arcane::es::event::{self, Sourced as _};
 /// #
 /// #[derive(Debug, Eq, PartialEq)]
 /// struct Chat;
@@ -241,7 +241,7 @@ pub mod codegen {
     /// Main idea is that every [`Event`] or [`event::Versioned`] deriving
     /// generates a hidden method:
     /// ```rust,ignore
-    /// const fn __arcana_events() -> [(&'static str, &'static str, u16); size]
+    /// const fn __arcane_events() -> [(&'static str, &'static str, u16); size]
     /// ```
     /// It returns an array consisting of unique Rust type identifiers,
     /// [`event::Name`]s and [`event::Version`]s of all the [`Event`] variants.

@@ -1,16 +1,16 @@
 [package]
-name = "arcana-codegen-impl"
+name = "arcane-codegen-impl"
 version = "0.1.0-dev"
 edition = "2021"
 rust-version = "1.60"
-description = "Code generation implementation of `arcana-codegen` crate."
+description = "Code generation implementation of `arcane-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
     "Kai Ren <tyranron@gmail.com>",
 ]
-documentation = "https://docs.rs/arcana-codegen-impl"
-homepage = "https://github.com/arcana-rs/arcana/tree/main/codegen/impl"
-repository = "https://github.com/arcana-rs/arcana"
+documentation = "https://docs.rs/arcane-codegen-impl"
+homepage = "https://github.com/arcane-rs/arcane/tree/main/codegen/impl"
+repository = "https://github.com/arcane-rs/arcane"
 readme = "README.md"
 
 [package.metadata.docs.rs]
@@ -18,7 +18,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-doc = ["dep:arcana-core"] # only for generating documentation
+doc = ["dep:arcane-core"] # only for generating documentation
 
 [dependencies]
 proc-macro2 = { version = "1.0.4", default-features = false }
@@ -27,4 +27,4 @@ syn = { version = "1.0.72", features = ["derive", "extra-traits", "parsing", "pr
 synthez = { version = "0.2", default-features = false }
 
 # `doc` feature
-arcana-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }
+arcane-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }

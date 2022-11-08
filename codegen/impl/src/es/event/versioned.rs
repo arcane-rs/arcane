@@ -25,13 +25,13 @@ pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
 pub struct Attrs {
     /// Value of [`event::Versioned::NAME`][0] constant.
     ///
-    /// [0]: arcana_core::es::event::Versioned::NAME
+    /// [0]: arcane_core::es::event::Versioned::NAME
     #[parse(value)]
     pub name: Required<syn::LitStr>,
 
     /// Value of [`event::Versioned::VERSION`][0] constant.
     ///
-    /// [0]: arcana_core::es::event::Versioned::VERSION
+    /// [0]: arcane_core::es::event::Versioned::VERSION
     #[parse(value, alias = ver, validate = can_parse_as_non_zero_u16)]
     pub version: Required<syn::LitInt>,
 }
@@ -44,7 +44,7 @@ fn can_parse_as_non_zero_u16(value: &Required<syn::LitInt>) -> syn::Result<()> {
 /// Representation of a struct implementing [`event::Versioned`][0], used for
 /// code generation.
 ///
-/// [0]: arcana_core::es::event::Versioned
+/// [0]: arcane_core::es::event::Versioned
 #[derive(Debug, ToTokens)]
 #[to_tokens(append(impl_event_versioned, gen_uniqueness_glue_code))]
 pub struct Definition {
@@ -56,13 +56,13 @@ pub struct Definition {
 
     /// Value of [`event::Versioned::NAME`][0] constant in the generated code.
     ///
-    /// [0]: arcana_core::es::event::Versioned::NAME
+    /// [0]: arcane_core::es::event::Versioned::NAME
     pub event_name: syn::LitStr,
 
     /// Value of [`event::Versioned::VERSION`][0] constant in the generated
     /// code.
     ///
-    /// [0]: arcana_core::es::event::Versioned::VERSION
+    /// [0]: arcane_core::es::event::Versioned::VERSION
     pub event_version: syn::LitInt,
 }
 
@@ -74,7 +74,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
             return Err(syn::Error::new(
                 input.span(),
                 "expected struct only, \
-                 consider using `arcana::es::Event` for enums",
+                 consider using `arcane::es::Event` for enums",
             ));
         }
 
@@ -92,7 +92,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
 impl Definition {
     /// Generates code to derive [`event::Versioned`][0] trait.
     ///
-    /// [0]: arcana_core::es::event::Versioned
+    /// [0]: arcane_core::es::event::Versioned
     #[must_use]
     pub fn impl_event_versioned(&self) -> TokenStream {
         let ty = &self.ident;
@@ -102,14 +102,14 @@ impl Definition {
 
         quote! {
             #[automatically_derived]
-            impl #impl_gens ::arcana::es::event::Versioned for #ty #ty_gens
+            impl #impl_gens ::arcane::es::event::Versioned for #ty #ty_gens
                  #where_clause
             {
-                const NAME: ::arcana::es::event::Name = #event_name;
+                const NAME: ::arcane::es::event::Name = #event_name;
 
                 // SAFETY: Safe, as checked by proc macro in compile time.
-                const VERSION: ::arcana::es::event::Version = unsafe {
-                    ::arcana::es::event::Version::new_unchecked(#event_ver)
+                const VERSION: ::arcane::es::event::Version = unsafe {
+                    ::arcane::es::event::Version::new_unchecked(#event_ver)
                 };
             }
         }
@@ -118,8 +118,8 @@ impl Definition {
     /// Generates hidden machinery code used to statically check uniqueness of
     /// [`Event::name`] and [`Event::version`].
     ///
-    /// [`Event::name`]: arcana_core::es::Event::name
-    /// [`Event::version`]: arcana_core::es::Event::version
+    /// [`Event::name`]: arcane_core::es::Event::name
+    /// [`Event::version`]: arcane_core::es::Event::version
     #[must_use]
     pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
         let ty = &self.ident;
@@ -131,7 +131,7 @@ impl Definition {
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens ::arcana::es::event::codegen::Versioned for
+            impl #impl_gens ::arcane::es::event::codegen::Versioned for
                  #ty #ty_gens #where_clause
             {
                 #[doc(hidden)]
@@ -143,7 +143,7 @@ impl Definition {
             impl #impl_gens #ty #ty_gens #where_clause {
                 #[doc(hidden)]
                 #[inline]
-                pub const fn __arcana_events() ->
+                pub const fn __arcane_events() ->
                     [(&'static str, &'static str, u16); 1]
                 {
                     [(
@@ -154,8 +154,8 @@ impl Definition {
                             "_",
                             ::std::column!(),
                         ),
-                        <Self as ::arcana::es::event::Versioned>::NAME,
-                        <Self as ::arcana::es::event::Versioned>::VERSION.get(),
+                        <Self as ::arcane::es::event::Versioned>::NAME,
+                        <Self as ::arcane::es::event::Versioned>::VERSION.get(),
                     )]
                 }
             }
@@ -177,18 +177,18 @@ mod spec {
 
         let output = quote! {
             #[automatically_derived]
-            impl ::arcana::es::event::Versioned for Event {
-                const NAME: ::arcana::es::event::Name = "event";
+            impl ::arcane::es::event::Versioned for Event {
+                const NAME: ::arcane::es::event::Name = "event";
 
                 // SAFETY: Safe, as checked by proc macro in compile time.
-                const VERSION: ::arcana::es::event::Version = unsafe {
-                    ::arcana::es::event::Version::new_unchecked(1)
+                const VERSION: ::arcane::es::event::Version = unsafe {
+                    ::arcane::es::event::Version::new_unchecked(1)
                 };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcana::es::event::codegen::Versioned for Event {
+            impl ::arcane::es::event::codegen::Versioned for Event {
                 #[doc(hidden)]
                 const COUNT: usize = 1;
             }
@@ -198,7 +198,7 @@ mod spec {
             impl Event {
                 #[doc(hidden)]
                 #[inline]
-                pub const fn __arcana_events() ->
+                pub const fn __arcane_events() ->
                     [(&'static str, &'static str, u16); 1]
                 {
                     [(
@@ -209,8 +209,8 @@ mod spec {
                             "_",
                             ::std::column!(),
                         ),
-                        <Self as ::arcana::es::event::Versioned>::NAME,
-                        <Self as ::arcana::es::event::Versioned>::VERSION.get(),
+                        <Self as ::arcane::es::event::Versioned>::NAME,
+                        <Self as ::arcane::es::event::Versioned>::VERSION.get(),
                     )]
                 }
             }
@@ -304,7 +304,7 @@ mod spec {
         assert_eq!(
             err.to_string(),
             "expected struct only, \
-             consider using `arcana::es::Event` for enums",
+             consider using `arcane::es::Event` for enums",
         );
     }
 }

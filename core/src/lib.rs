@@ -111,7 +111,7 @@ pub mod es;
 
 // Only for doc tests.
 #[cfg(test)]
-use arcana as _;
+use arcane as _;
 
 pub use ref_cast::RefCast;
 

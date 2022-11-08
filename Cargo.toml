@@ -1,5 +1,5 @@
 [package]
-name = "arcana"
+name = "arcane"
 version = "0.1.0-dev"
 edition = "2021"
 rust-version = "1.60"
@@ -8,9 +8,9 @@ authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
     "Kai Ren <tyranron@gmail.com>",
 ]
-documentation = "https://docs.rs/arcana-core"
-homepage = "https://github.com/arcana-rs/arcana"
-repository = "https://github.com/arcana-rs/arcana"
+documentation = "https://docs.rs/arcane-core"
+homepage = "https://github.com/arcane-rs/arcane"
+repository = "https://github.com/arcane-rs/arcane"
 readme = "README.md"
 
 [package.metadata.docs.rs]
@@ -18,13 +18,13 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-doc = ["arcana-codegen?/doc"] # only for generating documentation
-derive = ["arcana-codegen", "arcana-core/codegen"]
-es = ["arcana-core/es"]
+doc = ["arcane-codegen?/doc"] # only for generating documentation
+derive = ["arcane-codegen", "arcane-core/codegen"]
+es = ["arcane-core/es"]
 
 [dependencies]
-arcana-core = { version = "0.1.0-dev", path = "./core" }
-arcana-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
+arcane-core = { version = "0.1.0-dev", path = "./core" }
+arcane-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
 
 [[example]]
 name = "event"

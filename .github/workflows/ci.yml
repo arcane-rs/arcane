@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches: ["main"]
-    tags: ["arcana-*"]
+    tags: ["arcane-*"]
   pull_request:
     branches: ["main"]
 
@@ -54,14 +54,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { features: "<none>", crate: "arcana-core" }
-          - { features: "codegen", crate: "arcana-core" }
-          - { features: "es", crate: "arcana-core" }
-          - { features: "es,codegen", crate: "arcana-core" }
-          - { features: "<none>", crate: "arcana" }
-          - { features: "derive", crate: "arcana" }
-          - { features: "es", crate: "arcana" }
-          - { features: "es,derive", crate: "arcana" }
+          - { features: "<none>", crate: "arcane-core" }
+          - { features: "codegen", crate: "arcane-core" }
+          - { features: "es", crate: "arcane-core" }
+          - { features: "es,codegen", crate: "arcane-core" }
+          - { features: "<none>", crate: "arcane" }
+          - { features: "derive", crate: "arcane" }
+          - { features: "es", crate: "arcane" }
+          - { features: "es,derive", crate: "arcane" }
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -111,11 +111,11 @@ jobs:
       fail-fast: false
       matrix:
         crate:
-          - arcana-core
-          - arcana-codegen-impl
-          - arcana-codegen-shim
-          - arcana-codegen
-          - arcana
+          - arcane-core
+          - arcane-codegen-impl
+          - arcane-codegen-shim
+          - arcane-codegen
+          - arcane
         os:
           - ubuntu
           - macOS
@@ -151,11 +151,11 @@ jobs:
     strategy:
       matrix:
         crate:
-          - arcana-core
-          - arcana-codegen-impl
-          - arcana-codegen-shim
-          - arcana-codegen
-          - arcana
+          - arcane-core
+          - arcane-codegen-impl
+          - arcane-codegen-shim
+          - arcane-codegen
+          - arcane
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

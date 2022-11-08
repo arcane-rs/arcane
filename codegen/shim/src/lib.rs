@@ -109,12 +109,12 @@
 
 // Only for doc tests.
 #[cfg(test)]
-use arcana as _;
+use arcane as _;
 // Only for generating documentation.
 #[cfg(feature = "doc")]
-use arcana_core as _;
+use arcane_core as _;
 
-use arcana_codegen_impl as codegen;
+use arcane_codegen_impl as codegen;
 use proc_macro::TokenStream;
 
 /// Macro for deriving [`Event`] on enums.
@@ -155,7 +155,7 @@ use proc_macro::TokenStream;
 /// # Example
 ///
 /// ```rust,compile_fail,E0080
-/// # use arcana::es::{event, Event};
+/// # use arcane::es::{event, Event};
 /// #
 /// #[derive(event::Versioned)]
 /// #[event(name = "chat", version = 1)]
@@ -175,7 +175,7 @@ use proc_macro::TokenStream;
 /// ```
 ///
 /// ```rust
-/// # use arcana::es::{event, Event};
+/// # use arcane::es::{event, Event};
 /// #
 /// # #[derive(event::Versioned)]
 /// # #[event(name = "chat", version = 1)]
@@ -202,12 +202,12 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
-/// [`Event`]: arcana_core::es::Event
-/// [`event::Initialized`]: arcana_core::es::event::Initialized
-/// [`event::Sourced`]: arcana_core::es::event::Sourced
-/// [`Versioned`]: arcana_core::es::event::Versioned
-/// [0]: arcana_core::es::Event::name()
-/// [1]: arcana_core::es::Event::version()
+/// [`Event`]: arcane_core::es::Event
+/// [`event::Initialized`]: arcane_core::es::event::Initialized
+/// [`event::Sourced`]: arcane_core::es::event::Sourced
+/// [`Versioned`]: arcane_core::es::event::Versioned
+/// [0]: arcane_core::es::Event::name()
+/// [1]: arcane_core::es::Event::version()
 /// [rust-lang/rust#57775]: https://github.com/rust-lang/rust/issues/57775
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -236,16 +236,16 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```rust
-/// # use arcana::es::event;
+/// # use arcane::es::event;
 /// #
 /// #[derive(event::Versioned)]
 /// #[event(name = "event", version = 1)]
 /// struct Event;
 /// ```
 ///
-/// [`Versioned`]: arcana_core::es::event::Versioned
-/// [0]: arcana_core::es::event::Versioned::NAME
-/// [1]: arcana_core::es::event::Versioned::VERSION
+/// [`Versioned`]: arcane_core::es::event::Versioned
+/// [0]: arcane_core::es::event::Versioned::NAME
+/// [1]: arcane_core::es::event::Versioned::VERSION
 #[proc_macro_derive(VersionedEvent, attributes(event))]
 pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
     codegen::es::event::versioned::derive(input.into())

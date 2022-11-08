@@ -1,21 +1,21 @@
-arcana-codegen
+arcane-codegen
 ==============
 
-[![Rust docs](https://docs.rs/arcana-codegen/badge.svg "Rust docs")](https://docs.rs/arcana-codegen)
+[![Rust docs](https://docs.rs/arcane-codegen/badge.svg "Rust docs")](https://docs.rs/arcane-codegen)
 [![Rust 1.65+](https://img.shields.io/badge/rustc-1.65+-lightgray.svg "Rust 1.65+")](https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html)
 [![Unsafe Forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg "Unsafe forbidden")](https://github.com/rust-secure-code/safety-dance)
 
-Code generation for [`arcana`] crate.
+Code generation for [`arcane`] crate.
 
-DO NOT use it directly, use [`arcana`] crate instead. 
+DO NOT use it directly, use [`arcane`] crate instead. 
 
-If you want to reuse [`arcana-codegen`] inner machinery in your own [proc macro][1] crate, then consider to use [`arcana-codegen-impl`] crate.
-
-
+If you want to reuse [`arcane-codegen`] inner machinery in your own [proc macro][1] crate, then consider to use [`arcane-codegen-impl`] crate.
 
 
-[`arcana`]: https://docs.rs/arcana
-[`arcana-codegen`]: https://docs.rs/arcana-codegen
-[`arcana-codegen-impl`]: https://docs.rs/arcana-codegen-impl
+
+
+[`arcane`]: https://docs.rs/arcane
+[`arcane-codegen`]: https://docs.rs/arcane-codegen
+[`arcane-codegen-impl`]: https://docs.rs/arcane-codegen-impl
 
 [1]: https://doc.rust-lang.org/reference/procedural-macros.html

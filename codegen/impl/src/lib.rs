@@ -111,4 +111,4 @@ pub mod es;
 
 // Only for generating documentation.
 #[cfg(feature = "doc")]
-use arcana_core as _;
+use arcane_core as _;

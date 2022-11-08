@@ -27,8 +27,8 @@ pub struct VariantAttrs {
     /// Indicator whether this enum variant should be used as
     /// [`event::Initialized`] rather than [`event::Sourced`].
     ///
-    /// [`event::Initialized`]: arcana_core::es::event::Initialized
-    /// [`event::Sourced`]: arcana_core::es::event::Sourced
+    /// [`event::Initialized`]: arcane_core::es::event::Initialized
+    /// [`event::Sourced`]: arcane_core::es::event::Sourced
     #[parse(ident, alias = initial)]
     pub init: Option<syn::Ident>,
 
@@ -39,7 +39,7 @@ pub struct VariantAttrs {
 
 /// Representation of an enum implementing [`Event`], used for code generation.
 ///
-/// [`Event`]: arcana_core::es::event::Event
+/// [`Event`]: arcane_core::es::event::Event
 #[derive(Debug, ToTokens)]
 #[to_tokens(append(impl_event, impl_event_sourced, gen_uniqueness_glue_code))]
 pub struct Definition {
@@ -53,8 +53,8 @@ pub struct Definition {
     /// generation, along with the indicator whether this variant should use
     /// [`event::Initialized`] rather than [`event::Sourced`].
     ///
-    /// [`event::Initialized`]: arcana_core::es::event::Initialized
-    /// [`event::Sourced`]: arcana_core::es::event::Sourced
+    /// [`event::Initialized`]: arcane_core::es::event::Initialized
+    /// [`event::Sourced`]: arcane_core::es::event::Sourced
     /// [`Field`]: syn::Field
     /// [`Variant`]: syn::Variant
     pub variants: Vec<(syn::Variant, bool)>,
@@ -74,7 +74,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
             return Err(syn::Error::new(
                 input.span(),
                 "expected enum only, \
-                 consider using `arcana::es::event::Versioned` for structs",
+                 consider using `arcane::es::event::Versioned` for structs",
             ));
         };
 
@@ -168,7 +168,7 @@ impl Definition {
     /// each enum variant, which is expected to be itself an [`Event`][0]
     /// implementer.
     ///
-    /// [0]: arcana_core::es::event::Event
+    /// [0]: arcane_core::es::event::Event
     #[must_use]
     pub fn impl_event(&self) -> TokenStream {
         let ty = &self.ident;
@@ -182,20 +182,20 @@ impl Definition {
 
         quote! {
             #[automatically_derived]
-            impl #impl_gens ::arcana::es::Event for #ty #ty_gens #where_clause {
-                fn name(&self) -> ::arcana::es::event::Name {
+            impl #impl_gens ::arcane::es::Event for #ty #ty_gens #where_clause {
+                fn name(&self) -> ::arcane::es::event::Name {
                     match self {
                         #(
-                            Self::#var(f) => ::arcana::es::Event::name(f),
+                            Self::#var(f) => ::arcane::es::Event::name(f),
                         )*
                         #unreachable_arm
                     }
                 }
 
-                fn version(&self) -> ::arcana::es::event::Version {
+                fn version(&self) -> ::arcane::es::event::Version {
                     match self {
                         #(
-                            Self::#var(f) => ::arcana::es::Event::version(f),
+                            Self::#var(f) => ::arcane::es::Event::version(f),
                         )*
                         #unreachable_arm
                     }
@@ -208,7 +208,7 @@ impl Definition {
     /// each enum variant, which is expected to have itself an
     /// [`event::Sourced`][0] implementation.
     ///
-    /// [0]: arcana_core::es::event::Sourced
+    /// [0]: arcane_core::es::event::Sourced
     #[must_use]
     pub fn impl_event_sourced(&self) -> TokenStream {
         let ty = &self.ident;
@@ -218,7 +218,7 @@ impl Definition {
         let var_tys = self.variants.iter().map(|(v, is_initial)| {
             let var_ty = v.fields.iter().next().map(|f| &f.ty);
             if *is_initial {
-                quote! { ::arcana::es::event::Initial<#var_ty> }
+                quote! { ::arcane::es::event::Initial<#var_ty> }
             } else {
                 quote! { #var_ty }
             }
@@ -227,7 +227,7 @@ impl Definition {
         let mut ext_gens = self.generics.clone();
         ext_gens.params.push(parse_quote! { __S });
         ext_gens.make_where_clause().predicates.push(parse_quote! {
-            Self: #( ::arcana::es::event::Sourced<#var_tys> )+*
+            Self: #( ::arcane::es::event::Sourced<#var_tys> )+*
         });
         let (impl_gens, _, where_clause) = ext_gens.split_for_impl();
 
@@ -237,15 +237,15 @@ impl Definition {
 
             let event = if *is_initial {
                 quote! {
-                    <::arcana::es::event::Initial<#var_ty>
-                     as ::arcana::RefCast>::ref_cast(f)
+                    <::arcane::es::event::Initial<#var_ty>
+                     as ::arcane::RefCast>::ref_cast(f)
                 }
             } else {
                 quote! { f }
             };
             quote! {
                 #ty #turbofish_gens::#var(f) => {
-                    ::arcana::es::event::Sourced::apply(self, #event);
+                    ::arcane::es::event::Sourced::apply(self, #event);
                 },
             }
         });
@@ -255,7 +255,7 @@ impl Definition {
 
         quote! {
             #[automatically_derived]
-            impl #impl_gens ::arcana::es::event::Sourced<#ty #ty_gens>
+            impl #impl_gens ::arcane::es::event::Sourced<#ty #ty_gens>
                 for Option<__S> #where_clause
             {
                 fn apply(&mut self, event: &#ty #ty_gens) {
@@ -277,8 +277,8 @@ impl Definition {
     /// If some enum [`Variant`]s don't have exactly 1 [`Field`] and not marked
     /// with `#[event(skip)]`. Checked by [`TryFrom`] impl for [`Definition`].
     ///
-    /// [0]: arcana_core::es::event::Event::name()
-    /// [1]: arcana_core::es::event::Event::version()
+    /// [0]: arcane_core::es::event::Event::name()
+    /// [1]: arcane_core::es::event::Event::version()
     /// [`Field`]: syn::Field
     /// [`Variant`]: syn::Variant
     #[must_use]
@@ -293,12 +293,12 @@ impl Definition {
             .map(|f| &f.ty)
             .collect::<Vec<_>>();
 
-        // TODO: Use `Self::__arcana_events()` inside impl instead of type
+        // TODO: Use `Self::__arcane_events()` inside impl instead of type
         //       params substitution, once rust-lang/rust#57775 is resolved:
         //       https://github.com/rust-lang/rust/issues/57775
         let ty_subst_gens = Self::substitute_generics_trivially(&self.generics);
 
-        let glue = quote! { ::arcana::es::event::codegen };
+        let glue = quote! { ::arcane::es::event::codegen };
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
@@ -314,7 +314,7 @@ impl Definition {
             #[doc(hidden)]
             impl #ty #ty_gens {
                 #[doc(hidden)]
-                pub const fn __arcana_events() -> [
+                pub const fn __arcane_events() -> [
                     (&'static str, &'static str, u16);
                     <Self as #glue::Versioned>::COUNT
                 ] {
@@ -324,7 +324,7 @@ impl Definition {
 
                     let mut i = 0;
                     #({
-                        let events = <#var_ty>::__arcana_events();
+                        let events = <#var_ty>::__arcane_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -341,7 +341,7 @@ impl Definition {
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !#glue::has_different_types_with_same_name_and_ver(
-                    #ty::#ty_subst_gens::__arcana_events(),
+                    #ty::#ty_subst_gens::__arcane_events(),
                 ),
                 "having different `Event` types with the same name and version \
                  inside a single enum is forbidden",
@@ -368,41 +368,41 @@ mod spec {
 
         let output = quote! {
             #[automatically_derived]
-            impl ::arcana::es::Event for Event {
-                fn name(&self) -> ::arcana::es::event::Name {
+            impl ::arcane::es::Event for Event {
+                fn name(&self) -> ::arcane::es::event::Name {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::name(f),
-                        Self::Chat(f) => ::arcana::es::Event::name(f),
+                        Self::File(f) => ::arcane::es::Event::name(f),
+                        Self::Chat(f) => ::arcane::es::Event::name(f),
                     }
                 }
 
-                fn version(&self) -> ::arcana::es::event::Version {
+                fn version(&self) -> ::arcane::es::event::Version {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::version(f),
-                        Self::Chat(f) => ::arcana::es::Event::version(f),
+                        Self::File(f) => ::arcane::es::Event::version(f),
+                        Self::Chat(f) => ::arcane::es::Event::version(f),
                     }
                 }
             }
 
             #[automatically_derived]
-            impl<__S> ::arcana::es::event::Sourced<Event> for Option<__S>
+            impl<__S> ::arcane::es::event::Sourced<Event> for Option<__S>
             where
-                Self: ::arcana::es::event::Sourced<
-                          ::arcana::es::event::Initial<FileEvent>
+                Self: ::arcane::es::event::Sourced<
+                          ::arcane::es::event::Initial<FileEvent>
                       > +
-                      ::arcana::es::event::Sourced<ChatEvent>
+                      ::arcane::es::event::Sourced<ChatEvent>
             {
                 fn apply(&mut self, event: &Event) {
                     match event {
                         Event::File(f) => {
-                            ::arcana::es::event::Sourced::apply(
+                            ::arcane::es::event::Sourced::apply(
                                 self,
-                                <::arcana::es::event::Initial<FileEvent>
-                                 as ::arcana::RefCast>::ref_cast(f)
+                                <::arcane::es::event::Initial<FileEvent>
+                                 as ::arcane::RefCast>::ref_cast(f)
                             );
                         },
                         Event::Chat(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f);
+                            ::arcane::es::event::Sourced::apply(self, f);
                         },
                     }
                 }
@@ -410,31 +410,31 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcana::es::event::codegen::Versioned for Event {
+            impl ::arcane::es::event::codegen::Versioned for Event {
                 #[doc(hidden)]
                 const COUNT: usize =
                     <FileEvent
-                     as ::arcana::es::event::codegen::Versioned>::COUNT +
+                     as ::arcane::es::event::codegen::Versioned>::COUNT +
                     <ChatEvent
-                     as ::arcana::es::event::codegen::Versioned>::COUNT;
+                     as ::arcane::es::event::codegen::Versioned>::COUNT;
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             impl Event {
                 #[doc(hidden)]
-                pub const fn __arcana_events() -> [
+                pub const fn __arcane_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcana::es::event::codegen::Versioned>::COUNT
+                    <Self as ::arcane::es::event::codegen::Versioned>::COUNT
                 ] {
                     let mut res = [
                         ("", "", 0);
-                        <Self as ::arcana::es::event::codegen::Versioned>::COUNT
+                        <Self as ::arcane::es::event::codegen::Versioned>::COUNT
                     ];
 
                     let mut i = 0;
                     {
-                        let events = <FileEvent>::__arcana_events();
+                        let events = <FileEvent>::__arcane_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -443,7 +443,7 @@ mod spec {
                         }
                     }
                     {
-                        let events = <ChatEvent>::__arcana_events();
+                        let events = <ChatEvent>::__arcane_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -459,9 +459,9 @@ mod spec {
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !::arcana::es::event::codegen::
+                !::arcane::es::event::codegen::
                     has_different_types_with_same_name_and_ver(
-                        Event::<>::__arcana_events(),
+                        Event::<>::__arcane_events(),
                     ),
                 "having different `Event` types with the same name and version \
                  inside a single enum is forbidden",
@@ -487,42 +487,42 @@ mod spec {
 
         let output = quote! {
             #[automatically_derived]
-            impl<'a, F, C> ::arcana::es::Event for Event<'a, F, C> {
-                fn name(&self) -> ::arcana::es::event::Name {
+            impl<'a, F, C> ::arcane::es::Event for Event<'a, F, C> {
+                fn name(&self) -> ::arcane::es::event::Name {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::name(f),
-                        Self::Chat(f) => ::arcana::es::Event::name(f),
+                        Self::File(f) => ::arcane::es::Event::name(f),
+                        Self::Chat(f) => ::arcane::es::Event::name(f),
                     }
                 }
 
-                fn version(&self) -> ::arcana::es::event::Version {
+                fn version(&self) -> ::arcane::es::event::Version {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::version(f),
-                        Self::Chat(f) => ::arcana::es::Event::version(f),
+                        Self::File(f) => ::arcane::es::Event::version(f),
+                        Self::Chat(f) => ::arcane::es::Event::version(f),
                     }
                 }
             }
 
             #[automatically_derived]
-            impl<'a, F, C, __S> ::arcana::es::event::Sourced<Event<'a, F, C> >
+            impl<'a, F, C, __S> ::arcane::es::event::Sourced<Event<'a, F, C> >
                 for Option<__S>
             where
-                Self: ::arcana::es::event::Sourced<
-                          ::arcana::es::event::Initial<FileEvent<'a, F> >
+                Self: ::arcane::es::event::Sourced<
+                          ::arcane::es::event::Initial<FileEvent<'a, F> >
                       > +
-                      ::arcana::es::event::Sourced<ChatEvent<'a, C> >
+                      ::arcane::es::event::Sourced<ChatEvent<'a, C> >
             {
                 fn apply(&mut self, event: &Event<'a, F, C>) {
                     match event {
                         Event::<'a, F, C>::File(f) => {
-                            ::arcana::es::event::Sourced::apply(
+                            ::arcane::es::event::Sourced::apply(
                                 self,
-                                <::arcana::es::event::Initial<FileEvent<'a, F> >
-                                 as ::arcana::RefCast>::ref_cast(f)
+                                <::arcane::es::event::Initial<FileEvent<'a, F> >
+                                 as ::arcane::RefCast>::ref_cast(f)
                             );
                         },
                         Event::<'a, F, C>::Chat(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f);
+                            ::arcane::es::event::Sourced::apply(self, f);
                         },
                     }
                 }
@@ -530,33 +530,33 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl<'a, F, C> ::arcana::es::event::codegen::Versioned
+            impl<'a, F, C> ::arcane::es::event::codegen::Versioned
                 for Event<'a, F, C>
             {
                 #[doc(hidden)]
                 const COUNT: usize =
                     <FileEvent<'a, F>
-                     as ::arcana::es::event::codegen::Versioned>::COUNT +
+                     as ::arcane::es::event::codegen::Versioned>::COUNT +
                     <ChatEvent<'a, C>
-                     as ::arcana::es::event::codegen::Versioned>::COUNT;
+                     as ::arcane::es::event::codegen::Versioned>::COUNT;
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             impl Event<'a, F, C> {
                 #[doc(hidden)]
-                pub const fn __arcana_events() -> [
+                pub const fn __arcane_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcana::es::event::codegen::Versioned>::COUNT
+                    <Self as ::arcane::es::event::codegen::Versioned>::COUNT
                 ] {
                     let mut res = [
                         ("", "", 0);
-                        <Self as ::arcana::es::event::codegen::Versioned>::COUNT
+                        <Self as ::arcane::es::event::codegen::Versioned>::COUNT
                     ];
 
                     let mut i = 0;
                     {
-                        let events = <FileEvent<'a, F> >::__arcana_events();
+                        let events = <FileEvent<'a, F> >::__arcane_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -565,7 +565,7 @@ mod spec {
                         }
                     }
                     {
-                        let events = <ChatEvent<'a, C> >::__arcana_events();
+                        let events = <ChatEvent<'a, C> >::__arcane_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -581,9 +581,9 @@ mod spec {
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !::arcana::es::event::codegen::
+                !::arcane::es::event::codegen::
                     has_different_types_with_same_name_and_ver(
-                        Event::<'static, (), ()>::__arcana_events(),
+                        Event::<'static, (), ()>::__arcane_events(),
                     ),
                 "having different `Event` types with the same name and version \
                  inside a single enum is forbidden",
@@ -618,37 +618,37 @@ mod spec {
 
         let output = quote! {
             #[automatically_derived]
-            impl ::arcana::es::Event for Event {
-                fn name(&self) -> ::arcana::es::event::Name {
+            impl ::arcane::es::Event for Event {
+                fn name(&self) -> ::arcane::es::event::Name {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::name(f),
-                        Self::Chat(f) => ::arcana::es::Event::name(f),
+                        Self::File(f) => ::arcane::es::Event::name(f),
+                        Self::Chat(f) => ::arcane::es::Event::name(f),
                         _ => unreachable!(),
                     }
                 }
 
-                fn version(&self) -> ::arcana::es::event::Version {
+                fn version(&self) -> ::arcane::es::event::Version {
                     match self {
-                        Self::File(f) => ::arcana::es::Event::version(f),
-                        Self::Chat(f) => ::arcana::es::Event::version(f),
+                        Self::File(f) => ::arcane::es::Event::version(f),
+                        Self::Chat(f) => ::arcane::es::Event::version(f),
                         _ => unreachable!(),
                     }
                 }
             }
 
             #[automatically_derived]
-            impl<__S> ::arcana::es::event::Sourced<Event> for Option<__S>
+            impl<__S> ::arcane::es::event::Sourced<Event> for Option<__S>
             where
-                Self: ::arcana::es::event::Sourced<FileEvent> +
-                      ::arcana::es::event::Sourced<ChatEvent>
+                Self: ::arcane::es::event::Sourced<FileEvent> +
+                      ::arcane::es::event::Sourced<ChatEvent>
             {
                 fn apply(&mut self, event: &Event) {
                     match event {
                         Event::File(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f);
+                            ::arcane::es::event::Sourced::apply(self, f);
                         },
                         Event::Chat(f) => {
-                            ::arcana::es::event::Sourced::apply(self, f);
+                            ::arcane::es::event::Sourced::apply(self, f);
                         },
                         _ => unreachable!(),
                     }
@@ -657,31 +657,31 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcana::es::event::codegen::Versioned for Event {
+            impl ::arcane::es::event::codegen::Versioned for Event {
                 #[doc(hidden)]
                 const COUNT: usize =
                     <FileEvent
-                     as ::arcana::es::event::codegen::Versioned>::COUNT +
+                     as ::arcane::es::event::codegen::Versioned>::COUNT +
                     <ChatEvent
-                     as ::arcana::es::event::codegen::Versioned>::COUNT;
+                     as ::arcane::es::event::codegen::Versioned>::COUNT;
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             impl Event {
                 #[doc(hidden)]
-                pub const fn __arcana_events() -> [
+                pub const fn __arcane_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcana::es::event::codegen::Versioned>::COUNT
+                    <Self as ::arcane::es::event::codegen::Versioned>::COUNT
                 ] {
                     let mut res = [
                         ("", "", 0);
-                        <Self as ::arcana::es::event::codegen::Versioned>::COUNT
+                        <Self as ::arcane::es::event::codegen::Versioned>::COUNT
                     ];
 
                     let mut i = 0;
                     {
-                        let events = <FileEvent>::__arcana_events();
+                        let events = <FileEvent>::__arcane_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -690,7 +690,7 @@ mod spec {
                         }
                     }
                     {
-                        let events = <ChatEvent>::__arcana_events();
+                        let events = <ChatEvent>::__arcane_events();
                         let mut j = 0;
                         while j < events.len() {
                             res[i] = events[j];
@@ -706,9 +706,9 @@ mod spec {
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !::arcana::es::event::codegen::
+                !::arcane::es::event::codegen::
                     has_different_types_with_same_name_and_ver(
-                        Event::<>::__arcana_events(),
+                        Event::<>::__arcane_events(),
                     ),
                 "having different `Event` types with the same name and version \
                  inside a single enum is forbidden",
@@ -750,7 +750,7 @@ mod spec {
         assert_eq!(
             err.to_string(),
             "expected enum only, \
-             consider using `arcana::es::event::Versioned` for structs",
+             consider using `arcane::es::event::Versioned` for structs",
         );
     }
 

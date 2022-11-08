@@ -3,7 +3,7 @@ name: Security audit
 on:
   push:
     branches: ["main"]
-    tags: ["arcana-*"]
+    tags: ["arcane-*"]
     paths: ["**/Cargo.toml"]
   pull_request:
     branches: ["main"]
