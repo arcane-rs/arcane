@@ -283,7 +283,7 @@ pub mod codegen {
     /// As there is no `const impl Trait` and `l == r` calls [`Eq`], we have to
     /// write custom comparison function.
     ///
-    /// [`Eq`]: std::cmp::Eq
+    /// [`Eq`]: trait@Eq
     // TODO: Remove once `Eq` trait is allowed in `const` context.
     const fn str_eq(l: &str, r: &str) -> bool {
         if l.len() != r.len() {

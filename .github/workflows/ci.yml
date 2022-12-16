@@ -87,10 +87,7 @@ jobs:
       fail-fast: false
       matrix:
         msrv: ["1.65.0"]
-        os:
-          - ubuntu
-          - macOS
-          - windows
+        os: ["ubuntu", "macOS", "windows"]
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v3
@@ -116,14 +113,8 @@ jobs:
           - arcane-codegen-shim
           - arcane-codegen
           - arcane
-        os:
-          - ubuntu
-          - macOS
-          - windows
-        toolchain:
-          - stable
-          - beta
-          - nightly
+        toolchain: ["stable", "beta", "nightly"]
+        os: ["ubuntu", "macOS", "windows"]
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v3
@@ -166,3 +157,5 @@ jobs:
       - run: make cargo.doc crate=${{ matrix.crate }}
                             private=yes docsrs=yes
                             open=no
+        env:
+          RUSTFLAGS: -D warnings
