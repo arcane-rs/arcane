@@ -303,8 +303,11 @@ impl Definition {
         let glue = quote! { ::arcane::es::event::codegen };
         quote! {
             #[automatically_derived]
+            #[allow(unsafe_code)]
             #[doc(hidden)]
-            impl #impl_gens #glue ::Events for #ty #ty_gens #where_clause {
+            unsafe impl #impl_gens #glue ::Events for #ty #ty_gens
+                #where_clause
+            {
                 #[doc(hidden)]
                 const EVENTS: &'static [(&'static str, &'static str, u16)] = {
                     #const_phantom_generics
@@ -400,8 +403,9 @@ mod spec {
             }
 
             #[automatically_derived]
+            #[allow(unsafe_code)]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Events for Event {
+            unsafe impl ::arcane::es::event::codegen::Events for Event {
                 #[doc(hidden)]
                 const EVENTS: &'static [(&'static str, &'static str, u16)] = {
                     ::arcane::es::event::codegen::const_concat_slices!(
@@ -485,8 +489,9 @@ mod spec {
             }
 
             #[automatically_derived]
+            #[allow(unsafe_code)]
             #[doc(hidden)]
-            impl<'a, F, C> ::arcane::es::event::codegen::Events
+            unsafe impl<'a, F, C> ::arcane::es::event::codegen::Events
                 for Event<'a, F, C>
             {
                 #[doc(hidden)]
@@ -582,8 +587,9 @@ mod spec {
             }
 
             #[automatically_derived]
+            #[allow(unsafe_code)]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Events for Event {
+            unsafe impl ::arcane::es::event::codegen::Events for Event {
                 #[doc(hidden)]
                 const EVENTS: &'static [(&'static str, &'static str, u16)] = {
                     ::arcane::es::event::codegen::const_concat_slices!(

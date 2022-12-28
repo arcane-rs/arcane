@@ -130,8 +130,9 @@ impl Definition {
         //       https://github.com/rust-lang/rust/issues/77125
         quote! {
             #[automatically_derived]
+            #[allow(unsafe_code)]
             #[doc(hidden)]
-            impl #impl_gens ::arcane::es::event::codegen::Events
+            unsafe impl #impl_gens ::arcane::es::event::codegen::Events
                 for #ty #ty_gens #where_clause
             {
                 #[doc(hidden)]
@@ -175,8 +176,9 @@ mod spec {
             }
 
             #[automatically_derived]
+            #[allow(unsafe_code)]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Events for Event {
+            unsafe impl ::arcane::es::event::codegen::Events for Event {
                 #[doc(hidden)]
                 const EVENTS: &'static [(&'static str, &'static str, u16)] = &[(
                     ::std::concat!(
