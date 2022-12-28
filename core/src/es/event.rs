@@ -347,11 +347,19 @@ pub mod codegen {
     ///
     /// Main idea is that every [`Event`] or [`event::Versioned`] deriving
     /// generates an [`Events`] implementation:
-    /// ```rust,ignore
-    /// impl Events for MyEvent {
+    /// ```rust
+    /// # use arcane::es::event::codegen::Events;
+    /// #
+    /// # enum MyEvent {
+    /// #     Created,
+    /// #     Deleted
+    /// # }
+    /// #
+    /// # #[allow(unsafe_code)]
+    /// unsafe impl Events for MyEvent {
     ///     const EVENTS: &'static [(&'static str, &'static str, u16)] = &[
     ///         ("unique_type_id1", "my.event.created", 1),
-    ///         ("unique_type_id2", "my.event.deleted", 1)
+    ///         ("unique_type_id2", "my.event.deleted", 1),
     ///     ];
     /// }
     /// ```
