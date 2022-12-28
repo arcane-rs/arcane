@@ -131,33 +131,21 @@ impl Definition {
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens ::arcane::es::event::codegen::Versioned for
-                 #ty #ty_gens #where_clause
+            impl #impl_gens ::arcane::es::event::codegen::Events
+                for #ty #ty_gens #where_clause
             {
                 #[doc(hidden)]
-                const COUNT: usize = 1;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl #impl_gens #ty #ty_gens #where_clause {
-                #[doc(hidden)]
-                #[inline]
-                pub const fn __arcane_events() ->
-                    [(&'static str, &'static str, u16); 1]
-                {
-                    [(
-                        ::std::concat!(
-                            ::std::file!(),
-                            "_",
-                            ::std::line!(),
-                            "_",
-                            ::std::column!(),
-                        ),
-                        <Self as ::arcane::es::event::Versioned>::NAME,
-                        <Self as ::arcane::es::event::Versioned>::VERSION.get(),
-                    )]
-                }
+                const EVENTS: &'static [(&'static str, &'static str, u16)] = &[(
+                    ::std::concat!(
+                        ::std::file!(),
+                        "_",
+                        ::std::line!(),
+                        "_",
+                        ::std::column!(),
+                    ),
+                    <Self as ::arcane::es::event::Versioned>::NAME,
+                    <Self as ::arcane::es::event::Versioned>::VERSION.get(),
+                )];
             }
         }
     }
@@ -188,31 +176,19 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Versioned for Event {
+            impl ::arcane::es::event::codegen::Events for Event {
                 #[doc(hidden)]
-                const COUNT: usize = 1;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl Event {
-                #[doc(hidden)]
-                #[inline]
-                pub const fn __arcane_events() ->
-                    [(&'static str, &'static str, u16); 1]
-                {
-                    [(
-                        ::std::concat!(
-                            ::std::file!(),
-                            "_",
-                            ::std::line!(),
-                            "_",
-                            ::std::column!(),
-                        ),
-                        <Self as ::arcane::es::event::Versioned>::NAME,
-                        <Self as ::arcane::es::event::Versioned>::VERSION.get(),
-                    )]
-                }
+                const EVENTS: &'static [(&'static str, &'static str, u16)] = &[(
+                    ::std::concat!(
+                        ::std::file!(),
+                        "_",
+                        ::std::line!(),
+                        "_",
+                        ::std::column!(),
+                    ),
+                    <Self as ::arcane::es::event::Versioned>::NAME,
+                    <Self as ::arcane::es::event::Versioned>::VERSION.get(),
+                )];
             }
         };
 

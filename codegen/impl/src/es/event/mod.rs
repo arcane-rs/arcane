@@ -293,60 +293,51 @@ impl Definition {
             .map(|f| &f.ty)
             .collect::<Vec<_>>();
 
-        // TODO: Use `Self::__arcane_events()` inside impl instead of type
-        //       params substitution, once rust-lang/rust#57775 is resolved:
-        //       https://github.com/rust-lang/rust/issues/57775
+        // TODO: Use `has_different_types_with_same_name_and_ver` inside impl
+        //       instead of type params substitution, once rust-lang/rust#57775
+        //       is resolved: https://github.com/rust-lang/rust/issues/57775
         let ty_subst_gens = Self::substitute_generics_trivially(&self.generics);
+        let const_phantom_generics =
+            Self::gen_const_phantom_generics(&self.generics);
 
         let glue = quote! { ::arcane::es::event::codegen };
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens #glue::Versioned for #ty #ty_gens
-                 #where_clause
-            {
+            impl #impl_gens #glue ::Events for #ty #ty_gens #where_clause {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    #( <#var_ty as #glue::Versioned>::COUNT )+*;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl #ty #ty_gens {
-                #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, u16);
-                    <Self as #glue::Versioned>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", 0); <Self as #glue::Versioned>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    #({
-                        let events = <#var_ty>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    })*
-
-                    res
-                }
+                const EVENTS: &'static [(&'static str, &'static str, u16)] = {
+                    #const_phantom_generics
+                    #glue ::const_concat_slices!(
+                        (&'static str, &'static str, u16),
+                        #( <#var_ty as #glue ::Events>::EVENTS ),*
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !#glue::has_different_types_with_same_name_and_ver(
-                    #ty::#ty_subst_gens::__arcane_events(),
-                ),
+                !#glue ::has_different_types_with_same_name_and_ver::<
+                    #ty #ty_subst_gens
+                >(),
                 "having different `Event` types with the same name and version \
                  inside a single enum is forbidden",
             );
         }
+    }
+
+    /// Replaces all type parameters with `()` type. This required for const
+    /// contexts, where type parameters are not allowed.
+    // TODO: Remove this, once rust-lang/rust#57775 is resolved:
+    //       https://github.com/rust-lang/rust/issues/57775
+    fn gen_const_phantom_generics(generics: &syn::Generics) -> TokenStream {
+        let ty = generics.type_params().map(|p| {
+            let ident = &p.ident;
+            quote! { type #ident = (); }
+        });
+
+        quote! { #( #ty )* }
     }
 }
 
@@ -410,59 +401,24 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Versioned for Event {
+            impl ::arcane::es::event::codegen::Events for Event {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    <FileEvent
-                     as ::arcane::es::event::codegen::Versioned>::COUNT +
-                    <ChatEvent
-                     as ::arcane::es::event::codegen::Versioned>::COUNT;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl Event {
-                #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, u16);
-                    <Self as ::arcane::es::event::codegen::Versioned>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", 0);
-                        <Self as ::arcane::es::event::codegen::Versioned>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    {
-                        let events = <FileEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-                    {
-                        let events = <ChatEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-
-                    res
-                }
+                const EVENTS: &'static [(&'static str, &'static str, u16)] = {
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        (&'static str, &'static str, u16),
+                        <FileEvent
+                            as ::arcane::es::event::codegen::Events>::EVENTS,
+                        <ChatEvent
+                            as ::arcane::es::event::codegen::Events>::EVENTS
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_ver(
-                        Event::<>::__arcane_events(),
-                    ),
+                    has_different_types_with_same_name_and_ver::< Event<> >(),
                 "having different `Event` types with the same name and version \
                  inside a single enum is forbidden",
             );
@@ -530,61 +486,31 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl<'a, F, C> ::arcane::es::event::codegen::Versioned
+            impl<'a, F, C> ::arcane::es::event::codegen::Events
                 for Event<'a, F, C>
             {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    <FileEvent<'a, F>
-                     as ::arcane::es::event::codegen::Versioned>::COUNT +
-                    <ChatEvent<'a, C>
-                     as ::arcane::es::event::codegen::Versioned>::COUNT;
-            }
+                const EVENTS: &'static [(&'static str, &'static str, u16)] = {
+                    type F = ();
+                    type C = ();
 
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl Event<'a, F, C> {
-                #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, u16);
-                    <Self as ::arcane::es::event::codegen::Versioned>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", 0);
-                        <Self as ::arcane::es::event::codegen::Versioned>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    {
-                        let events = <FileEvent<'a, F> >::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-                    {
-                        let events = <ChatEvent<'a, C> >::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-
-                    res
-                }
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        (&'static str, &'static str, u16),
+                        <FileEvent<'a, F>
+                            as ::arcane::es::event::codegen::Events>::EVENTS,
+                        <ChatEvent<'a, C>
+                            as ::arcane::es::event::codegen::Events>::EVENTS
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_ver(
-                        Event::<'static, (), ()>::__arcane_events(),
-                    ),
+                    has_different_types_with_same_name_and_ver::<
+                        Event<'static, (), ()>
+                    >(),
                 "having different `Event` types with the same name and version \
                  inside a single enum is forbidden",
             );
@@ -657,59 +583,24 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Versioned for Event {
+            impl ::arcane::es::event::codegen::Events for Event {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    <FileEvent
-                     as ::arcane::es::event::codegen::Versioned>::COUNT +
-                    <ChatEvent
-                     as ::arcane::es::event::codegen::Versioned>::COUNT;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl Event {
-                #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, u16);
-                    <Self as ::arcane::es::event::codegen::Versioned>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", 0);
-                        <Self as ::arcane::es::event::codegen::Versioned>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    {
-                        let events = <FileEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-                    {
-                        let events = <ChatEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-
-                    res
-                }
+                const EVENTS: &'static [(&'static str, &'static str, u16)] = {
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        (&'static str, &'static str, u16),
+                        <FileEvent
+                            as ::arcane::es::event::codegen::Events>::EVENTS,
+                        <ChatEvent
+                            as ::arcane::es::event::codegen::Events>::EVENTS
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_ver(
-                        Event::<>::__arcane_events(),
-                    ),
+                    has_different_types_with_same_name_and_ver::< Event<> >(),
                 "having different `Event` types with the same name and version \
                  inside a single enum is forbidden",
             );
