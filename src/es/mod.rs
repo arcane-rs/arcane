@@ -7,7 +7,6 @@ pub mod event;
 #[doc(inline)]
 pub use self::event::{
     Event, Initialized as EventInitialized, Name as EventName,
-    Sourced as EventSourced, Sourcing as EventSourcing,
-    Version as EventVersion, Versioned as VersionedEvent,
-    VersionedNames as VersionedEventNames,
+    Revised as RevisedEvent, Revision as EventRevision,
+    Sourced as EventSourced, Sourcing as EventSourcing, Meta as EventMeta,
 };

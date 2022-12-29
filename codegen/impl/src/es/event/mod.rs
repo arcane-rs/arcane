@@ -1,6 +1,6 @@
 //! `#[derive(Event)]` macro implementation.
 
-pub mod versioned;
+pub mod revised;
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -41,7 +41,7 @@ pub struct VariantAttrs {
 ///
 /// [`Event`]: arcane_core::es::event::Event
 #[derive(Debug, ToTokens)]
-#[to_tokens(append(impl_event, impl_event_sourced, gen_uniqueness_glue_code))]
+#[to_tokens(append(impl_event, impl_event_sourced, gen_uniqueness_check))]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
@@ -74,7 +74,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
             return Err(syn::Error::new(
                 input.span(),
                 "expected enum only, \
-                 consider using `arcane::es::event::Versioned` for structs",
+                 consider using `arcane::es::event::Revised` for structs",
             ));
         };
 
@@ -164,6 +164,20 @@ impl Definition {
         quote! { < #( #generics ),* > }
     }
 
+    /// Replaces all generic type parameters with `type T = ()`. This required
+    /// for const contexts, where generic type parameters cannot be passed
+    /// correctly.
+    // TODO: Remove this, once rust-lang/rust#57775 is resolved:
+    //       https://github.com/rust-lang/rust/issues/57775
+    fn substitute_generic_types_trivially(generics: &syn::Generics) -> TokenStream {
+        let ty = generics.type_params().map(|p| {
+            let ident = &p.ident;
+            quote! { type #ident = (); }
+        });
+
+        quote! { #( #ty )* }
+    }
+
     /// Generates code to derive [`Event`][0] trait, by simply matching over
     /// each enum variant, which is expected to be itself an [`Event`][0]
     /// implementer.
@@ -192,10 +206,10 @@ impl Definition {
                     }
                 }
 
-                fn version(&self) -> ::arcane::es::event::Version {
+                fn revision(&self) -> ::arcane::es::event::Revision {
                     match self {
                         #(
-                            Self::#var(f) => ::arcane::es::Event::version(f),
+                            Self::#var(f) => ::arcane::es::Event::revision(f),
                         )*
                         #unreachable_arm
                     }
@@ -269,7 +283,7 @@ impl Definition {
     }
 
     /// Generates hidden machinery code used to statically check that all the
-    /// [`Event::name`][0]s and [`Event::version`][1]s pairs are corresponding
+    /// [`Event::name`][0]s and [`Event::revision`][1]s pairs are corresponding
     /// to a single Rust type.
     ///
     /// # Panics
@@ -278,11 +292,11 @@ impl Definition {
     /// with `#[event(skip)]`. Checked by [`TryFrom`] impl for [`Definition`].
     ///
     /// [0]: arcane_core::es::event::Event::name()
-    /// [1]: arcane_core::es::event::Event::version()
+    /// [1]: arcane_core::es::event::Event::revision()
     /// [`Field`]: syn::Field
     /// [`Variant`]: syn::Variant
     #[must_use]
-    pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
+    pub fn gen_uniqueness_check(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
@@ -297,20 +311,17 @@ impl Definition {
         //       instead of type params substitution, once rust-lang/rust#57775
         //       is resolved: https://github.com/rust-lang/rust/issues/57775
         let ty_subst_gens = Self::substitute_generics_trivially(&self.generics);
-        let const_phantom_generics =
-            Self::gen_const_phantom_generics(&self.generics);
+        let subst_gen_types =
+            Self::substitute_generic_types_trivially(&self.generics);
 
         let glue = quote! { ::arcane::es::event::codegen };
         quote! {
             #[automatically_derived]
-            #[allow(unsafe_code)]
             #[doc(hidden)]
-            unsafe impl #impl_gens #glue ::Events for #ty #ty_gens
-                #where_clause
-            {
+            impl #impl_gens #glue ::Meta for #ty #ty_gens #where_clause {
                 #[doc(hidden)]
                 const EVENTS: &'static [(&'static str, &'static str, u16)] = {
-                    #const_phantom_generics
+                    #subst_gen_types
                     #glue ::const_concat_slices!(
                         (&'static str, &'static str, u16),
                         #( <#var_ty as #glue ::Events>::EVENTS ),*
@@ -321,26 +332,13 @@ impl Definition {
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !#glue ::has_different_types_with_same_name_and_ver::<
+                !#glue ::has_different_types_with_same_name_and_revision::<
                     #ty #ty_subst_gens
                 >(),
-                "having different `Event` types with the same name and version \
-                 inside a single enum is forbidden",
+                "having different `Event` types with the same name \
+                 and revision inside a single enum is forbidden",
             );
         }
-    }
-
-    /// Replaces all type parameters with `()` type. This required for const
-    /// contexts, where type parameters are not allowed.
-    // TODO: Remove this, once rust-lang/rust#57775 is resolved:
-    //       https://github.com/rust-lang/rust/issues/57775
-    fn gen_const_phantom_generics(generics: &syn::Generics) -> TokenStream {
-        let ty = generics.type_params().map(|p| {
-            let ident = &p.ident;
-            quote! { type #ident = (); }
-        });
-
-        quote! { #( #ty )* }
     }
 }
 
@@ -370,10 +368,10 @@ mod spec {
                     }
                 }
 
-                fn version(&self) -> ::arcane::es::event::Version {
+                fn revision(&self) -> ::arcane::es::event::Revision {
                     match self {
-                        Self::File(f) => ::arcane::es::Event::version(f),
-                        Self::Chat(f) => ::arcane::es::Event::version(f),
+                        Self::File(f) => ::arcane::es::Event::revision(f),
+                        Self::Chat(f) => ::arcane::es::Event::revision(f),
                     }
                 }
             }
@@ -403,17 +401,16 @@ mod spec {
             }
 
             #[automatically_derived]
-            #[allow(unsafe_code)]
             #[doc(hidden)]
-            unsafe impl ::arcane::es::event::codegen::Events for Event {
+            impl ::arcane::es::event::codegen::Meta for Event {
                 #[doc(hidden)]
-                const EVENTS: &'static [(&'static str, &'static str, u16)] = {
+                const META: &'static [(&'static str, &'static str, u16)] = {
                     ::arcane::es::event::codegen::const_concat_slices!(
                         (&'static str, &'static str, u16),
                         <FileEvent
-                            as ::arcane::es::event::codegen::Events>::EVENTS,
+                            as ::arcane::es::event::codegen::Meta>::META,
                         <ChatEvent
-                            as ::arcane::es::event::codegen::Events>::EVENTS
+                            as ::arcane::es::event::codegen::Meta>::META
                     )
                 };
             }
@@ -422,9 +419,11 @@ mod spec {
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_ver::< Event<> >(),
-                "having different `Event` types with the same name and version \
-                 inside a single enum is forbidden",
+                    has_different_types_with_same_name_and_revision::<
+                        Event<>
+                    >(),
+                "having different `Event` types with the same name \
+                 and revision inside a single enum is forbidden",
             );
         };
 
@@ -455,10 +454,10 @@ mod spec {
                     }
                 }
 
-                fn version(&self) -> ::arcane::es::event::Version {
+                fn revision(&self) -> ::arcane::es::event::Revision {
                     match self {
-                        Self::File(f) => ::arcane::es::Event::version(f),
-                        Self::Chat(f) => ::arcane::es::Event::version(f),
+                        Self::File(f) => ::arcane::es::Event::revision(f),
+                        Self::Chat(f) => ::arcane::es::Event::revision(f),
                     }
                 }
             }
@@ -489,22 +488,21 @@ mod spec {
             }
 
             #[automatically_derived]
-            #[allow(unsafe_code)]
             #[doc(hidden)]
-            unsafe impl<'a, F, C> ::arcane::es::event::codegen::Events
+            impl<'a, F, C> ::arcane::es::event::codegen::Meta
                 for Event<'a, F, C>
             {
                 #[doc(hidden)]
-                const EVENTS: &'static [(&'static str, &'static str, u16)] = {
+                const META: &'static [(&'static str, &'static str, u16)] = {
                     type F = ();
                     type C = ();
 
                     ::arcane::es::event::codegen::const_concat_slices!(
                         (&'static str, &'static str, u16),
                         <FileEvent<'a, F>
-                            as ::arcane::es::event::codegen::Events>::EVENTS,
+                            as ::arcane::es::event::codegen::Meta>::META,
                         <ChatEvent<'a, C>
-                            as ::arcane::es::event::codegen::Events>::EVENTS
+                            as ::arcane::es::event::codegen::Meta>::META
                     )
                 };
             }
@@ -513,11 +511,11 @@ mod spec {
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_ver::<
+                    has_different_types_with_same_name_and_revision::<
                         Event<'static, (), ()>
                     >(),
-                "having different `Event` types with the same name and version \
-                 inside a single enum is forbidden",
+                "having different `Event` types with the same name \
+                 and revision inside a single enum is forbidden",
             );
         };
 
@@ -558,10 +556,10 @@ mod spec {
                     }
                 }
 
-                fn version(&self) -> ::arcane::es::event::Version {
+                fn revision(&self) -> ::arcane::es::event::Revision {
                     match self {
-                        Self::File(f) => ::arcane::es::Event::version(f),
-                        Self::Chat(f) => ::arcane::es::Event::version(f),
+                        Self::File(f) => ::arcane::es::Event::revision(f),
+                        Self::Chat(f) => ::arcane::es::Event::revision(f),
                         _ => unreachable!(),
                     }
                 }
@@ -587,17 +585,16 @@ mod spec {
             }
 
             #[automatically_derived]
-            #[allow(unsafe_code)]
             #[doc(hidden)]
-            unsafe impl ::arcane::es::event::codegen::Events for Event {
+            impl ::arcane::es::event::codegen::Meta for Event {
                 #[doc(hidden)]
-                const EVENTS: &'static [(&'static str, &'static str, u16)] = {
+                const META: &'static [(&'static str, &'static str, u16)] = {
                     ::arcane::es::event::codegen::const_concat_slices!(
                         (&'static str, &'static str, u16),
                         <FileEvent
-                            as ::arcane::es::event::codegen::Events>::EVENTS,
+                            as ::arcane::es::event::codegen::Meta>::META,
                         <ChatEvent
-                            as ::arcane::es::event::codegen::Events>::EVENTS
+                            as ::arcane::es::event::codegen::Meta>::META
                     )
                 };
             }
@@ -606,9 +603,11 @@ mod spec {
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_ver::< Event<> >(),
-                "having different `Event` types with the same name and version \
-                 inside a single enum is forbidden",
+                    has_different_types_with_same_name_and_revision::<
+                        Event<>
+                    >(),
+                "having different `Event` types with the same name \
+                 and revision inside a single enum is forbidden",
             );
         };
 
@@ -647,7 +646,7 @@ mod spec {
         assert_eq!(
             err.to_string(),
             "expected enum only, \
-             consider using `arcane::es::event::Versioned` for structs",
+             consider using `arcane::es::event::Revised` for structs",
         );
     }
 
