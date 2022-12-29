@@ -46,7 +46,11 @@ fn can_parse_as_non_zero_u16(value: &Required<syn::LitInt>) -> syn::Result<()> {
 ///
 /// [0]: arcane_core::es::event::Revised
 #[derive(Debug, ToTokens)]
-#[to_tokens(append(impl_event_revised, gen_uniqueness_glue_code))]
+#[to_tokens(append(
+    impl_event_revised,
+    impl_meta_reflection,
+    gen_uniqueness_check
+))]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this structure's type.
     pub ident: syn::Ident,
@@ -115,13 +119,39 @@ impl Definition {
         }
     }
 
+    /// Generates code to derive [`event::reflect::Meta`][0].
+    ///
+    /// [0]: arcane_core::es::event::reflect::Meta
+    #[must_use]
+    pub fn impl_meta_reflection(&self) -> TokenStream {
+        let ty = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
+
+        quote! {
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl #impl_gens ::arcane::es::event::reflect::Meta for #ty #ty_gens
+                #where_clause
+            {
+                #[doc(hidden)]
+                const META: &'static [::arcane::es::event::Meta] = &[
+                    ::arcane::es::event::Meta {
+                        name: <Self as ::arcane::es::event::Revised>::NAME,
+                        revision:
+                            <Self as ::arcane::es::event::Revised>::REVISION,
+                    }
+                ];
+            }
+        }
+    }
+
     /// Generates hidden machinery code used to statically check uniqueness of
     /// [`Event::name`] and [`Event::revision`].
     ///
     /// [`Event::name`]: arcane_core::es::Event::name
     /// [`Event::revision`]: arcane_core::es::Event::revision
     #[must_use]
-    pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
+    pub fn gen_uniqueness_check(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
@@ -172,6 +202,19 @@ mod spec {
                 const REVISION: ::arcane::es::event::Revision = unsafe {
                     ::arcane::es::event::Revision::new_unchecked(1)
                 };
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::arcane::es::event::reflect::Meta for Event {
+                #[doc(hidden)]
+                const META: &'static [::arcane::es::event::Meta] = &[
+                    ::arcane::es::event::Meta {
+                        name: <Self as ::arcane::es::event::Revised>::NAME,
+                        revision:
+                            <Self as ::arcane::es::event::Revised>::REVISION,
+                    }
+                ];
             }
 
             #[automatically_derived]

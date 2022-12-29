@@ -2,8 +2,8 @@
 
 #[doc(inline)]
 pub use arcane_core::es::event::{
-    Event, Initial, Initialized, Name, Revised, Revision, Sourced, Sourcing, Meta,
-    reflect,
+    reflect, Event, Initial, Initialized, Meta, Name, Revised, Revision,
+    Sourced, Sourcing,
 };
 
 #[cfg(feature = "derive")]
