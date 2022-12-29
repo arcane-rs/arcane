@@ -17,9 +17,11 @@ All user visible changes to this project will be documented in this file. This p
     - `RevisedEvent`
     - `EventSourced`
     - `EventInitialised`
+    - `reflect::Meta`
   - Structs
     - `EventRevision`
     - `event::Initial` specialization wrapper
+    - `event::Meta`
   - Proc macros
     - `Event` derive
     - `RevisedEvent` derive
