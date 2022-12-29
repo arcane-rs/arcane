@@ -14,15 +14,15 @@ All user visible changes to this project will be documented in this file. This p
 - Events
   - Traits
     - `Event`
-    - `VersionedEvent`
+    - `RevisedEvent`
     - `EventSourced`
     - `EventInitialised`
   - Structs
-    - `EventVersion`
+    - `EventRevision`
     - `event::Initial` specialization wrapper
   - Proc macros
     - `Event` derive
-    - `VersionedEvent` derive
+    - `RevisedEvent` derive
 
 
     

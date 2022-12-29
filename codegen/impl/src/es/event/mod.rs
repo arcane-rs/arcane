@@ -1,6 +1,6 @@
 //! `#[derive(Event)]` macro implementation.
 
-pub mod versioned;
+pub mod revised;
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -74,7 +74,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
             return Err(syn::Error::new(
                 input.span(),
                 "expected enum only, \
-                 consider using `arcane::es::event::Versioned` for structs",
+                 consider using `arcane::es::event::Revised` for structs",
             ));
         };
 
@@ -192,10 +192,10 @@ impl Definition {
                     }
                 }
 
-                fn version(&self) -> ::arcane::es::event::Version {
+                fn revision(&self) -> ::arcane::es::event::Revision {
                     match self {
                         #(
-                            Self::#var(f) => ::arcane::es::Event::version(f),
+                            Self::#var(f) => ::arcane::es::Event::revision(f),
                         )*
                         #unreachable_arm
                     }
@@ -269,7 +269,7 @@ impl Definition {
     }
 
     /// Generates hidden machinery code used to statically check that all the
-    /// [`Event::name`][0]s and [`Event::version`][1]s pairs are corresponding
+    /// [`Event::name`][0]s and [`Event::revision`][1]s pairs are corresponding
     /// to a single Rust type.
     ///
     /// # Panics
@@ -278,7 +278,7 @@ impl Definition {
     /// with `#[event(skip)]`. Checked by [`TryFrom`] impl for [`Definition`].
     ///
     /// [0]: arcane_core::es::event::Event::name()
-    /// [1]: arcane_core::es::event::Event::version()
+    /// [1]: arcane_core::es::event::Event::revision()
     /// [`Field`]: syn::Field
     /// [`Variant`]: syn::Variant
     #[must_use]
@@ -302,12 +302,12 @@ impl Definition {
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens #glue::Versioned for #ty #ty_gens
+            impl #impl_gens #glue::Revised for #ty #ty_gens
                  #where_clause
             {
                 #[doc(hidden)]
                 const COUNT: usize =
-                    #( <#var_ty as #glue::Versioned>::COUNT )+*;
+                    #( <#var_ty as #glue::Revised>::COUNT )+*;
             }
 
             #[automatically_derived]
@@ -316,10 +316,10 @@ impl Definition {
                 #[doc(hidden)]
                 pub const fn __arcane_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as #glue::Versioned>::COUNT
+                    <Self as #glue::Revised>::COUNT
                 ] {
                     let mut res = [
-                        ("", "", 0); <Self as #glue::Versioned>::COUNT
+                        ("", "", 0); <Self as #glue::Revised>::COUNT
                     ];
 
                     let mut i = 0;
@@ -340,11 +340,11 @@ impl Definition {
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !#glue::has_different_types_with_same_name_and_ver(
+                !#glue::has_different_types_with_same_name_and_revision(
                     #ty::#ty_subst_gens::__arcane_events(),
                 ),
-                "having different `Event` types with the same name and version \
-                 inside a single enum is forbidden",
+                "having different `Event` types with the same name \
+                 and revision inside a single enum is forbidden",
             );
         }
     }
@@ -376,10 +376,10 @@ mod spec {
                     }
                 }
 
-                fn version(&self) -> ::arcane::es::event::Version {
+                fn revision(&self) -> ::arcane::es::event::Revision {
                     match self {
-                        Self::File(f) => ::arcane::es::Event::version(f),
-                        Self::Chat(f) => ::arcane::es::Event::version(f),
+                        Self::File(f) => ::arcane::es::Event::revision(f),
+                        Self::Chat(f) => ::arcane::es::Event::revision(f),
                     }
                 }
             }
@@ -410,13 +410,13 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Versioned for Event {
+            impl ::arcane::es::event::codegen::Revised for Event {
                 #[doc(hidden)]
                 const COUNT: usize =
                     <FileEvent
-                     as ::arcane::es::event::codegen::Versioned>::COUNT +
+                     as ::arcane::es::event::codegen::Revised>::COUNT +
                     <ChatEvent
-                     as ::arcane::es::event::codegen::Versioned>::COUNT;
+                     as ::arcane::es::event::codegen::Revised>::COUNT;
             }
 
             #[automatically_derived]
@@ -425,11 +425,11 @@ mod spec {
                 #[doc(hidden)]
                 pub const fn __arcane_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcane::es::event::codegen::Versioned>::COUNT
+                    <Self as ::arcane::es::event::codegen::Revised>::COUNT
                 ] {
                     let mut res = [
                         ("", "", 0);
-                        <Self as ::arcane::es::event::codegen::Versioned>::COUNT
+                        <Self as ::arcane::es::event::codegen::Revised>::COUNT
                     ];
 
                     let mut i = 0;
@@ -460,11 +460,11 @@ mod spec {
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_ver(
+                    has_different_types_with_same_name_and_revision(
                         Event::<>::__arcane_events(),
                     ),
-                "having different `Event` types with the same name and version \
-                 inside a single enum is forbidden",
+                "having different `Event` types with the same name \
+                 and revision inside a single enum is forbidden",
             );
         };
 
@@ -495,10 +495,10 @@ mod spec {
                     }
                 }
 
-                fn version(&self) -> ::arcane::es::event::Version {
+                fn revision(&self) -> ::arcane::es::event::Revision {
                     match self {
-                        Self::File(f) => ::arcane::es::Event::version(f),
-                        Self::Chat(f) => ::arcane::es::Event::version(f),
+                        Self::File(f) => ::arcane::es::Event::revision(f),
+                        Self::Chat(f) => ::arcane::es::Event::revision(f),
                     }
                 }
             }
@@ -530,15 +530,15 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl<'a, F, C> ::arcane::es::event::codegen::Versioned
+            impl<'a, F, C> ::arcane::es::event::codegen::Revised
                 for Event<'a, F, C>
             {
                 #[doc(hidden)]
                 const COUNT: usize =
                     <FileEvent<'a, F>
-                     as ::arcane::es::event::codegen::Versioned>::COUNT +
+                     as ::arcane::es::event::codegen::Revised>::COUNT +
                     <ChatEvent<'a, C>
-                     as ::arcane::es::event::codegen::Versioned>::COUNT;
+                     as ::arcane::es::event::codegen::Revised>::COUNT;
             }
 
             #[automatically_derived]
@@ -547,11 +547,11 @@ mod spec {
                 #[doc(hidden)]
                 pub const fn __arcane_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcane::es::event::codegen::Versioned>::COUNT
+                    <Self as ::arcane::es::event::codegen::Revised>::COUNT
                 ] {
                     let mut res = [
                         ("", "", 0);
-                        <Self as ::arcane::es::event::codegen::Versioned>::COUNT
+                        <Self as ::arcane::es::event::codegen::Revised>::COUNT
                     ];
 
                     let mut i = 0;
@@ -582,11 +582,11 @@ mod spec {
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_ver(
+                    has_different_types_with_same_name_and_revision(
                         Event::<'static, (), ()>::__arcane_events(),
                     ),
-                "having different `Event` types with the same name and version \
-                 inside a single enum is forbidden",
+                "having different `Event` types with the same name \
+                 and revision inside a single enum is forbidden",
             );
         };
 
@@ -627,10 +627,10 @@ mod spec {
                     }
                 }
 
-                fn version(&self) -> ::arcane::es::event::Version {
+                fn revision(&self) -> ::arcane::es::event::Revision {
                     match self {
-                        Self::File(f) => ::arcane::es::Event::version(f),
-                        Self::Chat(f) => ::arcane::es::Event::version(f),
+                        Self::File(f) => ::arcane::es::Event::revision(f),
+                        Self::Chat(f) => ::arcane::es::Event::revision(f),
                         _ => unreachable!(),
                     }
                 }
@@ -657,13 +657,13 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Versioned for Event {
+            impl ::arcane::es::event::codegen::Revised for Event {
                 #[doc(hidden)]
                 const COUNT: usize =
                     <FileEvent
-                     as ::arcane::es::event::codegen::Versioned>::COUNT +
+                     as ::arcane::es::event::codegen::Revised>::COUNT +
                     <ChatEvent
-                     as ::arcane::es::event::codegen::Versioned>::COUNT;
+                     as ::arcane::es::event::codegen::Revised>::COUNT;
             }
 
             #[automatically_derived]
@@ -672,11 +672,11 @@ mod spec {
                 #[doc(hidden)]
                 pub const fn __arcane_events() -> [
                     (&'static str, &'static str, u16);
-                    <Self as ::arcane::es::event::codegen::Versioned>::COUNT
+                    <Self as ::arcane::es::event::codegen::Revised>::COUNT
                 ] {
                     let mut res = [
                         ("", "", 0);
-                        <Self as ::arcane::es::event::codegen::Versioned>::COUNT
+                        <Self as ::arcane::es::event::codegen::Revised>::COUNT
                     ];
 
                     let mut i = 0;
@@ -707,11 +707,11 @@ mod spec {
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_ver(
+                    has_different_types_with_same_name_and_revision(
                         Event::<>::__arcane_events(),
                     ),
-                "having different `Event` types with the same name and version \
-                 inside a single enum is forbidden",
+                "having different `Event` types with the same name \
+                 and revision inside a single enum is forbidden",
             );
         };
 
@@ -750,7 +750,7 @@ mod spec {
         assert_eq!(
             err.to_string(),
             "expected enum only, \
-             consider using `arcane::es::event::Versioned` for structs",
+             consider using `arcane::es::event::Revised` for structs",
         );
     }
 

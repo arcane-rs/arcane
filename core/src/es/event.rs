@@ -12,10 +12,10 @@ pub type Name = &'static str;
 #[derive(
     Clone, Copy, Debug, Display, Eq, Hash, Into, Ord, PartialEq, PartialOrd,
 )]
-pub struct Version(NonZeroU16);
+pub struct Revision(NonZeroU16);
 
-impl Version {
-    /// Creates a new [`Version`] out of the given `value`.
+impl Revision {
+    /// Creates a new [`Revision`] out of the given `value`.
     ///
     /// The given `value` should not be `0` (zero) and fit into [`u16`] size.
     #[must_use]
@@ -26,7 +26,7 @@ impl Version {
         Some(Self(NonZeroU16::new(u16::try_from(value).ok()?)?))
     }
 
-    /// Creates a new [`Version`] out of the given `value` without checking its
+    /// Creates a new [`Revision`] out of the given `value` without checking its
     /// invariants.
     ///
     /// # Safety
@@ -39,7 +39,7 @@ impl Version {
         Self(unsafe { NonZeroU16::new_unchecked(value) })
     }
 
-    /// Returns the value of this [`Version`] as a primitive type.
+    /// Returns the value of this [`Revision`] as a primitive type.
     #[inline]
     #[must_use]
     pub const fn get(self) -> u16 {
@@ -47,13 +47,13 @@ impl Version {
     }
 }
 
-/// [`Event`] of a concrete [`Version`].
-pub trait Versioned {
+/// [`Event`] of a concrete [`Revision`].
+pub trait Revised {
     /// [`Name`] of this [`Event`].
     const NAME: Name;
 
-    /// [`Version`] of this [`Event`].
-    const VERSION: Version;
+    /// [`Revision`] of this [`Event`].
+    const REVISION: Revision;
 }
 
 /// [Event Sourcing] event describing something that has occurred (happened
@@ -68,18 +68,18 @@ pub trait Event {
     #[must_use]
     fn name(&self) -> Name;
 
-    /// Returns [`Version`] of this [`Event`].
+    /// Returns [`Revision`] of this [`Event`].
     #[must_use]
-    fn version(&self) -> Version;
+    fn revision(&self) -> Revision;
 }
 
-impl<Ev: Versioned + ?Sized> Event for Ev {
+impl<Ev: Revised + ?Sized> Event for Ev {
     fn name(&self) -> Name {
-        <Self as Versioned>::NAME
+        <Self as Revised>::NAME
     }
 
-    fn version(&self) -> Version {
-        <Self as Versioned>::VERSION
+    fn revision(&self) -> Revision {
+        <Self as Revised>::REVISION
     }
 }
 
@@ -89,7 +89,7 @@ pub trait Sourced<Ev: ?Sized> {
     fn apply(&mut self, event: &Ev);
 }
 
-impl<Ev: Versioned + ?Sized, S: Sourced<Ev>> Sourced<Ev> for Option<S> {
+impl<Ev: Revised + ?Sized, S: Sourced<Ev>> Sourced<Ev> for Option<S> {
     fn apply(&mut self, event: &Ev) {
         if let Some(state) = self {
             state.apply(event);
@@ -139,8 +139,8 @@ impl<'e, S: Sourced<dyn Event + Send + Sync + 'e>>
 /// #[derive(Debug, Eq, PartialEq)]
 /// struct Chat;
 ///
-/// #[derive(event::Versioned)]
-/// #[event(name = "chat", version = 1)]
+/// #[derive(event::Revised)]
+/// #[event(name = "chat", revision = 1)]
 /// struct ChatEvent;
 ///
 /// impl event::Initialized<ChatEvent> for Chat {
@@ -221,52 +221,54 @@ pub mod codegen {
     //!
     //! [`Event`]: super::Event
 
-    /// Tracking of [`VersionedEvent`]s number.
+    /// Tracking of [`RevisedEvent`]s number.
     ///
-    /// [`VersionedEvent`]: super::Versioned
-    pub trait Versioned {
-        /// Number of [`VersionedEvent`]s in this [`Event`].
+    /// [`RevisedEvent`]: super::Revised
+    pub trait Revised {
+        /// Number of [`RevisedEvent`]s in this [`Event`].
         ///
         /// [`Event`]: super::Event
-        /// [`VersionedEvent`]: super::Versioned
+        /// [`RevisedEvent`]: super::Revised
         const COUNT: usize;
     }
 
     /// Checks in compile time whether all the given combinations of
-    /// [`Event::name`] and [`Event::version`] correspond to different Rust
+    /// [`Event::name`] and [`Event::revision`] correspond to different Rust
     /// types.
     ///
     /// # Explanation
     ///
-    /// Main idea is that every [`Event`] or [`event::Versioned`] deriving
+    /// Main idea is that every [`Event`] or [`event::Revised`] deriving
     /// generates a hidden method:
     /// ```rust,ignore
     /// const fn __arcane_events() -> [(&'static str, &'static str, u16); size]
     /// ```
     /// It returns an array consisting of unique Rust type identifiers,
-    /// [`event::Name`]s and [`event::Version`]s of all the [`Event`] variants.
+    /// [`event::Name`]s and [`event::Revision`]s of all the [`Event`] variants.
     /// Correctness is checked then with asserting this function at compile time
     /// in `const` context.
     ///
     /// [`Event`]: super::Event
     /// [`Event::name`]: super::Event::name
-    /// [`Event::version`]: super::Event::version
+    /// [`Event::revision`]: super::Event::revision
     /// [`event::Name`]: super::Name
-    /// [`event::Version`]: super::Version
-    /// [`event::Versioned`]: super::Versioned
+    /// [`event::Revision`]: super::Revision
+    /// [`event::Revised`]: super::Revised
     #[must_use]
-    pub const fn has_different_types_with_same_name_and_ver<const N: usize>(
+    pub const fn has_different_types_with_same_name_and_revision<
+        const N: usize,
+    >(
         events: [(&str, &str, u16); N],
     ) -> bool {
         let mut outer = 0;
         while outer < events.len() {
             let mut inner = outer + 1;
             while inner < events.len() {
-                let (inner_ty, inner_name, inner_ver) = events[inner];
-                let (outer_ty, outer_name, outer_ver) = events[outer];
+                let (inner_ty, inner_name, inner_rev) = events[inner];
+                let (outer_ty, outer_name, outer_rev) = events[outer];
                 if !str_eq(inner_ty, outer_ty)
                     && str_eq(inner_name, outer_name)
-                    && inner_ver == outer_ver
+                    && inner_rev == outer_rev
                 {
                     return true;
                 }

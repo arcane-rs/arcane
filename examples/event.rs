@@ -1,11 +1,11 @@
 use arcane::es::event::{self, Event, Initialized, Sourced, Sourcing};
 
-#[derive(event::Versioned)]
-#[event(name = "chat.created", version = 1)]
+#[derive(event::Revised)]
+#[event(name = "chat.created", revision = 1)]
 struct ChatCreated;
 
-#[derive(event::Versioned)]
-#[event(name = "message.posted", version = 1)]
+#[derive(event::Revised)]
+#[event(name = "message.posted", revision = 1)]
 struct MessagePosted;
 
 #[derive(Event)]
