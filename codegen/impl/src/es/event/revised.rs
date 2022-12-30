@@ -25,13 +25,13 @@ pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
 pub struct Attrs {
     /// Value of [`event::Revised::NAME`][0] constant.
     ///
-    /// [0]: arcane_core::es::event::Revised::NAME
+    /// [0]: arcane_core::es::event::Concrete::NAME
     #[parse(value)]
     pub name: Required<syn::LitStr>,
 
     /// Value of [`event::Revised::REVISION`][0] constant.
     ///
-    /// [0]: arcane_core::es::event::Revised::REVISION
+    /// [0]: arcane_core::es::event::Concrete::REVISION
     #[parse(value, alias = rev, validate = can_parse_as_non_zero_u16)]
     pub revision: Required<syn::LitInt>,
 }
@@ -44,7 +44,7 @@ fn can_parse_as_non_zero_u16(value: &Required<syn::LitInt>) -> syn::Result<()> {
 /// Representation of a struct implementing [`event::Revised`][0], used for
 /// code generation.
 ///
-/// [0]: arcane_core::es::event::Revised
+/// [0]: arcane_core::es::event::Concrete
 #[derive(Debug, ToTokens)]
 #[to_tokens(append(impl_event_revised, gen_uniqueness_glue_code))]
 pub struct Definition {
@@ -56,13 +56,13 @@ pub struct Definition {
 
     /// Value of [`event::Revised::NAME`][0] constant in the generated code.
     ///
-    /// [0]: arcane_core::es::event::Revised::NAME
+    /// [0]: arcane_core::es::event::Concrete::NAME
     pub event_name: syn::LitStr,
 
     /// Value of [`event::Revised::REVISION`][0] constant in the generated
     /// code.
     ///
-    /// [0]: arcane_core::es::event::Revised::REVISION
+    /// [0]: arcane_core::es::event::Concrete::REVISION
     pub event_revision: syn::LitInt,
 }
 
@@ -92,7 +92,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
 impl Definition {
     /// Generates code to derive [`event::Revised`][0] trait.
     ///
-    /// [0]: arcane_core::es::event::Revised
+    /// [0]: arcane_core::es::event::Concrete
     #[must_use]
     pub fn impl_event_revised(&self) -> TokenStream {
         let ty = &self.ident;
@@ -275,7 +275,7 @@ mod spec {
 
         let err = super::derive(input).unwrap_err();
 
-        assert_eq!(err.to_string(), "number would be zero for non-zero type",);
+        assert_eq!(err.to_string(), "number would be zero for non-zero type");
     }
 
     #[test]
@@ -287,7 +287,7 @@ mod spec {
 
         let err = super::derive(input).unwrap_err();
 
-        assert_eq!(err.to_string(), "number too large to fit in target type",);
+        assert_eq!(err.to_string(), "number too large to fit in target type");
     }
 
     #[test]

@@ -208,7 +208,7 @@ use proc_macro::TokenStream;
 /// [`Event`]: arcane_core::es::Event
 /// [`event::Initialized`]: arcane_core::es::event::Initialized
 /// [`event::Sourced`]: arcane_core::es::event::Sourced
-/// [`Revised`]: arcane_core::es::event::Revised
+/// [`Revised`]: arcane_core::es::event::Concrete
 /// [0]: arcane_core::es::Event::name()
 /// [1]: arcane_core::es::Event::revision()
 /// [rust-lang/rust#57775]: https://github.com/rust-lang/rust/issues/57775
@@ -246,9 +246,9 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// struct Event;
 /// ```
 ///
-/// [`Revised`]: arcane_core::es::event::Revised
-/// [0]: arcane_core::es::event::Revised::NAME
-/// [1]: arcane_core::es::event::Revised::REVISION
+/// [`Revised`]: arcane_core::es::event::Concrete
+/// [0]: arcane_core::es::event::Concrete::NAME
+/// [1]: arcane_core::es::event::Concrete::REVISION
 #[proc_macro_derive(RevisedEvent, attributes(event))]
 pub fn derive_revised_event(input: TokenStream) -> TokenStream {
     codegen::es::event::revised::derive(input.into())
