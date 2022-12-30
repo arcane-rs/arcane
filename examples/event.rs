@@ -1,10 +1,11 @@
-use arcane::es::event::{self, Event, Initialized, Sourced, Sourcing};
+use arcane::es::event::{Event, Initialized, Sourced, Sourcing};
 
-#[derive(event::Revised)]
+#[derive(Event)]
 #[event(name = "chat.created", revision = 1)]
 struct ChatCreated;
 
-#[derive(event::Revised)]
+// TODO: Use no revision when `#[derive(Event)]` on enums supports it.
+#[derive(Event)]
 #[event(name = "message.posted", revision = 1)]
 struct MessagePosted;
 

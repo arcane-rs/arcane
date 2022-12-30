@@ -79,6 +79,24 @@ impl<Ev: Static + ?Sized> Event for Ev {
     }
 }
 
+#[cfg(test)]
+mod static_spec {
+    use super::{Event, Name, Static};
+
+    struct Created;
+
+    impl Static for Created {
+        const NAME: Name = "created";
+    }
+
+    #[test]
+    fn impls_event_for_static() {
+        fn assert_impls<Ev: Event + ?Sized>() {}
+
+        assert_impls::<Created>();
+    }
+}
+
 /// [`Event`] capable of evolving with time.
 pub trait Revisable: Event {
     /// Type of this [`Event`]'s [`Revision`] number.
@@ -92,16 +110,44 @@ pub trait Revisable: Event {
 /// [`StaticEvent`] of a concrete [`Revision`].
 ///
 /// [`StaticEvent`]: Static
-pub trait Concrete: Static + Revisable {
+pub trait Concrete: Static {
+    /// Type of this [`Event`]'s [`Revision`] number.
+    type Revision: Revision;
+
     /// Concrete [`Revision`] of this [`Event`].
     const REVISION: Self::Revision;
 }
 
 impl<Ev: Concrete + ?Sized> Revisable for Ev {
-    type Revision = Self::Revision;
+    type Revision = <Self as Concrete>::Revision;
 
     fn revision(&self) -> Self::Revision {
         <Self as Concrete>::REVISION
+    }
+}
+
+#[cfg(test)]
+mod concrete_spec {
+    use super::{Concrete, Name, Revisable, Static, Version};
+
+    struct Created;
+
+    impl Static for Created {
+        const NAME: Name = "created";
+    }
+
+    impl Concrete for Created {
+        type Revision = Version;
+
+        // SAFETY: Safe, because `1` is non-zero.
+        const REVISION: Self::Revision = unsafe { Version::new_unchecked(1) };
+    }
+
+    #[test]
+    fn impls_revisable_for_concrete() {
+        fn assert_impls<Ev: Revisable + ?Sized>() {}
+
+        assert_impls::<Created>();
     }
 }
 
@@ -165,12 +211,12 @@ where
 /// # Example
 ///
 /// ```rust
-/// # use arcane::es::event::{self, Sourced as _};
+/// # use arcane::es::event::{self, Event, Sourced as _};
 /// #
 /// #[derive(Debug, Eq, PartialEq)]
 /// struct Chat;
 ///
-/// #[derive(event::Revised)]
+/// #[derive(Event)]
 /// #[event(name = "chat", revision = 1)]
 /// struct ChatEvent;
 ///
@@ -254,44 +300,43 @@ pub mod codegen {
     //!
     //! [`Event`]: super::Event
 
-    /// Tracking of [`RevisedEvent`]s number.
+    /// Tracking of [`Static`]s number.
     ///
-    /// [`RevisedEvent`]: super::Concrete
-    pub trait Revised {
-        /// Number of [`RevisedEvent`]s in this [`Event`].
+    /// [`Static`]: super::Static
+    // TODO: Remove when codegen reflection is done by constant.
+    pub trait Reflect {
+        /// Number of [`Static`]s in this [`Event`].
         ///
         /// [`Event`]: super::Event
-        /// [`RevisedEvent`]: super::Concrete
+        /// [`Static`]: super::Static
         const COUNT: usize;
     }
 
     /// Checks in compile time whether all the given combinations of
-    /// [`Event::name`] and [`Event::revision`] correspond to different Rust
-    /// types.
+    /// [`Event::name`] and [`event::Revisable::revision`] correspond
+    /// to different Rust types.
     ///
     /// # Explanation
     ///
-    /// Main idea is that every [`Event`] or [`event::Revised`] deriving
-    /// generates a hidden method:
+    /// Main idea is that every [`Event`] deriving generates a hidden method:
     /// ```rust,ignore
     /// const fn __arcane_events() -> [(&'static str, &'static str, u16); size]
     /// ```
     /// It returns an array consisting of unique Rust type identifiers,
-    /// [`event::Name`]s and [`event::Revision`]s of all the [`Event`] variants.
+    /// [`event::Name`]s and `Revision`s of all the [`Event`] variants.
     /// Correctness is checked then with asserting this function at compile time
     /// in `const` context.
     ///
     /// [`Event`]: super::Event
     /// [`Event::name`]: super::Event::name
-    /// [`Event::revision`]: super::Event::revision
+    /// [`event::Revisable::revision`]: super::Revisable::revision
     /// [`event::Name`]: super::Name
-    /// [`event::Revision`]: super::Revision
     /// [`event::Revised`]: super::Concrete
     #[must_use]
     pub const fn has_different_types_with_same_name_and_revision<
         const N: usize,
     >(
-        events: [(&str, &str, u16); N],
+        events: [(&str, &str, &str); N],
     ) -> bool {
         let mut outer = 0;
         while outer < events.len() {
@@ -299,9 +344,10 @@ pub mod codegen {
             while inner < events.len() {
                 let (inner_ty, inner_name, inner_rev) = events[inner];
                 let (outer_ty, outer_name, outer_rev) = events[outer];
+
                 if !str_eq(inner_ty, outer_ty)
                     && str_eq(inner_name, outer_name)
-                    && (inner_rev == outer_rev)
+                    && str_eq(inner_rev, outer_rev)
                 {
                     return true;
                 }
@@ -335,5 +381,75 @@ pub mod codegen {
         }
 
         true
+    }
+
+    #[cfg(test)]
+    mod uniqueness_type_check_spec {
+        use super::has_different_types_with_same_name_and_revision;
+
+        mod when_all_events_are_unique {
+            use super::*;
+
+            #[test]
+            fn returns_false() {
+                assert!(!has_different_types_with_same_name_and_revision([
+                    ("A", "a", "1"),
+                    ("B", "b", "2"),
+                    ("C", "c", "3"),
+                ]));
+            }
+        }
+
+        mod when_has_same_types_with_same_name_and_revision {
+            use super::*;
+
+            #[test]
+            fn returns_false() {
+                assert!(!has_different_types_with_same_name_and_revision([
+                    ("A", "a", "1"),
+                    ("A", "a", "1"),
+                    ("A", "b", "1"),
+                ]));
+            }
+        }
+
+        mod when_has_different_types_and_same_name_and_revision {
+            use super::*;
+
+            #[test]
+            fn returns_true() {
+                assert!(has_different_types_with_same_name_and_revision([
+                    ("A", "a", "1"),
+                    ("B", "a", "1"),
+                    ("A", "b", "1"),
+                ]));
+            }
+        }
+
+        mod when_one_type_with_empty_revision_and_same_name {
+            use super::*;
+
+            #[test]
+            fn returns_false() {
+                assert!(!has_different_types_with_same_name_and_revision([
+                    ("A", "a", "1"),
+                    ("B", "a", ""),
+                    ("A", "b", "1"),
+                ]));
+            }
+        }
+
+        mod when_has_different_types_with_same_names_without_revisions {
+            use super::*;
+
+            #[test]
+            fn returns_true() {
+                assert!(has_different_types_with_same_name_and_revision([
+                    ("A", "a", ""),
+                    ("B", "a", ""),
+                    ("A", "b", "1"),
+                ]));
+            }
+        }
     }
 }
