@@ -296,6 +296,10 @@ where
 
 #[cfg(feature = "codegen")]
 pub mod codegen {
+    //! [`Event`] machinery aiding codegen.
+    //!
+    //! [`Event`]: super::Event
+
     /// Tracking of [`Static`]s number.
     ///
     /// [`Static`]: super::Static
