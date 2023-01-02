@@ -1,4 +1,4 @@
-use arcane::es::event::{Event, reflect, Meta, Initialized, Sourced, Sourcing};
+use arcane::es::event::{reflect, Event, Initialized, Meta, Sourced, Sourcing};
 
 #[derive(Event)]
 #[event(name = "chat.created", revision = 1)]
@@ -61,49 +61,40 @@ fn assert_meta<E: reflect::Meta>(expected: &[Meta]) {
 
     for (actual, expected) in actual.iter().zip(expected.iter()) {
         assert_eq!(actual.name, expected.name);
-        assert_eq!(actual.revision, expected.revision);
     }
 }
 
 fn main() {
     assert_meta::<ChatCreated>(&[Meta {
         name: "chat.created",
-        revision: Revision::try_new(1).unwrap(),
     }]);
 
     assert_meta::<MessagePosted>(&[Meta {
         name: "message.posted",
-        revision: Revision::try_new(1).unwrap(),
     }]);
 
     assert_meta::<ChatEvent>(&[
         Meta {
             name: "chat.created",
-            revision: Revision::try_new(1).unwrap(),
         },
         Meta {
             name: "message.posted",
-            revision: Revision::try_new(1).unwrap(),
         },
     ]);
 
     assert_meta::<MessageEvent>(&[Meta {
         name: "message.posted",
-        revision: Revision::try_new(1).unwrap(),
     }]);
 
     assert_meta::<AnyEvent>(&[
         Meta {
             name: "chat.created",
-            revision: Revision::try_new(1).unwrap(),
         },
         Meta {
             name: "message.posted",
-            revision: Revision::try_new(1).unwrap(),
         },
         Meta {
             name: "message.posted",
-            revision: Revision::try_new(1).unwrap(),
         },
     ]);
 

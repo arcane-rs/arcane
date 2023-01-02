@@ -40,7 +40,8 @@ fn can_parse_as_non_zero_u16(value: &Option<syn::LitInt>) -> syn::Result<()> {
 #[to_tokens(append(
     impl_event_static,
     impl_event_concrete,
-    gen_uniqueness_glue_code
+    impl_meta_reflection,
+    gen_uniqueness_check
 ))]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this structure's type.
@@ -131,13 +132,37 @@ impl Definition {
         }
     }
 
+    /// Generates code to derive [`event::reflect::Meta`][0].
+    ///
+    /// [0]: arcane_core::es::event::reflect::Meta
+    #[must_use]
+    pub fn impl_meta_reflection(&self) -> TokenStream {
+        let ty = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
+
+        quote! {
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl #impl_gens ::arcane::es::event::reflect::Meta for #ty #ty_gens
+                #where_clause
+            {
+                #[doc(hidden)]
+                const META: &'static [::arcane::es::event::Meta] = &[
+                    ::arcane::es::event::Meta {
+                        name: <Self as ::arcane::es::event::Static>::NAME,
+                    }
+                ];
+            }
+        }
+    }
+
     /// Generates hidden machinery code used to statically check uniqueness of
-    /// [`Event::name`][0] (and [`event::Revisable::revision`][1] optionally).
+    /// [`Event::name`][0] and [`event::Revisable::revision`][1].
     ///
     /// [0]: arcane_core::es::Event::name
     /// [1]: arcane_core::es::event::Revisable::revision
     #[must_use]
-    pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
+    pub fn gen_uniqueness_check(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
@@ -153,33 +178,23 @@ impl Definition {
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens ::arcane::es::event::codegen::Reflect for
-                 #ty #ty_gens #where_clause
+            impl #impl_gens ::arcane::es::event::codegen::Meta for #ty #ty_gens
+                #where_clause
             {
                 #[doc(hidden)]
-                const COUNT: usize = 1;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl #impl_gens #ty #ty_gens #where_clause {
-                #[doc(hidden)]
-                #[inline]
-                pub const fn __arcane_events() ->
-                    [(&'static str, &'static str, &'static str); 1]
-                {
-                    [(
-                        ::std::concat!(
-                            ::std::file!(),
-                            "_",
-                            ::std::line!(),
-                            "_",
-                            ::std::column!(),
-                        ),
-                        <Self as ::arcane::es::event::Static>::NAME,
-                        #revision
-                    )]
-                }
+                const META: &'static [
+                    (&'static str, &'static str, &'static str)
+                ] = &[(
+                    ::std::concat!(
+                        ::std::file!(),
+                        "_",
+                        ::std::line!(),
+                        "_",
+                        ::std::column!(),
+                    ),
+                    <Self as ::arcane::es::event::Static>::NAME,
+                    #revision
+                )];
             }
         }
     }
@@ -215,31 +230,32 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Reflect for Event {
+            impl ::arcane::es::event::reflect::Meta for Event {
                 #[doc(hidden)]
-                const COUNT: usize = 1;
+                const META: &'static [::arcane::es::event::Meta] = &[
+                    ::arcane::es::event::Meta {
+                        name: <Self as ::arcane::es::event::Static>::NAME,
+                    }
+                ];
             }
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl Event {
+            impl ::arcane::es::event::codegen::Meta for Event {
                 #[doc(hidden)]
-                #[inline]
-                pub const fn __arcane_events() ->
-                    [(&'static str, &'static str, &'static str); 1]
-                {
-                    [(
-                        ::std::concat!(
-                            ::std::file!(),
-                            "_",
-                            ::std::line!(),
-                            "_",
-                            ::std::column!(),
-                        ),
-                        <Self as ::arcane::es::event::Static>::NAME,
-                        ""
-                    )]
-                }
+                const META: &'static [
+                    (&'static str, &'static str, &'static str)
+                ] = &[(
+                    ::std::concat!(
+                        ::std::file!(),
+                        "_",
+                        ::std::line!(),
+                        "_",
+                        ::std::column!(),
+                    ),
+                    <Self as ::arcane::es::event::Static>::NAME,
+                    ""
+                )];
             }
         };
 
@@ -271,31 +287,32 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Reflect for Event {
+            impl ::arcane::es::event::reflect::Meta for Event {
                 #[doc(hidden)]
-                const COUNT: usize = 1;
+                const META: &'static [::arcane::es::event::Meta] = &[
+                    ::arcane::es::event::Meta {
+                        name: <Self as ::arcane::es::event::Static>::NAME,
+                    }
+                ];
             }
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl Event {
+            impl ::arcane::es::event::codegen::Meta for Event {
                 #[doc(hidden)]
-                #[inline]
-                pub const fn __arcane_events() ->
-                    [(&'static str, &'static str, &'static str); 1]
-                {
-                    [(
-                        ::std::concat!(
-                            ::std::file!(),
-                            "_",
-                            ::std::line!(),
-                            "_",
-                            ::std::column!(),
-                        ),
-                        <Self as ::arcane::es::event::Static>::NAME,
-                        "1"
-                    )]
-                }
+                const META: &'static [
+                    (&'static str, &'static str, &'static str)
+                ] = &[(
+                    ::std::concat!(
+                        ::std::file!(),
+                        "_",
+                        ::std::line!(),
+                        "_",
+                        ::std::column!(),
+                    ),
+                    <Self as ::arcane::es::event::Static>::NAME,
+                    "1"
+                )];
             }
         };
 

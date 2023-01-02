@@ -299,9 +299,6 @@ where
 pub struct Meta {
     /// [`Name`] of the [`Event`].
     pub name: Name,
-
-    /// [`Revision`] of the [`Event`].
-    pub revision: Revision,
 }
 
 /// [`Event`] reflection machinery.
@@ -311,20 +308,18 @@ pub mod reflect {
     /// Reflects the [`event::Meta`] information about the [`Event`].
     ///
     /// **Note**: Implementations of this trait generates by `#[derive(Event)]`
-    ///           or `#[derive(event::Revised)` derive macros, and shouldn't be
-    ///           implemented manually.
+    ///           derive macros, and shouldn't be implemented manually.
     ///
     /// [`Event`]: event::Event
     pub trait Meta {
         /// List of all [`event::Meta`]s of the [`Event`].
         ///
-        /// For `#[derive(event::Revised)` it contains a single [`event::Meta`]
-        /// of the event itself. For `#[derive(Event)]` it contains
-        /// [`event::Meta`]s of all [`event::Revised`]s it's composed of
+        /// For struct it contains a single [`event::Meta`] of the event itself.
+        /// For enum it contains [`event::Meta`]s of all events it composed of
         /// (including multiple levels of composition).
         ///
         /// May contains duplicates if the same [`event::Meta`] is present in
-        /// multiple [`event::Revised`]s.
+        /// multiple nested events.
         ///
         /// [`Event`]: event::Event
         const META: &'static [event::Meta];
@@ -398,7 +393,7 @@ pub mod codegen {
         ///
         /// [`Name`]: super::Name
         /// [`Revision`]: super::Revision
-        const META: &'static [(&'static str, &'static str, u16)];
+        const META: &'static [(&'static str, &'static str, &'static str)];
     }
 
     /// Checks in compile time whether all the given combinations of
@@ -407,8 +402,8 @@ pub mod codegen {
     ///
     /// # Explanation
     ///
-    /// Main idea is that every [`Event`] or [`event::Revised`] deriving
-    /// generates a [`Meta`] implementation:
+    /// Main idea is that every [`Event`] deriving generates a [`Meta`]
+    /// implementation:
     /// ```rust
     /// # use arcane::es::event::codegen::Meta;
     /// #
@@ -417,10 +412,13 @@ pub mod codegen {
     /// #     Deleted
     /// # }
     /// #
+    /// // type, name, revision
+    /// type Triplet = (&'static str, &'static str, &'static str);
+    ///
     /// impl Meta for MyEvent {
-    ///     const META: &'static [(&'static str, &'static str, u16)] = &[
-    ///         ("unique_type_id1", "my.event.created", 1),
-    ///         ("unique_type_id2", "my.event.deleted", 1),
+    ///     const META: &'static [Triplet] = &[
+    ///         ("unique_type_id1", "my.event.created", "1"),
+    ///         ("unique_type_id2", "my.event.deleted", "1"),
     ///     ];
     /// }
     /// ```
@@ -432,8 +430,8 @@ pub mod codegen {
     /// [`Event`]: super::Event
     /// [`Event::name`]: super::Event::name
     /// [`event::Revisable::revision`]: super::Revisable::revision
+    /// [`event::Revision`]: super::Revision
     /// [`event::Name`]: super::Name
-    /// [`event::Revised`]: super::Concrete
     #[must_use]
     pub const fn has_different_types_with_same_name_and_revision<E: Meta>(
     ) -> bool {
@@ -486,70 +484,121 @@ pub mod codegen {
 
     #[cfg(test)]
     mod uniqueness_type_check_spec {
-        use super::has_different_types_with_same_name_and_revision;
+        use super::{has_different_types_with_same_name_and_revision, Meta};
 
         mod when_all_events_are_unique {
             use super::*;
 
+            struct Events;
+
+            impl Meta for Events {
+                const META: &'static [(
+                    &'static str,
+                    &'static str,
+                    &'static str,
+                )] =
+                    &[("created", "created", "1"), ("deleted", "deleted", "1")];
+            }
+
             #[test]
             fn returns_false() {
-                assert!(!has_different_types_with_same_name_and_revision([
-                    ("A", "a", "1"),
-                    ("B", "b", "2"),
-                    ("C", "c", "3"),
-                ]));
+                assert!(!has_different_types_with_same_name_and_revision::<
+                    Events,
+                >());
             }
         }
 
-        mod when_has_same_types_with_same_name_and_revision {
+        mod when_has_duplicates_with_same_type {
             use super::*;
+
+            struct Events;
+
+            impl Meta for Events {
+                const META: &'static [(
+                    &'static str,
+                    &'static str,
+                    &'static str,
+                )] =
+                    &[("created", "created", "1"), ("created", "created", "1")];
+            }
 
             #[test]
             fn returns_false() {
-                assert!(!has_different_types_with_same_name_and_revision([
-                    ("A", "a", "1"),
-                    ("A", "a", "1"),
-                    ("A", "b", "1"),
-                ]));
+                assert!(!has_different_types_with_same_name_and_revision::<
+                    Events,
+                >());
             }
         }
 
-        mod when_has_different_types_and_same_name_and_revision {
+        mod when_has_duplicates_with_different_type {
             use super::*;
+
+            struct Events;
+
+            impl Meta for Events {
+                const META: &'static [(
+                    &'static str,
+                    &'static str,
+                    &'static str,
+                )] = &[
+                    ("created", "created", "1"),
+                    ("created_v2", "created", "1"),
+                ];
+            }
 
             #[test]
             fn returns_true() {
-                assert!(has_different_types_with_same_name_and_revision([
-                    ("A", "a", "1"),
-                    ("B", "a", "1"),
-                    ("A", "b", "1"),
-                ]));
+                assert!(has_different_types_with_same_name_and_revision::<
+                    Events,
+                >());
             }
         }
 
-        mod when_one_type_with_empty_revision_and_same_name {
+        mod when_duplicate_has_no_revision {
             use super::*;
+
+            struct Events;
+
+            impl Meta for Events {
+                const META: &'static [(
+                    &'static str,
+                    &'static str,
+                    &'static str,
+                )] = &[
+                    ("created", "created", "1"),
+                    ("created_v2", "created", ""),
+                ];
+            }
 
             #[test]
             fn returns_false() {
-                assert!(!has_different_types_with_same_name_and_revision([
-                    ("A", "a", "1"),
-                    ("B", "a", ""),
-                    ("A", "b", "1"),
-                ]));
+                assert!(!has_different_types_with_same_name_and_revision::<
+                    Events,
+                >());
             }
         }
 
-        mod when_has_different_types_with_same_names_without_revisions {
+        mod when_has_duplicates_without_revision {
             use super::*;
+
+            struct Events;
+
+            impl Meta for Events {
+                const META: &'static [(
+                    &'static str,
+                    &'static str,
+                    &'static str,
+                )] = &[
+                    ("created", "created", ""),
+                    ("created_v2", "created", ""),
+                ];
+            }
 
             #[test]
             fn returns_true() {
-                assert!(has_different_types_with_same_name_and_revision([
-                    ("A", "a", ""),
-                    ("B", "a", ""),
-                    ("A", "b", "1"),
-                ]));
+                assert!(has_different_types_with_same_name_and_revision::<
+                    Events,
+                >());
             }
         }
     }
