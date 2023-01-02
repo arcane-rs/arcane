@@ -57,11 +57,6 @@ impl Variant {
     ///   simultaneously.
     /// - If [`syn::Variant`] doesn't have exactly one unnamed 1 [`syn::Field`]
     ///   and is not ignored.
-    #[allow(
-        clippy::missing_panics_doc,
-        clippy::unwrap_in_result,
-        clippy::unwrap_used
-    )]
     pub fn parse(variant: &syn::Variant) -> syn::Result<Option<Self>> {
         let attrs = Attrs::parse_attrs("event", variant)?;
 
@@ -92,9 +87,12 @@ impl Variant {
             ));
         }
 
-        // PANIC: Unwrap is OK here, because we've already checked that
-        //        `variant.fields` has exactly 1 unnamed field.
-        let field = variant.fields.iter().next().unwrap();
+        let field = variant.fields.iter().next().ok_or_else(|| {
+            syn::Error::new(
+                variant.span(),
+                "enum variants must have exactly 1 field",
+            )
+        })?;
         let sourcing = attrs
             .init
             .map_or(Sourcing::Sourced, |_| Sourcing::Initialized);
