@@ -3,4 +3,4 @@
 //! [`Event`]: arcane_core::es::Event
 
 #[doc(inline)]
-pub use arcane_codegen_shim::{Event, RevisedEvent as Revised};
+pub use arcane_codegen_shim::Event;
