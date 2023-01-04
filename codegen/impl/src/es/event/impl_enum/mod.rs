@@ -40,9 +40,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
     type Error = syn::Error;
 
     fn try_from(input: syn::DeriveInput) -> syn::Result<Self> {
-        let data = if let syn::Data::Enum(data) = &input.data {
-            data
-        } else {
+        let syn::Data::Enum(data) = &input.data else {
             return Err(syn::Error::new(
                 input.span(),
                 "only enums are allowed",
@@ -157,9 +155,7 @@ impl Definition {
             impl #impl_gens ::arcane::es::event::Revisable for #ident #ty_gens
                 #where_clause
             {
-                type Revision = <
-                    #first_var_ty as ::arcane::es::event::Revisable
-                >::Revision;
+                type Revision = ::arcane::es::event::RevisionOf<#first_var_ty>;
 
                 fn revision(&self) -> Self::Revision {
                     match self {
@@ -322,8 +318,8 @@ mod spec {
 
     use super::Definition;
 
-    /// Expands `#[derive(Event)]` on provided enum and returns the generated
-    /// code.
+    /// Expands `#[derive(Event)]` on the provided enum and returns the
+    /// generated code.
     fn derive(input: TokenStream) -> syn::Result<TokenStream> {
         let input = syn::parse2::<syn::DeriveInput>(input)?;
         Ok(Definition::try_from(input)?.into_token_stream())
@@ -454,7 +450,7 @@ mod spec {
             );
         };
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string(),);
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
     #[allow(clippy::too_many_lines)]
@@ -585,7 +581,7 @@ mod spec {
             );
         };
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string(),);
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
     #[allow(clippy::too_many_lines)]

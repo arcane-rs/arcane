@@ -1,15 +1,16 @@
 use arcane::es::event::{Event, Initialized, Sourced, Sourcing};
 
 #[derive(Event)]
-#[event(name = "chat.created", revision = 1)]
+#[event(name = "chat.created", rev = 1)]
 struct ChatCreated;
 
 // TODO: Use no revision when `#[derive(Event)]` on enums supports it.
 #[derive(Event)]
-#[event(name = "message.posted", revision = 1)]
+#[event(name = "message.posted", rev = 1)]
 struct MessagePosted;
 
 #[derive(Event)]
+#[event(rev)]
 enum ChatEvent {
     #[event(init)]
     Created(ChatCreated),
@@ -17,12 +18,14 @@ enum ChatEvent {
 }
 
 #[derive(Event)]
+#[event(rev)]
 enum MessageEvent {
     #[event(init)]
     MessagePosted(MessagePosted),
 }
 
 #[derive(Event)]
+#[event(rev)]
 enum AnyEvent {
     Chat(ChatEvent),
     Message(MessageEvent),

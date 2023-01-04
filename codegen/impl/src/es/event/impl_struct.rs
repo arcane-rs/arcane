@@ -124,7 +124,7 @@ impl Definition {
                 type Revision = ::arcane::es::event::Version;
 
                 // SAFETY: Safe, as checked by proc macro in compile time.
-                const REVISION: Self::Revision = unsafe {
+                const REVISION: ::arcane::es::event::RevisionOf<Self> = unsafe {
                     ::arcane::es::event::Version::new_unchecked(#event_rev)
                 };
             }
@@ -177,7 +177,7 @@ impl Definition {
                             ::std::column!(),
                         ),
                         <Self as ::arcane::es::event::Static>::NAME,
-                        #revision
+                        #revision,
                     )]
                 }
             }
@@ -237,7 +237,7 @@ mod spec {
                             ::std::column!(),
                         ),
                         <Self as ::arcane::es::event::Static>::NAME,
-                        ""
+                        "",
                     )]
                 }
             }
@@ -293,7 +293,7 @@ mod spec {
                             ::std::column!(),
                         ),
                         <Self as ::arcane::es::event::Static>::NAME,
-                        "1"
+                        "1",
                     )]
                 }
             }

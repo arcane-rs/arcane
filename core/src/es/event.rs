@@ -68,7 +68,7 @@ pub trait Event {
 }
 
 /// Concrete [`Event`] defined statically.
-pub trait Static {
+pub trait Static: Event {
     /// Concrete [`Name`] of this [`Event`].
     const NAME: Name;
 }
@@ -76,24 +76,6 @@ pub trait Static {
 impl<Ev: Static + ?Sized> Event for Ev {
     fn name(&self) -> Name {
         <Self as Static>::NAME
-    }
-}
-
-#[cfg(test)]
-mod static_spec {
-    use super::{Event, Name, Static};
-
-    struct Created;
-
-    impl Static for Created {
-        const NAME: Name = "created";
-    }
-
-    #[test]
-    fn impls_event_for_static() {
-        fn assert_impls<Ev: Event + ?Sized>() {}
-
-        assert_impls::<Created>();
     }
 }
 
@@ -107,15 +89,22 @@ pub trait Revisable: Event {
     fn revision(&self) -> Self::Revision;
 }
 
+/// Shortcut for naming a [`Revision`] of a [`RevisableEvent`].
+///
+/// [`RevisableEvent`]: Revisable
+pub type RevisionOf<Ev> = <Ev as Revisable>::Revision;
+
 /// [`StaticEvent`] of a concrete [`Revision`].
 ///
 /// [`StaticEvent`]: Static
-pub trait Concrete: Static {
-    /// Type of this [`Event`]'s [`Revision`] number.
+pub trait Concrete: Revisable + Static {
+    /// Type of this [`StaticEvent`]'s [`Revision`] number.
+    ///
+    /// [`StaticEvent`]: Static
     type Revision: Revision;
 
     /// Concrete [`Revision`] of this [`Event`].
-    const REVISION: Self::Revision;
+    const REVISION: RevisionOf<Self>;
 }
 
 impl<Ev: Concrete + ?Sized> Revisable for Ev {
@@ -123,31 +112,6 @@ impl<Ev: Concrete + ?Sized> Revisable for Ev {
 
     fn revision(&self) -> Self::Revision {
         <Self as Concrete>::REVISION
-    }
-}
-
-#[cfg(test)]
-mod concrete_spec {
-    use super::{Concrete, Name, Revisable, Static, Version};
-
-    struct Created;
-
-    impl Static for Created {
-        const NAME: Name = "created";
-    }
-
-    impl Concrete for Created {
-        type Revision = Version;
-
-        // SAFETY: Safe, because `1` is non-zero.
-        const REVISION: Self::Revision = unsafe { Version::new_unchecked(1) };
-    }
-
-    #[test]
-    fn impls_revisable_for_concrete() {
-        fn assert_impls<Ev: Revisable + ?Sized>() {}
-
-        assert_impls::<Created>();
     }
 }
 
@@ -300,7 +264,7 @@ pub mod codegen {
     //!
     //! [`Event`]: super::Event
 
-    /// Tracking of [`Static`]s number.
+    /// Tracking of [`StaticEvent`]s number.
     ///
     /// [`Static`]: super::Static
     // TODO: Remove when codegen reflection is done by constant.
@@ -387,69 +351,58 @@ pub mod codegen {
     mod uniqueness_type_check_spec {
         use super::has_different_types_with_same_name_and_revision;
 
-        mod when_all_events_are_unique {
-            use super::*;
-
-            #[test]
-            fn returns_false() {
-                assert!(!has_different_types_with_same_name_and_revision([
-                    ("A", "a", "1"),
-                    ("B", "b", "2"),
-                    ("C", "c", "3"),
-                ]));
-            }
+        #[test]
+        fn no_when_all_events_are_unique() {
+            assert!(!has_different_types_with_same_name_and_revision([
+                ("A", "a", "1"),
+                ("B", "b", "2"),
+                ("C", "c", "3"),
+            ]));
         }
 
-        mod when_has_same_types_with_same_name_and_revision {
-            use super::*;
-
-            #[test]
-            fn returns_false() {
-                assert!(!has_different_types_with_same_name_and_revision([
-                    ("A", "a", "1"),
-                    ("A", "a", "1"),
-                    ("A", "b", "1"),
-                ]));
-            }
+        #[test]
+        fn no_when_has_same_types_with_same_name_and_revision() {
+            assert!(!has_different_types_with_same_name_and_revision([
+                ("A", "a", "1"),
+                ("A", "a", "1"),
+                ("A", "b", "1"),
+            ]));
         }
 
-        mod when_has_different_types_and_same_name_and_revision {
-            use super::*;
-
-            #[test]
-            fn returns_true() {
-                assert!(has_different_types_with_same_name_and_revision([
-                    ("A", "a", "1"),
-                    ("B", "a", "1"),
-                    ("A", "b", "1"),
-                ]));
-            }
+        #[test]
+        fn no_when_has_same_types_with_same_name_and_empty_revision() {
+            assert!(!has_different_types_with_same_name_and_revision([
+                ("A", "a", ""),
+                ("A", "a", ""),
+                ("A", "b", ""),
+            ]));
         }
 
-        mod when_one_type_with_empty_revision_and_same_name {
-            use super::*;
-
-            #[test]
-            fn returns_false() {
-                assert!(!has_different_types_with_same_name_and_revision([
-                    ("A", "a", "1"),
-                    ("B", "a", ""),
-                    ("A", "b", "1"),
-                ]));
-            }
+        #[test]
+        fn yes_when_has_different_types_and_same_name_and_revision() {
+            assert!(has_different_types_with_same_name_and_revision([
+                ("A", "a", "1"),
+                ("B", "a", "1"),
+                ("A", "b", "1"),
+            ]));
         }
 
-        mod when_has_different_types_with_same_names_without_revisions {
-            use super::*;
+        #[test]
+        fn yes_when_one_type_with_empty_revision_and_same_name() {
+            assert!(!has_different_types_with_same_name_and_revision([
+                ("A", "a", "1"),
+                ("B", "a", ""),
+                ("A", "b", "1"),
+            ]));
+        }
 
-            #[test]
-            fn returns_true() {
-                assert!(has_different_types_with_same_name_and_revision([
-                    ("A", "a", ""),
-                    ("B", "a", ""),
-                    ("A", "b", "1"),
-                ]));
-            }
+        #[test]
+        fn yes_when_has_different_types_with_same_names_without_revisions() {
+            assert!(has_different_types_with_same_name_and_revision([
+                ("A", "a", ""),
+                ("B", "a", ""),
+                ("A", "b", "1"),
+            ]));
         }
     }
 }
