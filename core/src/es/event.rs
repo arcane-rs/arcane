@@ -263,6 +263,9 @@ where
 pub struct Meta {
     /// [`Name`] of the [`Event`].
     pub name: Name,
+
+    /// String representation of the [`Event`]'s [`Revision`].
+    pub revision: &'static str,
 }
 
 /// [`Event`] reflection machinery.

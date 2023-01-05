@@ -140,6 +140,12 @@ impl Definition {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
+        let revision = self
+            .event_revision
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_default();
+
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
@@ -150,6 +156,7 @@ impl Definition {
                 const META: &'static [::arcane::es::event::Meta] = &[
                     ::arcane::es::event::Meta {
                         name: <Self as ::arcane::es::event::Static>::NAME,
+                        revision: #revision
                     }
                 ];
             }
@@ -235,6 +242,7 @@ mod spec {
                 const META: &'static [::arcane::es::event::Meta] = &[
                     ::arcane::es::event::Meta {
                         name: <Self as ::arcane::es::event::Static>::NAME,
+                        revision: ""
                     }
                 ];
             }
@@ -292,6 +300,7 @@ mod spec {
                 const META: &'static [::arcane::es::event::Meta] = &[
                     ::arcane::es::event::Meta {
                         name: <Self as ::arcane::es::event::Static>::NAME,
+                        revision: "1"
                     }
                 ];
             }

@@ -70,34 +70,42 @@ fn assert_meta<E: reflect::Meta>(expected: &[Meta]) {
 fn main() {
     assert_meta::<ChatCreated>(&[Meta {
         name: "chat.created",
+        revision: "",
     }]);
 
     assert_meta::<MessagePosted>(&[Meta {
         name: "message.posted",
+        revision: "1",
     }]);
 
     assert_meta::<ChatEvent>(&[
         Meta {
             name: "chat.created",
+            revision: "",
         },
         Meta {
             name: "message.posted",
+            revision: "1",
         },
     ]);
 
     assert_meta::<MessageEvent>(&[Meta {
         name: "message.posted",
+        revision: "1",
     }]);
 
     assert_meta::<AnyEvent>(&[
         Meta {
             name: "chat.created",
+            revision: "",
         },
         Meta {
             name: "message.posted",
+            revision: "1",
         },
         Meta {
             name: "message.posted",
+            revision: "1",
         },
     ]);
 
