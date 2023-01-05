@@ -1,12 +1,11 @@
-use arcane::es::event::{reflect, Event, Initialized, Meta, Sourced, Sourcing};
+use arcane::es::event::{reflect, Event, Revisable as _, Initialized, Meta, Sourced, Sourcing, Version};
 
 #[derive(Event)]
-#[event(name = "chat.created", revision = 1)]
+#[event(name = "chat.created")]
 struct ChatCreated;
 
-// TODO: Use no revision when `#[derive(Event)]` on enums supports it.
 #[derive(Event)]
-#[event(name = "message.posted", revision = 1)]
+#[event(name = "message.posted", rev = 1)]
 struct MessagePosted;
 
 #[derive(Event)]
@@ -17,6 +16,7 @@ enum ChatEvent {
 }
 
 #[derive(Event)]
+#[event(rev)]
 enum MessageEvent {
     #[event(init)]
     MessagePosted(MessagePosted),
@@ -119,6 +119,7 @@ fn main() {
     message.apply(&ev);
     assert_eq!(ev.name(), "message.posted");
     assert_eq!(message, Some(Message));
+    assert_eq!(ev.revision(), Version::try_new(1).unwrap());
 
     let ev = AnyEvent::Chat(ChatEvent::Created(ChatCreated.into()));
     assert_eq!(ev.name(), "chat.created");

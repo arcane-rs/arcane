@@ -1,13 +1,121 @@
 //! `#[derive(Event)]` macro implementation for enums.
 
-pub mod variant;
-
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse_quote, spanned::Spanned as _};
-use synthez::ToTokens;
+use synthez::{ParseAttrs, ToTokens};
 
-use self::variant::Variant;
+/// Attributes of `#[derive(Event)]` macro placed on a [`Variant`].
+#[derive(Debug, Default, ParseAttrs)]
+pub struct VariantAttrs {
+    /// Indicator whether this enum variant should be used as
+    /// [`event::Initialized`] rather than [`event::Sourced`].
+    ///
+    /// [`event::Initialized`]: arcane_core::es::event::Initialized
+    /// [`event::Sourced`]: arcane_core::es::event::Sourced
+    #[parse(ident, alias = initial)]
+    pub init: Option<syn::Ident>,
+
+    /// Indicator whether to ignore this enum variant for code generation.
+    #[parse(ident, alias = skip)]
+    pub ignore: Option<syn::Ident>,
+}
+
+/// Type of event sourcing the [`Variant`] is using.
+#[derive(Clone, Copy, Debug)]
+pub enum VariantSourcing {
+    /// [`Variant`] used as [`event::Initialized`].
+    ///
+    /// [`event::Initialized`]: arcane_core::es::event::Initialized
+    Initialized,
+
+    /// [`Variant`] used as [`event::Sourced`].
+    ///
+    /// [`event::Sourced`]: arcane_core::es::event::Sourced
+    Sourced,
+}
+
+/// Single-fielded variant of the enum deriving `#[derive(Event)]`.
+#[derive(Debug)]
+pub struct Variant {
+    /// [`syn::Ident`](struct@syn::Ident) of this [`Variant`].
+    pub ident: syn::Ident,
+
+    /// [`syn::Type`] of this [`Variant`].
+    pub ty: syn::Type,
+
+    /// Event sourcing type of this [`Variant`].
+    pub sourcing: VariantSourcing,
+}
+
+impl Variant {
+    /// Validates the given [`syn::Variant`], parses its [`VariantAttrs`]
+    /// and returns a [`Variant`] if the validation succeeds.
+    ///
+    /// # Errors
+    ///
+    /// - If [`VariantAttrs`] failed to parse.
+    /// - If [`VariantAttrs::init`] and [`VariantAttrs::ignore`] were specified
+    ///   simultaneously.
+    /// - If [`syn::Variant`] doesn't have exactly one unnamed 1 [`syn::Field`]
+    ///   and is not ignored.
+    pub fn parse(variant: &syn::Variant) -> syn::Result<Option<Self>> {
+        let attrs = VariantAttrs::parse_attrs("event", variant)?;
+
+        if let Some(init) = &attrs.init {
+            if attrs.ignore.is_some() {
+                return Err(syn::Error::new(
+                    init.span(),
+                    "`init` and `ignore`/`skip` arguments are mutually \
+                     exclusive",
+                ));
+            }
+        }
+
+        if attrs.ignore.is_some() {
+            return Ok(None);
+        }
+
+        if variant.fields.len() != 1 {
+            return Err(syn::Error::new(
+                variant.span(),
+                "enum variants must have exactly 1 field",
+            ));
+        }
+        if !matches!(variant.fields, syn::Fields::Unnamed(_)) {
+            return Err(syn::Error::new(
+                variant.span(),
+                "only tuple struct enum variants allowed",
+            ));
+        }
+
+        let field = variant.fields.iter().next().ok_or_else(|| {
+            syn::Error::new(
+                variant.span(),
+                "enum variants must have exactly 1 field",
+            )
+        })?;
+        let sourcing = attrs
+            .init
+            .map_or(VariantSourcing::Sourced, |_| VariantSourcing::Initialized);
+
+        Ok(Some(Self {
+            ident: variant.ident.clone(),
+            ty: field.ty.clone(),
+            sourcing,
+        }))
+    }
+}
+
+/// Attributes of `#[derive(Event)]` macro placed on an enum.
+#[derive(Debug, Default, ParseAttrs)]
+pub struct Attrs {
+    /// Indicator whether an enum should be treated as a [`event::Revisable`].
+    ///
+    /// [`event::Revisable`]: arcane_core::es::event::Revisable
+    #[parse(ident, alias = rev)]
+    pub revision: Option<syn::Ident>,
+}
 
 /// Representation of an enum implementing [`Event`]
 /// (and [`event::Revisable`] optionally), used for code generation.
@@ -35,15 +143,20 @@ pub struct Definition {
     /// Indicator whether this enum has any [`Variant`]s marked with
     /// `#[event(ignore)]` attribute.
     pub has_ignored_variants: bool,
+
+    /// Indicator whether this enum should implement [`event::Revisable`].
+    ///
+    /// [`event::Revisable`]: arcane_core::es::event::Revisable
+    pub is_revisable: bool,
 }
 
 impl TryFrom<syn::DeriveInput> for Definition {
     type Error = syn::Error;
 
     fn try_from(input: syn::DeriveInput) -> syn::Result<Self> {
-        let data = if let syn::Data::Enum(data) = &input.data {
-            data
-        } else {
+        let attrs = Attrs::parse_attrs("event", &input)?;
+
+        let syn::Data::Enum(data) = &input.data else {
             return Err(syn::Error::new(
                 input.span(),
                 "only enums are allowed",
@@ -69,6 +182,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
             generics: input.generics,
             variants,
             has_ignored_variants,
+            is_revisable: attrs.revision.is_some(),
         })
     }
 }
@@ -142,27 +256,38 @@ impl Definition {
     /// Generates code to derive [`event::Revisable`][0] trait.
     ///
     /// [0]: arcane_core::es::event::Revisable
-    #[allow(clippy::missing_panics_doc, clippy::unwrap_used)]
     #[must_use]
     pub fn impl_event_revisable(&self) -> TokenStream {
+        if !self.is_revisable {
+            return TokenStream::new();
+        }
+
         let ident = &self.ident;
+
+        let first_var_ty = self.variants.iter().map(|v| &v.ty).next();
+
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let where_clause = {
-            let mut where_clause = where_clause
-                .cloned()
-                .unwrap_or_else(|| parse_quote! { where });
-            where_clause.predicates.extend(self.variants.iter().map(
-                |v| -> syn::WherePredicate {
+        let where_clause =
+            {
+                let mut where_clause = where_clause
+                    .cloned()
+                    .unwrap_or_else(|| parse_quote! { where });
+                where_clause.predicates.extend(self.variants.iter().flat_map(
+                |v| -> [syn::WherePredicate; 2] {
                     let ty = &v.ty;
-                    parse_quote! { #ty: ::arcane::es::event::Revisable }
+                    [
+                        parse_quote! { #ty: ::arcane::es::event::Revisable },
+                        parse_quote! {
+                            ::arcane::es::event::RevisionOf<#first_var_ty>:
+                                From<::arcane::es::event::RevisionOf<#ty>>
+                        }
+                    ]
                 },
             ));
-            where_clause
-        };
+                where_clause
+            };
 
-        // PANIC: `self.variants` is guaranteed to be non-empty.
-        let first_var_ty = self.variants.iter().map(|v| &v.ty).next().unwrap();
         let var_ident = self.variants.iter().map(|v| &v.ident);
 
         let unreachable_arm = self.has_ignored_variants.then(|| {
@@ -174,15 +299,14 @@ impl Definition {
             impl #impl_gens ::arcane::es::event::Revisable for #ident #ty_gens
                 #where_clause
             {
-                type Revision = <
-                    #first_var_ty as ::arcane::es::event::Revisable
-                >::Revision;
+                type Revision = ::arcane::es::event::RevisionOf<#first_var_ty>;
 
                 fn revision(&self) -> Self::Revision {
                     match self {
                         #(
-                            Self::#var_ident(f)
-                                => ::arcane::es::event::Revisable::revision(f),
+                            Self::#var_ident(f) => Self::Revision::from(
+                                ::arcane::es::event::Revisable::revision(f)
+                            ),
                         )*
                         #unreachable_arm
                     }
@@ -205,10 +329,10 @@ impl Definition {
         let var_tys = self.variants.iter().map(|v| {
             let var_ty = &v.ty;
             match v.sourcing {
-                variant::Sourcing::Initialized => quote! {
+                VariantSourcing::Initialized => quote! {
                     ::arcane::es::event::Initial<#var_ty>
                 },
-                variant::Sourcing::Sourced => quote! { #var_ty },
+                VariantSourcing::Sourced => quote! { #var_ty },
             }
         });
 
@@ -224,11 +348,11 @@ impl Definition {
             let var_ty = &v.ty;
 
             let event = match v.sourcing {
-                variant::Sourcing::Initialized => quote! {
+                VariantSourcing::Initialized => quote! {
                     <::arcane::es::event::Initial<#var_ty>
                      as ::arcane::RefCast>::ref_cast(f)
                 },
-                variant::Sourcing::Sourced => quote! { f },
+                VariantSourcing::Sourced => quote! { f },
             };
             quote! {
                 #ty #turbofish_gens::#var(f) => {
@@ -355,8 +479,8 @@ mod spec {
 
     use super::Definition;
 
-    /// Expands `#[derive(Event)]` on provided enum and returns the generated
-    /// code.
+    /// Expands `#[derive(Event)]` on the provided enum and returns the
+    /// generated code.
     fn derive(input: TokenStream) -> syn::Result<TokenStream> {
         let input = syn::parse2::<syn::DeriveInput>(input)?;
         Ok(Definition::try_from(input)?.into_token_stream())
@@ -385,20 +509,137 @@ mod spec {
             }
 
             #[automatically_derived]
+            impl<__S> ::arcane::es::event::Sourced<Event> for Option<__S>
+            where
+                Self: ::arcane::es::event::Sourced<
+                          ::arcane::es::event::Initial<FileEvent>
+                      > +
+                      ::arcane::es::event::Sourced<ChatEvent>
+            {
+                fn apply(&mut self, event: &Event) {
+                    match event {
+                        Event::File(f) => {
+                            ::arcane::es::event::Sourced::apply(
+                                self,
+                                <::arcane::es::event::Initial<FileEvent>
+                                 as ::arcane::RefCast>::ref_cast(f)
+                            );
+                        },
+                        Event::Chat(f) => {
+                            ::arcane::es::event::Sourced::apply(self, f);
+                        },
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::arcane::es::event::codegen::Reflect for Event {
+                #[doc(hidden)]
+                const COUNT: usize =
+                    <FileEvent
+                     as ::arcane::es::event::codegen::Reflect>::COUNT +
+                    <ChatEvent
+                     as ::arcane::es::event::codegen::Reflect>::COUNT;
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl Event {
+                #[doc(hidden)]
+                pub const fn __arcane_events() -> [
+                    (&'static str, &'static str, &'static str);
+                    <Self as ::arcane::es::event::codegen::Reflect>::COUNT
+                ] {
+                    let mut res = [
+                        ("", "", "");
+                        <Self as ::arcane::es::event::codegen::Reflect>::COUNT
+                    ];
+
+                    let mut i = 0;
+                    {
+                        let events = <FileEvent>::__arcane_events();
+                        let mut j = 0;
+                        while j < events.len() {
+                            res[i] = events[j];
+                            j += 1;
+                            i += 1;
+                        }
+                    }
+                    {
+                        let events = <ChatEvent>::__arcane_events();
+                        let mut j = 0;
+                        while j < events.len() {
+                            res[i] = events[j];
+                            j += 1;
+                            i += 1;
+                        }
+                    }
+
+                    res
+                }
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            const _: () = ::std::assert!(
+                !::arcane::es::event::codegen::
+                    has_different_types_with_same_name_and_revision(
+                        Event::<>::__arcane_events(),
+                    ),
+                "having different `Event` types with the same name \
+                 and revision inside a single enum is forbidden",
+            );
+        };
+
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
+    }
+
+    #[allow(clippy::too_many_lines)]
+    #[test]
+    fn derives_enum_impl_with_revision() {
+        let input = parse_quote! {
+            #[event(revision)]
+            enum Event {
+                #[event(init)]
+                File(FileEvent),
+                Chat(ChatEvent),
+            }
+        };
+
+        let output = quote! {
+            #[automatically_derived]
+            impl ::arcane::es::Event for Event {
+                fn name(&self) -> ::arcane::es::event::Name {
+                    match self {
+                        Self::File(f) => ::arcane::es::Event::name(f),
+                        Self::Chat(f) => ::arcane::es::Event::name(f),
+                    }
+                }
+            }
+
+            #[automatically_derived]
             impl ::arcane::es::event::Revisable for Event
             where
                 FileEvent: ::arcane::es::event::Revisable,
-                ChatEvent: ::arcane::es::event::Revisable
+                ::arcane::es::event::RevisionOf<FileEvent>: From<
+                    ::arcane::es::event::RevisionOf<FileEvent>
+                >,
+                ChatEvent: ::arcane::es::event::Revisable,
+                ::arcane::es::event::RevisionOf<FileEvent>: From<
+                    ::arcane::es::event::RevisionOf<ChatEvent>
+                >
             {
-                type Revision
-                    = <FileEvent as ::arcane::es::event::Revisable>::Revision;
+                type Revision = ::arcane::es::event::RevisionOf<FileEvent>;
 
                 fn revision(&self) -> Self::Revision {
                     match self {
-                        Self::File(f)
-                            => ::arcane::es::event::Revisable::revision(f),
-                        Self::Chat(f)
-                            => ::arcane::es::event::Revisable::revision(f),
+                        Self::File(f) => Self::Revision::from(
+                            ::arcane::es::event::Revisable::revision(f)
+                        ),
+                        Self::Chat(f) => Self::Revision::from(
+                            ::arcane::es::event::Revisable::revision(f)
+                        ),
                     }
                 }
             }
@@ -471,13 +712,14 @@ mod spec {
             );
         };
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string(),);
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
     #[allow(clippy::too_many_lines)]
     #[test]
     fn derives_enum_with_generics_impl() {
         let input = parse_quote! {
+            #[event(revision)]
             enum Event<'a, F, C> {
                 #[event(init)]
                 File(FileEvent<'a, F>),
@@ -500,17 +742,26 @@ mod spec {
             impl<'a, F, C> ::arcane::es::event::Revisable for Event<'a, F, C>
             where
                 FileEvent<'a, F>: ::arcane::es::event::Revisable,
-                ChatEvent<'a, C>: ::arcane::es::event::Revisable
+                ::arcane::es::event::RevisionOf< FileEvent <'a, F> >: From<
+                    ::arcane::es::event::RevisionOf< FileEvent <'a, F> >
+                >,
+                ChatEvent<'a, C>: ::arcane::es::event::Revisable,
+                ::arcane::es::event::RevisionOf< FileEvent <'a, F> >: From<
+                    ::arcane::es::event::RevisionOf< ChatEvent<'a, C> >
+                >
             {
-                type Revision = <FileEvent<'a, F>
-                                 as ::arcane::es::event::Revisable>::Revision;
+                type Revision = ::arcane::es::event::RevisionOf<
+                    FileEvent<'a, F>
+                >;
 
                 fn revision(&self) -> Self::Revision {
                     match self {
-                        Self::File(f)
-                            => ::arcane::es::event::Revisable::revision(f),
-                        Self::Chat(f)
-                            => ::arcane::es::event::Revisable::revision(f),
+                        Self::File(f) => Self::Revision::from(
+                            ::arcane::es::event::Revisable::revision(f)
+                        ),
+                        Self::Chat(f) => Self::Revision::from(
+                            ::arcane::es::event::Revisable::revision(f)
+                        ),
                     }
                 }
             }
@@ -594,7 +845,7 @@ mod spec {
             );
         };
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string(),);
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
     #[allow(clippy::too_many_lines)]
@@ -624,26 +875,6 @@ mod spec {
                     match self {
                         Self::File(f) => ::arcane::es::Event::name(f),
                         Self::Chat(f) => ::arcane::es::Event::name(f),
-                        _ => unreachable!(),
-                    }
-                }
-            }
-
-            #[automatically_derived]
-            impl ::arcane::es::event::Revisable for Event
-            where
-                FileEvent: ::arcane::es::event::Revisable,
-                ChatEvent: ::arcane::es::event::Revisable
-            {
-                type Revision
-                    = <FileEvent as ::arcane::es::event::Revisable>::Revision;
-
-                fn revision(&self) -> Self::Revision {
-                    match self {
-                        Self::File(f)
-                            => ::arcane::es::event::Revisable::revision(f),
-                        Self::Chat(f)
-                            => ::arcane::es::event::Revisable::revision(f),
                         _ => unreachable!(),
                     }
                 }
