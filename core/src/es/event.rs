@@ -266,13 +266,13 @@ pub mod codegen {
 
     /// Tracking of [`StaticEvent`]s number.
     ///
-    /// [`Static`]: super::Static
+    /// [`StaticEvent`]: super::Static
     // TODO: Remove when codegen reflection is done by constant.
     pub trait Reflect {
-        /// Number of [`Static`]s in this [`Event`].
+        /// Number of [`StaticEvent`]s in this [`Event`].
         ///
         /// [`Event`]: super::Event
-        /// [`Static`]: super::Static
+        /// [`StaticEvent`]: super::Static
         const COUNT: usize;
     }
 

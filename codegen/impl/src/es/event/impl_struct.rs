@@ -264,7 +264,7 @@ mod spec {
                 type Revision = ::arcane::es::event::Version;
 
                 // SAFETY: Safe, as checked by proc macro in compile time.
-                const REVISION: Self::Revision = unsafe {
+                const REVISION: ::arcane::es::event::RevisionOf<Self> = unsafe {
                     ::arcane::es::event::Version::new_unchecked(1)
                 };
             }
