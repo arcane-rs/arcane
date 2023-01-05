@@ -452,128 +452,92 @@ pub mod codegen {
 
         #[test]
         fn no_when_all_events_are_unique() {
-            struct Events;
+            struct Ev;
 
-            impl Meta for Events {
+            impl Meta for Ev {
                 const META: &'static [(
                     &'static str,
                     &'static str,
                     &'static str,
-                )] = &[
-                    ("A", "a", "1"),
-                    ("B", "b", "2"),
-                    ("C", "c", "3"),
-                ];
+                )] = &[("A", "a", "1"), ("B", "b", "2"), ("C", "c", "3")];
             }
 
-            assert!(
-                !has_different_types_with_same_name_and_revision::<Events,>()
-            );
+            assert!(!has_different_types_with_same_name_and_revision::<Ev>());
         }
 
         #[test]
         fn no_when_has_same_types_with_same_name_and_revision() {
-            struct Events;
+            struct Ev;
 
-            impl Meta for Events {
+            impl Meta for Ev {
                 const META: &'static [(
                     &'static str,
                     &'static str,
                     &'static str,
-                )] = &[
-                    ("A", "a", "1"),
-                    ("A", "a", "1"),
-                    ("A", "b", "1"),
-                ];
+                )] = &[("A", "a", "1"), ("A", "a", "1"), ("A", "b", "1")];
             }
 
-            assert!(
-                !has_different_types_with_same_name_and_revision::<Events,>()
-            );
+            assert!(!has_different_types_with_same_name_and_revision::<Ev>());
         }
 
         #[test]
         fn no_when_has_same_types_with_same_name_and_empty_revision() {
-            struct Events;
+            struct Ev;
 
-            impl Meta for Events {
+            impl Meta for Ev {
                 const META: &'static [(
                     &'static str,
                     &'static str,
                     &'static str,
-                )] = &[
-                    ("A", "a", ""),
-                    ("A", "a", ""),
-                    ("A", "b", ""),
-                ];
+                )] = &[("A", "a", ""), ("A", "a", ""), ("A", "b", "")];
             }
 
-            assert!(
-                !has_different_types_with_same_name_and_revision::<Events,>()
-            );
+            assert!(!has_different_types_with_same_name_and_revision::<Ev>());
         }
 
         #[test]
         fn yes_when_has_different_types_and_same_name_and_revision() {
-            struct Events;
+            struct Ev;
 
-            impl Meta for Events {
+            impl Meta for Ev {
                 const META: &'static [(
                     &'static str,
                     &'static str,
                     &'static str,
-                )] = &[
-                    ("A", "a", "1"),
-                    ("B", "a", "1"),
-                    ("A", "b", "1"),
-                ];
+                )] = &[("A", "a", "1"), ("B", "a", "1"), ("A", "b", "1")];
             }
 
-            assert!(
-                !has_different_types_with_same_name_and_revision::<Events,>()
-            );
+            assert!(has_different_types_with_same_name_and_revision::<Ev>());
         }
 
         #[test]
         fn yes_when_one_type_with_empty_revision_and_same_name() {
-            struct Events;
+            struct Ev;
 
-            impl Meta for Events {
+            impl Meta for Ev {
                 const META: &'static [(
                     &'static str,
                     &'static str,
                     &'static str,
-                )] = &[
-                    ("A", "a", "1"),
-                    ("B", "a", ""),
-                    ("A", "b", "1"),
-                ];
+                )] = &[("A", "a", "1"), ("B", "a", ""), ("A", "b", "1")];
             }
 
-            assert!(
-                !has_different_types_with_same_name_and_revision::<Events,>()
-            );
+            assert!(!has_different_types_with_same_name_and_revision::<Ev>());
         }
 
         #[test]
         fn yes_when_has_different_types_with_same_names_without_revisions() {
-            struct Events;
+            struct Ev;
 
-            impl Meta for Events {
+            impl Meta for Ev {
                 const META: &'static [(
                     &'static str,
                     &'static str,
                     &'static str,
-                )] = &[
-                    ("A", "a", ""),
-                    ("B", "a", ""),
-                    ("A", "b", "1"),
-                ];
+                )] = &[("A", "a", ""), ("B", "a", ""), ("A", "b", "1")];
             }
 
-            assert!(
-                has_different_types_with_same_name_and_revision::<Events,>()
-            );
+            assert!(has_different_types_with_same_name_and_revision::<Ev>());
         }
     }
 }

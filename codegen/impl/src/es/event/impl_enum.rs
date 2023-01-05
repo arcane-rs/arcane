@@ -534,59 +534,43 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Reflect for Event {
+            impl ::arcane::es::event::reflect::Meta for Event {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    <FileEvent
-                     as ::arcane::es::event::codegen::Reflect>::COUNT +
-                    <ChatEvent
-                     as ::arcane::es::event::codegen::Reflect>::COUNT;
+                const META: &'static [::arcane::es::event::Meta] = {
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        ::arcane::es::event::Meta,
+                        <FileEvent
+                            as ::arcane::es::event::reflect::Meta>::META,
+                        <ChatEvent
+                            as ::arcane::es::event::reflect::Meta>::META
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl Event {
+            impl ::arcane::es::event::codegen::Meta for Event {
                 #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, &'static str);
-                    <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", "");
-                        <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    {
-                        let events = <FileEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-                    {
-                        let events = <ChatEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-
-                    res
-                }
+                const META: &'static [
+                    (&'static str, &'static str, &'static str)
+                ] = {
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        (&'static str, &'static str, &'static str),
+                        <FileEvent
+                            as ::arcane::es::event::codegen::Meta>::META,
+                        <ChatEvent
+                            as ::arcane::es::event::codegen::Meta>::META
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
                 !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_revision(
-                        Event::<>::__arcane_events(),
-                    ),
+                    has_different_types_with_same_name_and_revision::<
+                        Event<>
+                    >(),
                 "having different `Event` types with the same name \
                  and revision inside a single enum is forbidden",
             );

@@ -1,4 +1,7 @@
-use arcane::es::event::{reflect, Event, Revisable as _, Initialized, Meta, Sourced, Sourcing, Version};
+use arcane::es::event::{
+    reflect, Event, Initialized, Meta, Revisable as _, Sourced, Sourcing,
+    Version,
+};
 
 #[derive(Event)]
 #[event(name = "chat.created")]
