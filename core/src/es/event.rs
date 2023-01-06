@@ -259,7 +259,7 @@ where
 }
 
 /// Meta information about the [`Event`].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Meta {
     /// [`Name`] of the [`Event`].
     pub name: Name,
