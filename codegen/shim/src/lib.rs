@@ -116,22 +116,24 @@ use arcane as _;
 // Only for generating documentation.
 #[cfg(feature = "doc")]
 use arcane_core as _;
+#[cfg(doc)]
+use arcane_core::es::event;
 
 use arcane_codegen_impl as codegen;
 use proc_macro::TokenStream;
 
-/// Macro for deriving [`Event`] on structs and enums.
+/// Macro for deriving the [`Event`] trait on structs and enums.
 ///
 /// # Enums
 ///
-/// This macro provides [`Event`] (and [`event::Revisable`] optionally)
-/// implementations for the enum. The enum must have a single-single variants,
-/// implementing [`Event`] (and [`event::Revisable`] optionally).
+/// This macro generates an [`Event`] (and, optionally, an [`event::Revisable`])
+/// implementation for an enum, having a single-fielded variants, implementing
+/// an [`Event`] (and, optionally, an [`event::Revisable`]).
 ///
-/// The macro ensures that every combination of [`Event::name`][0]
-/// (and [`event::Revisable::revision`][1] optionally) corresponds to a single
-/// Rust type. The only limitation is that all the underlying [`Event`]
-/// (and [`event::Revisable`] optionally) impls should be derived too.
+/// This macro ensures that every combination of an [`Event::name`] (and,
+/// optionally, an [`event::Revisable::revision`]) corresponds to a single Rust
+/// type. The only limitation is that all the underlying [`Event`] (and,
+/// optionally, an [`event::Revisable`]) impls should be derived too.
 ///
 /// Also, provides a blanket [`event::Sourced`] implementation for every state,
 /// which can be sourced from all the enum variants.
@@ -139,6 +141,14 @@ use proc_macro::TokenStream;
 /// > **WARNING:** Currently may not work with complex generics using where
 /// >              clause because of `const` evaluation limitations. Should be
 /// >              lifted once [rust-lang/rust#57775] is resolved.
+///
+/// ## Enum attributes
+///
+/// #### `#[event(revision)]` (optional)
+///
+/// Aliases: `#[event(rev)]`
+///
+/// Indicator whether the [`event::Revisable`] trait should be implemented.
 ///
 /// ## Variant attributes
 ///
@@ -156,9 +166,8 @@ use proc_macro::TokenStream;
 /// Use this on a particular enum variant to completely ignore it in code
 /// generation.
 ///
-/// > **WARNING:** Calling [`Event::name()`][0]
-///                or [`event::Revisalbe::revision()`][1] on ignored variants
-///                will result in [`unreachable!`] panic.
+/// > **WARNING:** Calling [`Event::name()`] or [`event::Revisable::revision()`]
+/// >              on ignored variants will result in [`unreachable!`] panic.
 ///
 /// ## Example
 ///
@@ -201,8 +210,8 @@ use proc_macro::TokenStream;
 /// }
 ///
 /// // This example doesn't need `#[event(ignore)]` attribute, as each
-/// // combination of `event::Name` and `event::Revision` corresponds to
-/// // a single Rust type.
+/// // combination of `event::Name` and `event::Revision` corresponds to the
+/// // same single Rust type.
 /// #[derive(Event)]
 /// enum MoreEvents {
 ///     Chat(ChatEvent),
@@ -212,20 +221,20 @@ use proc_macro::TokenStream;
 ///
 /// # Structs
 ///
-/// This macro provides a [`event::Static`] (and [`event::Concrete`] optionally)
-/// implementation for the struct.
+/// This macro generates an [`event::Static`] (and, optionally, an
+/// [`event::Concrete`]) implementation for a struct.
 ///
 /// ## Struct attributes
 ///
 /// #### `#[event(name = "...")]`
 ///
-/// Value of [`event::Static::NAME`][2] constant.
+/// Value of the [`event::Static::NAME`] constant.
 ///
 /// #### `#[event(revision = <non-zero-u16>)]` (optional)
 ///
 /// Aliases: `#[event(rev = <non-zero-u16>)]`
 ///
-/// Value of [`event::Concrete::REVISION`][3] constant.
+/// Value of the [`event::Concrete::REVISION`] constant.
 ///
 /// ## Example
 ///
@@ -237,16 +246,9 @@ use proc_macro::TokenStream;
 /// struct Created;
 /// ```
 ///
-/// [`Event`]: arcane_core::es::Event
-/// [`event::Concrete`]: arcane_core::es::event::Concrete
-/// [`event::Initialized`]: arcane_core::es::event::Initialized
-/// [`event::Revisable`]: arcane_core::es::event::Revisable
-/// [`event::Sourced`]: arcane_core::es::event::Sourced
-/// [`event::Static`]: arcane_core::es::event::Static
-/// [0]: arcane_core::es::Event::name()
-/// [1]: arcane_core::es::event::Revisable::revision()
-/// [2]: arcane_core::es::event::Static::NAME
-/// [3]: arcane_core::es::event::Concrete::REVISION
+/// [`Event`]: event::Event
+/// [`Event::name`]: event::Event::name()
+/// [`Event::name()`]: event::Event::name()
 /// [rust-lang/rust#57775]: https://github.com/rust-lang/rust/issues/57775
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {

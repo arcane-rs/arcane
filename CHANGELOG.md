@@ -13,18 +13,18 @@ All user visible changes to this project will be documented in this file. This p
 
 - Events
   - Traits
-    - `Event`
-    - `RevisedEvent`
+    - `Event`, `RevisedEvent`
+    - `StaticEvent`, `ConcreteEvent`
+    - `EventRevision`
     - `EventSourced`
     - `EventInitialised`
   - Structs
-    - `EventRevision`
+    - `EventVersion`
     - `event::Initial` specialization wrapper
   - Proc macros
     - `Event` derive
-    - `RevisedEvent` derive
 
 
-    
+
 
 [Semantic Versioning 2.0.0]: https://semver.org

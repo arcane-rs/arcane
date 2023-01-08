@@ -5,123 +5,19 @@ use quote::quote;
 use syn::{parse_quote, spanned::Spanned as _};
 use synthez::{ParseAttrs, ToTokens};
 
-/// Attributes of `#[derive(Event)]` macro placed on a [`Variant`].
-#[derive(Debug, Default, ParseAttrs)]
-pub struct VariantAttrs {
-    /// Indicator whether this enum variant should be used as
-    /// [`event::Initialized`] rather than [`event::Sourced`].
-    ///
-    /// [`event::Initialized`]: arcane_core::es::event::Initialized
-    /// [`event::Sourced`]: arcane_core::es::event::Sourced
-    #[parse(ident, alias = initial)]
-    pub init: Option<syn::Ident>,
+#[cfg(doc)]
+use arcane_core::es::{event, Event};
 
-    /// Indicator whether to ignore this enum variant for code generation.
-    #[parse(ident, alias = skip)]
-    pub ignore: Option<syn::Ident>,
-}
-
-/// Type of event sourcing the [`Variant`] is using.
-#[derive(Clone, Copy, Debug)]
-pub enum VariantSourcing {
-    /// [`Variant`] used as [`event::Initialized`].
-    ///
-    /// [`event::Initialized`]: arcane_core::es::event::Initialized
-    Initialized,
-
-    /// [`Variant`] used as [`event::Sourced`].
-    ///
-    /// [`event::Sourced`]: arcane_core::es::event::Sourced
-    Sourced,
-}
-
-/// Single-fielded variant of the enum deriving `#[derive(Event)]`.
-#[derive(Debug)]
-pub struct Variant {
-    /// [`syn::Ident`](struct@syn::Ident) of this [`Variant`].
-    pub ident: syn::Ident,
-
-    /// [`syn::Type`] of this [`Variant`].
-    pub ty: syn::Type,
-
-    /// Event sourcing type of this [`Variant`].
-    pub sourcing: VariantSourcing,
-}
-
-impl Variant {
-    /// Validates the given [`syn::Variant`], parses its [`VariantAttrs`]
-    /// and returns a [`Variant`] if the validation succeeds.
-    ///
-    /// # Errors
-    ///
-    /// - If [`VariantAttrs`] failed to parse.
-    /// - If [`VariantAttrs::init`] and [`VariantAttrs::ignore`] were specified
-    ///   simultaneously.
-    /// - If [`syn::Variant`] doesn't have exactly one unnamed 1 [`syn::Field`]
-    ///   and is not ignored.
-    pub fn parse(variant: &syn::Variant) -> syn::Result<Option<Self>> {
-        let attrs = VariantAttrs::parse_attrs("event", variant)?;
-
-        if let Some(init) = &attrs.init {
-            if attrs.ignore.is_some() {
-                return Err(syn::Error::new(
-                    init.span(),
-                    "`init` and `ignore`/`skip` arguments are mutually \
-                     exclusive",
-                ));
-            }
-        }
-
-        if attrs.ignore.is_some() {
-            return Ok(None);
-        }
-
-        if variant.fields.len() != 1 {
-            return Err(syn::Error::new(
-                variant.span(),
-                "enum variants must have exactly 1 field",
-            ));
-        }
-        if !matches!(variant.fields, syn::Fields::Unnamed(_)) {
-            return Err(syn::Error::new(
-                variant.span(),
-                "only tuple struct enum variants allowed",
-            ));
-        }
-
-        let field = variant.fields.iter().next().ok_or_else(|| {
-            syn::Error::new(
-                variant.span(),
-                "enum variants must have exactly 1 field",
-            )
-        })?;
-        let sourcing = attrs
-            .init
-            .map_or(VariantSourcing::Sourced, |_| VariantSourcing::Initialized);
-
-        Ok(Some(Self {
-            ident: variant.ident.clone(),
-            ty: field.ty.clone(),
-            sourcing,
-        }))
-    }
-}
-
-/// Attributes of `#[derive(Event)]` macro placed on an enum.
+/// Attributes of the `#[derive(Event)]` macro placed on an enum.
 #[derive(Debug, Default, ParseAttrs)]
 pub struct Attrs {
-    /// Indicator whether an enum should be treated as a [`event::Revisable`].
-    ///
-    /// [`event::Revisable`]: arcane_core::es::event::Revisable
+    /// Indicator whether an enum should be treated as an [`event::Revisable`].
     #[parse(ident, alias = rev)]
     pub revision: Option<syn::Ident>,
 }
 
-/// Representation of an enum implementing [`Event`]
-/// (and [`event::Revisable`] optionally), used for code generation.
-///
-/// [`Event`]: arcane_core::es::event::Event
-/// [`event::Revisable`]: arcane_core::es::event::Revisable
+/// Representation of an enum implementing [`Event`] (and [`event::Revisable`],
+/// optionally), used for the code generation.
 #[derive(Debug, ToTokens)]
 #[to_tokens(append(
     impl_event,
@@ -144,8 +40,6 @@ pub struct Definition {
     pub has_ignored_variants: bool,
 
     /// Indicator whether this enum should implement [`event::Revisable`].
-    ///
-    /// [`event::Revisable`]: arcane_core::es::event::Revisable
     pub is_revisable: bool,
 }
 
@@ -205,11 +99,11 @@ impl Definition {
         quote! { < #( #generics ),* > }
     }
 
-    /// Generates code to derive [`Event`][0] trait, by simply matching over
-    /// each enum variant, which is expected to be itself an [`Event`][0]
+    /// Generates code of an [`Event`] trait implementation, by simply matching
+    /// over each enum variant, which is expected to be itself an [`Event`]
     /// implementer.
     ///
-    /// [0]: arcane_core::es::event::Event
+    /// [`Event`]: event::Event
     #[must_use]
     pub fn impl_event(&self) -> TokenStream {
         let ty = &self.ident;
@@ -236,9 +130,10 @@ impl Definition {
         }
     }
 
-    /// Generates code to derive [`event::Revisable`][0] trait.
-    ///
-    /// [0]: arcane_core::es::event::Revisable
+    /// Generates code of an [`event::Revisable`] trait implementation, by
+    /// simply matching over each enum variant, which is expected to be itself
+    /// an [`event::Revisable`] implementer, and using the
+    /// [`event::Revisable::Revision`] type of the first variant.
     #[must_use]
     pub fn impl_event_revisable(&self) -> TokenStream {
         if !self.is_revisable {
@@ -246,30 +141,27 @@ impl Definition {
         }
 
         let ident = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
         let first_var_ty = self.variants.iter().map(|v| &v.ty).next();
 
-        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
+        let where_clause = {
+            let mut clause = where_clause
+                .cloned()
+                .unwrap_or_else(|| parse_quote! { where });
+            for v in &self.variants {
+                let var_ty = &v.ty;
 
-        let where_clause =
-            {
-                let mut where_clause = where_clause
-                    .cloned()
-                    .unwrap_or_else(|| parse_quote! { where });
-                where_clause.predicates.extend(self.variants.iter().flat_map(
-                |v| -> [syn::WherePredicate; 2] {
-                    let ty = &v.ty;
-                    [
-                        parse_quote! { #ty: ::arcane::es::event::Revisable },
-                        parse_quote! {
-                            ::arcane::es::event::RevisionOf<#first_var_ty>:
-                                From<::arcane::es::event::RevisionOf<#ty>>
-                        }
-                    ]
-                },
-            ));
-                where_clause
-            };
+                clause.predicates.push(parse_quote! {
+                    #var_ty: ::arcane::es::event::Revisable
+                });
+                clause.predicates.push(parse_quote! {
+                    ::arcane::es::event::RevisionOf<#first_var_ty>:
+                        From<::arcane::es::event::RevisionOf<#var_ty>>
+                });
+            }
+            clause
+        };
 
         let var_ident = self.variants.iter().map(|v| &v.ident);
 
@@ -280,7 +172,7 @@ impl Definition {
         quote! {
             #[automatically_derived]
             impl #impl_gens ::arcane::es::event::Revisable for #ident #ty_gens
-                #where_clause
+                 #where_clause
             {
                 type Revision = ::arcane::es::event::RevisionOf<#first_var_ty>;
 
@@ -298,11 +190,9 @@ impl Definition {
         }
     }
 
-    /// Generates code to derive [`event::Sourced`][0] trait, by simply matching
-    /// each enum variant, which is expected to have itself an
-    /// [`event::Sourced`][0] implementation.
-    ///
-    /// [0]: arcane_core::es::event::Sourced
+    /// Generates code of an [`event::Sourced`] trait blanket implementation, by
+    /// simply matching each enum variant, which is expected to have itself an
+    /// an [`event::Sourced`] implementation.
     #[must_use]
     pub fn impl_event_sourced(&self) -> TokenStream {
         let ty = &self.ident;
@@ -312,10 +202,10 @@ impl Definition {
         let var_tys = self.variants.iter().map(|v| {
             let var_ty = &v.ty;
             match v.sourcing {
-                VariantSourcing::Initialized => quote! {
+                VariantEventSourcing::Initialized => quote! {
                     ::arcane::es::event::Initial<#var_ty>
                 },
-                VariantSourcing::Sourced => quote! { #var_ty },
+                VariantEventSourcing::Sourced => quote! { #var_ty },
             }
         });
 
@@ -331,11 +221,11 @@ impl Definition {
             let var_ty = &v.ty;
 
             let event = match v.sourcing {
-                VariantSourcing::Initialized => quote! {
+                VariantEventSourcing::Initialized => quote! {
                     <::arcane::es::event::Initial<#var_ty>
                      as ::arcane::RefCast>::ref_cast(f)
                 },
-                VariantSourcing::Sourced => quote! { f },
+                VariantEventSourcing::Sourced => quote! { f },
             };
             quote! {
                 #ty #turbofish_gens::#var(f) => {
@@ -363,16 +253,15 @@ impl Definition {
     }
 
     /// Generates hidden machinery code used to statically check that all the
-    /// [`Event::name`][0]s (and [`event::Revisable::revision`][1]s optionally)
-    /// pairs are corresponding to a single Rust type.
+    /// [`Event::name`]s (and [`event::Revisable::revision`]s, optionally) pairs
+    /// are corresponding to a single Rust type.
     ///
     /// # Panics
     ///
     /// If some enum [`Variant`]s don't have exactly 1 [`Field`] and not marked
-    /// with `#[event(skip)]`. Checked by [`TryFrom`] impl for [`Definition`].
+    /// with `#[event(ignored)]` attribute (which is checked by [`TryFrom`] impl
+    /// of this [`Definition`]).
     ///
-    /// [0]: arcane_core::es::event::Event::name()
-    /// [1]: arcane_core::es::event::Revisable::revision()
     /// [`Field`]: syn::Field
     #[must_use]
     pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
@@ -438,6 +327,102 @@ impl Definition {
     }
 }
 
+/// Attributes of `#[derive(Event)]` macro placed on a [`Variant`].
+#[derive(Debug, Default, ParseAttrs)]
+pub struct VariantAttrs {
+    /// Indicator whether this enum variant should be used as
+    /// [`event::Initialized`] rather than [`event::Sourced`].
+    #[parse(ident, alias = initial)]
+    pub init: Option<syn::Ident>,
+
+    /// Indicator whether to ignore this enum variant for code generation.
+    #[parse(ident, alias = skip)]
+    pub ignore: Option<syn::Ident>,
+}
+
+/// Type of event sourcing the [`Variant`] is using.
+#[derive(Clone, Copy, Debug)]
+pub enum VariantEventSourcing {
+    /// [`Variant`] used as [`event::Initialized`].
+    Initialized,
+
+    /// [`Variant`] used as [`event::Sourced`].
+    Sourced,
+}
+
+/// Representation of a single-fielded variant of an enum deriving
+/// `#[derive(Event)]`, used for the code generation.
+#[derive(Debug)]
+pub struct Variant {
+    /// [`syn::Ident`](struct@syn::Ident) of this [`Variant`].
+    pub ident: syn::Ident,
+
+    /// [`syn::Type`] of this [`Variant`].
+    pub ty: syn::Type,
+
+    /// [`VariantEventSourcing`] type of this [`Variant`].
+    pub sourcing: VariantEventSourcing,
+}
+
+impl Variant {
+    /// Validates the given [`syn::Variant`], parses its [`VariantAttrs`], and
+    /// returns a [`Variant`] if the validation succeeds.
+    ///
+    /// # Errors
+    ///
+    /// - If [`VariantAttrs`] failed to parse.
+    /// - If [`VariantAttrs::init`] and [`VariantAttrs::ignore`] were specified
+    ///   simultaneously.
+    /// - If [`syn::Variant`] doesn't have exactly one unnamed 1 [`syn::Field`]
+    ///   and is not ignored.
+    pub fn parse(variant: &syn::Variant) -> syn::Result<Option<Self>> {
+        let attrs = VariantAttrs::parse_attrs("event", variant)?;
+
+        if let Some(init) = &attrs.init {
+            if attrs.ignore.is_some() {
+                return Err(syn::Error::new(
+                    init.span(),
+                    "`init` and `ignore`/`skip` arguments are mutually \
+                     exclusive",
+                ));
+            }
+        }
+
+        if attrs.ignore.is_some() {
+            return Ok(None);
+        }
+
+        if variant.fields.len() != 1 {
+            return Err(syn::Error::new(
+                variant.span(),
+                "enum variants must have exactly 1 field",
+            ));
+        }
+        if !matches!(variant.fields, syn::Fields::Unnamed(_)) {
+            return Err(syn::Error::new(
+                variant.span(),
+                "only tuple struct enum variants allowed",
+            ));
+        }
+
+        let field = variant.fields.iter().next().ok_or_else(|| {
+            syn::Error::new(
+                variant.span(),
+                "enum variants must have exactly 1 field",
+            )
+        })?;
+        let sourcing = attrs.init.map_or(VariantEventSourcing::Sourced, |_| {
+            VariantEventSourcing::Initialized
+        });
+
+        Ok(Some(Self {
+            ident: variant.ident.clone(),
+            ty: field.ty.clone(),
+            sourcing,
+        }))
+    }
+}
+
 #[cfg(test)]
 mod spec {
     use proc_macro2::TokenStream;
@@ -446,8 +431,8 @@ mod spec {
 
     use super::Definition;
 
-    /// Expands `#[derive(Event)]` on the provided enum and returns the
-    /// generated code.
+    /// Expands the `#[derive(Event)]` macro on the provided enum and returns
+    /// the generated code.
     fn derive(input: TokenStream) -> syn::Result<TokenStream> {
         let input = syn::parse2::<syn::DeriveInput>(input)?;
         Ok(Definition::try_from(input)?.into_token_stream())
@@ -982,7 +967,7 @@ mod spec {
 
         let err = derive(input).unwrap_err();
 
-        assert_eq!(err.to_string(), "only enums are allowed",);
+        assert_eq!(err.to_string(), "only enums are allowed");
     }
 
     #[test]

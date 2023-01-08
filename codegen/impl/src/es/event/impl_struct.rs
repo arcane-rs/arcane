@@ -7,18 +7,17 @@ use quote::quote;
 use syn::spanned::Spanned as _;
 use synthez::{ParseAttrs, Required, ToTokens};
 
+#[cfg(doc)]
+use arcane_core::es::event;
+
 /// Attributes of `#[derive(Event)]` macro on structs.
 #[derive(Debug, Default, ParseAttrs)]
 pub struct Attrs {
-    /// Value of [`event::Static::NAME`][0] constant.
-    ///
-    /// [0]: arcane_core::es::event::Static::NAME
+    /// Value for the [`event::Static::NAME`] constant.
     #[parse(value)]
     pub name: Required<syn::LitStr>,
 
-    /// Value of [`event::Concrete::REVISION`][0] constant.
-    ///
-    /// [0]: arcane_core::es::event::Concrete::REVISION
+    /// Value fot the [`event::Concrete::REVISION`] constant.
     #[parse(value, alias = rev, validate = can_parse_as_non_zero_u16)]
     pub revision: Option<syn::LitInt>,
 }
@@ -30,11 +29,8 @@ fn can_parse_as_non_zero_u16(value: &Option<syn::LitInt>) -> syn::Result<()> {
     })
 }
 
-/// Representation of a struct implementing [`event::Static`][0]
-/// (and [`event::Concrete`][1] optionally), used for code generation.
-///
-/// [0]: arcane_core::es::event::Static
-/// [1]: arcane_core::es::event::Concrete
+/// Representation of a struct implementing [`event::Static`] (and
+/// [`event::Concrete`], optionally), used for the code generation.
 // TODO: Provide a way to specify custom revision type.
 #[derive(Debug, ToTokens)]
 #[to_tokens(append(
@@ -49,15 +45,11 @@ pub struct Definition {
     /// [`syn::Generics`] of this structure's type.
     pub generics: syn::Generics,
 
-    /// Value of [`event::Static::NAME`][0] constant in the generated code.
-    ///
-    /// [0]: arcane_core::es::event::Static::NAME
+    /// Value of the [`event::Static::NAME`] constant in the generated code.
     pub event_name: syn::LitStr,
 
-    /// Value of [`event::Concrete::REVISION`][0] constant in the generated
+    /// Value of the [`event::Concrete::REVISION`] constant in the generated
     /// code.
-    ///
-    /// [0]: arcane_core::es::event::Concrete::REVISION
     pub event_revision: Option<syn::LitInt>,
 }
 
@@ -84,9 +76,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
 }
 
 impl Definition {
-    /// Generates code to derive [`event::Static`][0] trait.
-    ///
-    /// [0]: arcane_core::es::event::Static
+    /// Generates code of an [`event::Static`] trait implementation.
     #[must_use]
     pub fn impl_event_static(&self) -> TokenStream {
         let ty = &self.ident;
@@ -104,9 +94,7 @@ impl Definition {
         }
     }
 
-    /// Generates code to derive [`event::Concrete`][0] trait.
-    ///
-    /// [0]: arcane_core::es::event::Concrete
+    /// Generates code of an [`event::Concrete`] trait implementation.
     #[must_use]
     pub fn impl_event_concrete(&self) -> TokenStream {
         let Some(event_rev) = self.event_revision.as_ref() else {
@@ -132,10 +120,9 @@ impl Definition {
     }
 
     /// Generates hidden machinery code used to statically check uniqueness of
-    /// [`Event::name`][0] (and [`event::Revisable::revision`][1] optionally).
+    /// [`Event::name`][0] (and [`event::Revisable::revision`], optionally).
     ///
-    /// [0]: arcane_core::es::Event::name
-    /// [1]: arcane_core::es::event::Revisable::revision
+    /// [0]: event::Event::name
     #[must_use]
     pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
         let ty = &self.ident;
@@ -193,8 +180,8 @@ mod spec {
 
     use super::Definition;
 
-    /// Expands `#[derive(Event)]` on provided struct and returns the generated
-    /// code.
+    /// Expands the `#[derive(Event)]` macro on the provided struct and returns
+    /// the generated code.
     fn derive(input: TokenStream) -> syn::Result<TokenStream> {
         let input = syn::parse2::<syn::DeriveInput>(input)?;
         Ok(Definition::try_from(input)?.into_token_stream())
@@ -243,7 +230,7 @@ mod spec {
             }
         };
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string(),);
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
     #[test]
@@ -299,7 +286,7 @@ mod spec {
             }
         };
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string(),);
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
     #[test]
@@ -365,6 +352,6 @@ mod spec {
 
         let err = derive(input).unwrap_err();
 
-        assert_eq!(err.to_string(), "only structs are allowed",);
+        assert_eq!(err.to_string(), "only structs are allowed");
     }
 }
