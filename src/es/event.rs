@@ -2,12 +2,13 @@
 
 #[doc(inline)]
 pub use arcane_core::es::event::{
-    Event, Initial, Initialized, Name, Sourced, Sourcing, Version, Versioned,
+    Concrete, Event, Initial, Initialized, Name, Revisable, Revision,
+    RevisionOf, Sourced, Sourcing, Static, Version,
 };
 
 #[cfg(feature = "derive")]
 #[doc(inline)]
-pub use arcane_codegen::es::event::{Event, Versioned};
+pub use arcane_codegen::es::event::Event;
 #[cfg(feature = "derive")]
 #[doc(inline)]
 pub use arcane_core::es::event::codegen;

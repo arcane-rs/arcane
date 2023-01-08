@@ -13,8 +13,9 @@ All user visible changes to this project will be documented in this file. This p
 
 - Events
   - Traits
-    - `Event`
-    - `VersionedEvent`
+    - `Event`, `RevisedEvent`
+    - `StaticEvent`, `ConcreteEvent`
+    - `EventRevision`
     - `EventSourced`
     - `EventInitialised`
   - Structs
@@ -22,9 +23,8 @@ All user visible changes to this project will be documented in this file. This p
     - `event::Initial` specialization wrapper
   - Proc macros
     - `Event` derive
-    - `VersionedEvent` derive
 
 
-    
+
 
 [Semantic Versioning 2.0.0]: https://semver.org

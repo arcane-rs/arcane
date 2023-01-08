@@ -116,18 +116,24 @@ use arcane as _;
 // Only for generating documentation.
 #[cfg(feature = "doc")]
 use arcane_core as _;
+#[cfg(doc)]
+use arcane_core::es::event;
 
 use arcane_codegen_impl as codegen;
 use proc_macro::TokenStream;
 
-/// Macro for deriving [`Event`] on enums.
+/// Macro for deriving the [`Event`] trait on structs and enums.
 ///
-/// For structs consider using [`#[derive(Versioned)]`](macro@VersionedEvent).
+/// # Enums
 ///
-/// This macro ensures that every combination of [`Event::name`][0] and
-/// [`Event::version`][1] corresponds to a single Rust type. The only limitation
-/// is that all the underlying [`Event`] or [`Versioned`] impls should be
-/// derived too.
+/// This macro generates an [`Event`] (and, optionally, an [`event::Revisable`])
+/// implementation for an enum, having a single-fielded variants, implementing
+/// an [`Event`] (and, optionally, an [`event::Revisable`]).
+///
+/// This macro ensures that every combination of an [`Event::name`] (and,
+/// optionally, an [`event::Revisable::revision`]) corresponds to a single Rust
+/// type. The only limitation is that all the underlying [`Event`] (and,
+/// optionally, an [`event::Revisable`]) impls should be derived too.
 ///
 /// Also, provides a blanket [`event::Sourced`] implementation for every state,
 /// which can be sourced from all the enum variants.
@@ -136,7 +142,15 @@ use proc_macro::TokenStream;
 /// >              clause because of `const` evaluation limitations. Should be
 /// >              lifted once [rust-lang/rust#57775] is resolved.
 ///
-/// # Variant attributes
+/// ## Enum attributes
+///
+/// #### `#[event(revision)]` (optional)
+///
+/// Aliases: `#[event(rev)]`
+///
+/// Indicator whether the [`event::Revisable`] trait should be implemented.
+///
+/// ## Variant attributes
 ///
 /// #### `#[event(init)]` (optional)
 ///
@@ -152,24 +166,24 @@ use proc_macro::TokenStream;
 /// Use this on a particular enum variant to completely ignore it in code
 /// generation.
 ///
-/// > **WARNING:** Calling [`Event::name()`][0] or [`Event::version()`][1] on
-/// >              ignored variants will result in [`unreachable!`] panic.
+/// > **WARNING:** Calling [`Event::name()`] or [`event::Revisable::revision()`]
+/// >              on ignored variants will result in [`unreachable!`] panic.
 ///
-/// # Example
+/// ## Example
 ///
 /// ```rust,compile_fail,E0080
-/// # use arcane::es::{event, Event};
+/// # use arcane::es::Event;
 /// #
-/// #[derive(event::Versioned)]
-/// #[event(name = "chat", version = 1)]
+/// #[derive(Event)]
+/// #[event(name = "chat", revision = 1)]
 /// struct ChatEvent;
 ///
-/// #[derive(event::Versioned)]
-/// #[event(name = "chat", version = 1)]
+/// #[derive(Event)]
+/// #[event(name = "chat", revision = 1)]
 /// struct DuplicateChatEvent;
 ///
 /// // This fails to compile as contains different Rust types with the same
-/// // `event::Name` and `event::Version`.
+/// // `event::Name` and `event::Revision`.
 /// #[derive(Event)]
 /// enum AnyEvent {
 ///     Chat(ChatEvent),
@@ -178,14 +192,14 @@ use proc_macro::TokenStream;
 /// ```
 ///
 /// ```rust
-/// # use arcane::es::{event, Event};
+/// # use arcane::es::Event;
 /// #
-/// # #[derive(event::Versioned)]
-/// # #[event(name = "chat", version = 1)]
+/// # #[derive(Event)]
+/// # #[event(name = "chat", revision = 1)]
 /// # struct ChatEvent;
 /// #
-/// # #[derive(event::Versioned)]
-/// # #[event(name = "chat", version = 1)]
+/// # #[derive(Event)]
+/// # #[event(name = "chat", revision = 1)]
 /// # struct DuplicateChatEvent;
 /// #
 /// #[derive(Event)]
@@ -196,8 +210,8 @@ use proc_macro::TokenStream;
 /// }
 ///
 /// // This example doesn't need `#[event(ignore)]` attribute, as each
-/// // combination of `event::Name` and `event::Version` corresponds to a single
-/// // Rust type.
+/// // combination of `event::Name` and `event::Revision` corresponds to the
+/// // same single Rust type.
 /// #[derive(Event)]
 /// enum MoreEvents {
 ///     Chat(ChatEvent),
@@ -205,53 +219,40 @@ use proc_macro::TokenStream;
 /// }
 /// ```
 ///
-/// [`Event`]: arcane_core::es::Event
-/// [`event::Initialized`]: arcane_core::es::event::Initialized
-/// [`event::Sourced`]: arcane_core::es::event::Sourced
-/// [`Versioned`]: arcane_core::es::event::Versioned
-/// [0]: arcane_core::es::Event::name()
-/// [1]: arcane_core::es::Event::version()
+/// # Structs
+///
+/// This macro generates an [`event::Static`] (and, optionally, an
+/// [`event::Concrete`]) implementation for a struct.
+///
+/// ## Struct attributes
+///
+/// #### `#[event(name = "...")]`
+///
+/// Value of the [`event::Static::NAME`] constant.
+///
+/// #### `#[event(revision = <non-zero-u16>)]` (optional)
+///
+/// Aliases: `#[event(rev = <non-zero-u16>)]`
+///
+/// Value of the [`event::Concrete::REVISION`] constant.
+///
+/// ## Example
+///
+/// ```rust
+/// # use arcane::es::Event;
+/// #
+/// #[derive(Event)]
+/// #[event(name = "created", revision = 1)]
+/// struct Created;
+/// ```
+///
+/// [`Event`]: event::Event
+/// [`Event::name`]: event::Event::name()
+/// [`Event::name()`]: event::Event::name()
 /// [rust-lang/rust#57775]: https://github.com/rust-lang/rust/issues/57775
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     codegen::es::event::derive(input.into())
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}
-
-/// Macro for deriving [`Versioned`] on structs.
-///
-/// For enums consisting of different [`Versioned`] events consider using
-/// [`#[derive(Event)]`](macro@Event).
-///
-/// # Struct attributes
-///
-/// #### `#[event(name = "...")]`
-///
-/// Value of [`Versioned::NAME`][0] constant.
-///
-/// #### `#[event(version = <non-zero-u16>)]`
-///
-/// Aliases: `#[event(ver = <non-zero-u16>)]`
-///
-/// Value of [`Versioned::VERSION`][1] constant.
-///
-/// # Example
-///
-/// ```rust
-/// # use arcane::es::event;
-/// #
-/// #[derive(event::Versioned)]
-/// #[event(name = "event", version = 1)]
-/// struct Event;
-/// ```
-///
-/// [`Versioned`]: arcane_core::es::event::Versioned
-/// [0]: arcane_core::es::event::Versioned::NAME
-/// [1]: arcane_core::es::event::Versioned::VERSION
-#[proc_macro_derive(VersionedEvent, attributes(event))]
-pub fn derive_versioned_event(input: TokenStream) -> TokenStream {
-    codegen::es::event::versioned::derive(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
