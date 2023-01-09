@@ -26,7 +26,7 @@ pub fn derive(input: TokenStream) -> syn::Result<TokenStream> {
         syn::Data::Union(_) => {
             return Err(syn::Error::new(
                 input.span(),
-                "Union types are not supported",
+                "union types are not supported",
             ))
         }
     })
