@@ -157,10 +157,11 @@ impl Definition {
             impl #impl_gens ::arcane::es::event::reflect::Revision
                  for #ty #ty_gens #where_clause
             {
+                // TODO: Replace with `::arcane::es::event::RevisionOf<Self>`
+                //       once rust-lang/rust#57775 is resolved:
+                //       https://github.com/rust-lang/rust/issues/57775
                 #[doc(hidden)]
-                const REVISIONS: &'static [
-                    ::arcane::es::event::RevisionOf<Self>
-                ] = &[
+                const REVISIONS: &'static [::arcane::es::event::Version] = &[
                     <Self as ::arcane::es::event::Concrete>::REVISION
                 ];
             }
@@ -307,9 +308,7 @@ mod spec {
             #[doc(hidden)]
             impl ::arcane::es::event::reflect::Revision for Event {
                 #[doc(hidden)]
-                const REVISIONS: &'static [
-                    ::arcane::es::event::RevisionOf<Self>
-                ] = &[
+                const REVISIONS: &'static [::arcane::es::event::Version] = &[
                     <Self as ::arcane::es::event::Concrete>::REVISION
                 ];
             }

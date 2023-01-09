@@ -323,13 +323,14 @@ impl Definition {
             impl #impl_gens ::arcane::es::event::reflect::Revision
                  for #ty #ty_gens #where_clause
             {
+                // TODO: Replace with `::arcane::es::event::RevisionOf<Self>`
+                //       once rust-lang/rust#57775 is resolved:
+                //       https://github.com/rust-lang/rust/issues/57775
                 #[doc(hidden)]
-                const REVISIONS: &'static [
-                    ::arcane::es::event::RevisionOf<Self>
-                ] = {
+                const REVISIONS: &'static [::arcane::es::event::Version] = {
                     #subst_gen_types
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::RevisionOf<Self>,
+                        ::arcane::es::event::Version,
                         #(
                             <
                                 #var_ty
@@ -687,11 +688,9 @@ mod spec {
             #[doc(hidden)]
             impl ::arcane::es::event::reflect::Revision for Event {
                 #[doc(hidden)]
-                const REVISIONS: &'static [
-                    ::arcane::es::event::RevisionOf<Self>
-                ] = {
+                const REVISIONS: &'static [::arcane::es::event::Version] = {
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::RevisionOf<Self>,
+                        ::arcane::es::event::Version,
                         <FileEvent
                          as ::arcane::es::event::reflect::Revision>::REVISIONS,
                         <ChatEvent
@@ -834,14 +833,12 @@ mod spec {
                 for Event<'a, F, C>
             {
                 #[doc(hidden)]
-                const REVISIONS: &'static [
-                    ::arcane::es::event::RevisionOf<Self>
-                ] = {
+                const REVISIONS: &'static [::arcane::es::event::Version] = {
                     type F = ();
                     type C = ();
 
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::RevisionOf<Self>,
+                        ::arcane::es::event::Version,
                         <FileEvent<'a, F>
                          as ::arcane::es::event::reflect::Revision>::REVISIONS,
                         <ChatEvent<'a, C>
@@ -986,11 +983,9 @@ mod spec {
             #[doc(hidden)]
             impl ::arcane::es::event::reflect::Revision for Event {
                 #[doc(hidden)]
-                const REVISIONS: &'static [
-                    ::arcane::es::event::RevisionOf<Self>
-                ] = {
+                const REVISIONS: &'static [::arcane::es::event::Version] = {
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::RevisionOf<Self>,
+                        ::arcane::es::event::Version,
                         <FileEvent
                          as ::arcane::es::event::reflect::Revision>::REVISIONS,
                         <ChatEvent
