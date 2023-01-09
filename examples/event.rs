@@ -1,6 +1,5 @@
 use arcane::es::event::{
-    reflect, Event, Initialized, Meta, Revisable as _, Sourced, Sourcing,
-    Version,
+    reflect, Event, Initialized, Name, Revisable, Sourced, Sourcing, Version,
 };
 
 #[derive(Event)]
@@ -57,57 +56,40 @@ impl Initialized<MessagePosted> for Message {
     }
 }
 
-fn assert_meta<E: reflect::Meta>(expected: &[Meta]) {
-    let actual = E::META;
+fn assert_names<E>(expected: &[Name])
+where
+    E: reflect::Name,
+{
+    assert_eq!(E::NAMES.len(), expected.len());
 
-    assert_eq!(actual.len(), expected.len());
+    for (actual, expected) in E::NAMES.iter().zip(expected) {
+        assert_eq!(actual, expected);
+    }
+}
 
-    for (actual, expected) in actual.iter().zip(expected.iter()) {
-        assert_eq!(actual.name, expected.name);
+fn assert_revisions<E>(expected: &[Version])
+where
+    E: reflect::Revision<Revision = Version>,
+{
+    assert_eq!(E::REVISIONS.len(), expected.len());
+
+    for (actual, expected) in E::REVISIONS.iter().zip(expected) {
+        assert_eq!(actual, expected);
     }
 }
 
 fn main() {
-    assert_meta::<ChatCreated>(&[Meta {
-        name: "chat.created",
-        revision: "",
-    }]);
-
-    assert_meta::<MessagePosted>(&[Meta {
-        name: "message.posted",
-        revision: "1",
-    }]);
-
-    assert_meta::<ChatEvent>(&[
-        Meta {
-            name: "chat.created",
-            revision: "",
-        },
-        Meta {
-            name: "message.posted",
-            revision: "1",
-        },
+    assert_names::<ChatCreated>(&["chat.created"]);
+    assert_names::<MessagePosted>(&["message.posted"]);
+    assert_names::<ChatEvent>(&["chat.created", "message.posted"]);
+    assert_names::<MessageEvent>(&["message.posted"]);
+    assert_names::<AnyEvent>(&[
+        "chat.created",
+        "message.posted",
+        "message.posted",
     ]);
 
-    assert_meta::<MessageEvent>(&[Meta {
-        name: "message.posted",
-        revision: "1",
-    }]);
-
-    assert_meta::<AnyEvent>(&[
-        Meta {
-            name: "chat.created",
-            revision: "",
-        },
-        Meta {
-            name: "message.posted",
-            revision: "1",
-        },
-        Meta {
-            name: "message.posted",
-            revision: "1",
-        },
-    ]);
+    assert_revisions::<MessagePosted>(&[Version::try_new(1).unwrap()]);
 
     let mut chat = Option::<Chat>::None;
     let mut message = Option::<Message>::None;

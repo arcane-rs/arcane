@@ -36,7 +36,8 @@ fn can_parse_as_non_zero_u16(value: &Option<syn::LitInt>) -> syn::Result<()> {
 #[to_tokens(append(
     impl_event_static,
     impl_event_concrete,
-    impl_meta_reflection,
+    impl_name_reflection,
+    impl_revision_reflection,
     gen_uniqueness_check
 ))]
 pub struct Definition {
@@ -120,37 +121,55 @@ impl Definition {
         }
     }
 
-    /// Generates code to derive [`event::reflect::Meta`].
+    /// Generates code to derive [`event::reflect::Name`].
     #[must_use]
-    pub fn impl_meta_reflection(&self) -> TokenStream {
+    pub fn impl_name_reflection(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
-
-        let revision = self
-            .event_revision
-            .as_ref()
-            .map(ToString::to_string)
-            .unwrap_or_default();
 
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens ::arcane::es::event::reflect::Meta for #ty #ty_gens
+            impl #impl_gens ::arcane::es::event::reflect::Name for #ty #ty_gens
                 #where_clause
             {
                 #[doc(hidden)]
-                const META: &'static [::arcane::es::event::Meta] = &[
-                    ::arcane::es::event::Meta {
-                        name: <Self as ::arcane::es::event::Static>::NAME,
-                        revision: #revision
-                    }
+                const NAMES: &'static [::arcane::es::event::Name] = &[
+                    <Self as ::arcane::es::event::Static>::NAME
                 ];
             }
         }
     }
 
-    /// Generates non-public machinery code used to statically check uniqueness
-    /// of [`Event::name`][0] (and [`event::Revisable::revision`], optionally).
+    /// Generates code to derive [`event::reflect::Revision`].
+    #[must_use]
+    pub fn impl_revision_reflection(&self) -> TokenStream {
+        if self.event_revision.is_none() {
+            return TokenStream::new();
+        };
+
+        let ty = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
+
+        quote! {
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl #impl_gens ::arcane::es::event::reflect::Revision
+                 for #ty #ty_gens #where_clause
+            {
+                #[doc(hidden)]
+                const REVISIONS: &'static [
+                    ::arcane::es::event::RevisionOf<Self>
+                ] = &[
+                    <Self as ::arcane::es::event::Concrete>::REVISION
+                ];
+            }
+        }
+    }
+
+    /// Generates non-public machinery code used to statically check that
+    /// the [`Event::name`][0] and [`event::Revisable::revision`]
+    /// are corresponding to a single Rust type.
     ///
     /// [0]: event::Event::name
     #[must_use]
@@ -222,13 +241,10 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::reflect::Meta for Event {
+            impl ::arcane::es::event::reflect::Name for Event {
                 #[doc(hidden)]
-                const META: &'static [::arcane::es::event::Meta] = &[
-                    ::arcane::es::event::Meta {
-                        name: <Self as ::arcane::es::event::Static>::NAME,
-                        revision: ""
-                    }
+                const NAMES: &'static [::arcane::es::event::Name] = &[
+                    <Self as ::arcane::es::event::Static>::NAME
                 ];
             }
 
@@ -280,13 +296,21 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::reflect::Meta for Event {
+            impl ::arcane::es::event::reflect::Name for Event {
                 #[doc(hidden)]
-                const META: &'static [::arcane::es::event::Meta] = &[
-                    ::arcane::es::event::Meta {
-                        name: <Self as ::arcane::es::event::Static>::NAME,
-                        revision: "1"
-                    }
+                const NAMES: &'static [::arcane::es::event::Name] = &[
+                    <Self as ::arcane::es::event::Static>::NAME
+                ];
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::arcane::es::event::reflect::Revision for Event {
+                #[doc(hidden)]
+                const REVISIONS: &'static [
+                    ::arcane::es::event::RevisionOf<Self>
+                ] = &[
+                    <Self as ::arcane::es::event::Concrete>::REVISION
                 ];
             }
 

@@ -258,39 +258,53 @@ where
     }
 }
 
-/// Meta information about the [`Event`].
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Meta {
-    /// [`Name`] of the [`Event`].
-    pub name: Name,
-
-    /// [`Revision`] of the [`Event`] as string
-    pub revision: &'static str,
-}
-
 /// [`Event`] reflection machinery.
 pub mod reflect {
-    use crate::es::event;
+    use crate::es::event::{self, Event};
 
-    /// [`Event`] reflection over the [`Meta`] information.
+    /// [`Event::name`] reflection.
     ///
     /// **Note**: Implementations of this trait generates by `#[derive(Event)]`
     ///           derive macro, and shouldn't be implemented manually.
-    ///
-    /// [`Event`]: event::Event
-    /// [`Meta`]: event::Meta
-    pub trait Meta {
-        /// List of all [`Event`]'s [`Meta`]s.
+    pub trait Name: Event {
+        /// List of all [`Event::name`]s.
         ///
-        /// Contains the [`Meta`]s of all [`Event`]s this [`Event`] is
+        /// Contains the [`Name`]s of all [`Event`]s this [`Event`] is
         /// composed of (including multiple levels of composition).
         ///
-        /// **Note**: May contains duplicates if the same [`Meta`] is present in
+        /// Can be [`zip`]ped with [`event::reflect::Revision::REVISIONS`] of
+        /// the same [`Event`].
+        ///
+        /// **Note**: May contains duplicates if the same [`Name`] is used by
         ///           multiple nested [`Event`]s.
         ///
-        /// [`Event`]: event::Event
-        /// [`Meta`]: event::Meta
-        const META: &'static [event::Meta];
+        /// [`Name`]: event::Name
+        /// [`zip`]: Iterator::zip
+        const NAMES: &'static [event::Name];
+    }
+
+    /// [`event::Revisable::revision`] reflection.
+    ///
+    /// **Note**: Implementations of this trait generates by `#[derive(Event)]`
+    ///           derive macro, and shouldn't be implemented manually.
+    pub trait Revision: event::Revisable
+    where
+        <Self as event::Revisable>::Revision: 'static,
+    {
+        /// List of all [`event::Revisable::revision`]s.
+        ///
+        /// Contains the [`Revision`]s of all [`Event`]s this [`Event`] is
+        /// composed of (including multiple levels of composition).
+        ///
+        /// Can be [`zip`]ped with [`event::reflect::Name::NAMES`] of the same
+        /// [`Event`].
+        ///
+        /// **Note**: May contains duplicates if the same [`Revision`] is used
+        ///           by multiple nested [`Event`]s.
+        ///
+        /// [`Revision`]: event::Revision
+        /// [`zip`]: Iterator::zip
+        const REVISIONS: &'static [event::RevisionOf<Self>];
     }
 }
 
@@ -345,22 +359,20 @@ pub mod codegen {
     }
 
     /// Meta information contains all combinations of [`Event::name`]s and
-    /// [`event::Revisable::revision`]s of this [`Event`], corresponding to
+    /// [`event::Revisable::revision`]s of the [`Event`], corresponding to
     /// their Rust types.
     ///
     /// **Note**: Implementations of this trait generates by `#[derive(Event)]`
-    ///           derive macro, and not part of the public API. Instead, use
-    ///           [`event::reflect::Meta`].
+    ///           derive macro, and not part of the public API.
     ///
     /// [`Event`]: super::Event
     /// [`Event::name`]: super::Event::name
-    /// [`event::reflect::Meta`]: super::reflect::Meta
     /// [`event::Revisable::revision`]: super::Revisable::revision
     pub trait Meta {
-        /// Meta information of this [`Event`]. Contains:
+        /// Meta information of the [`Event`]. Contains:
         /// - Unique Rust type identifier.
         /// - [`Event::name`].
-        /// - [`event::Revisable::revision`] as string.
+        /// - String representing a [`event::Revisable::revision`].
         ///
         /// [`Event`]: super::Event
         /// [`Event::name`]: super::Event::name

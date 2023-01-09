@@ -23,7 +23,8 @@ pub struct Attrs {
     impl_event,
     impl_event_revisable,
     impl_event_sourced,
-    impl_meta_reflection,
+    impl_name_reflection,
+    impl_revision_reflection,
     gen_uniqueness_check
 ))]
 pub struct Definition {
@@ -269,9 +270,9 @@ impl Definition {
         }
     }
 
-    /// Generates code to derive [`event::reflect::Meta`].
+    /// Generates code to derive [`event::reflect::Name`].
     #[must_use]
-    pub fn impl_meta_reflection(&self) -> TokenStream {
+    pub fn impl_name_reflection(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
@@ -283,17 +284,57 @@ impl Definition {
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens ::arcane::es::event::reflect::Meta for #ty #ty_gens
+            impl #impl_gens ::arcane::es::event::reflect::Name for #ty #ty_gens
                 #where_clause
             {
                 #[doc(hidden)]
-                const META: &'static [::arcane::es::event::Meta] = {
+                const NAMES: &'static [::arcane::es::event::Name] = {
                     #subst_gen_types
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::Meta,
+                        ::arcane::es::event::Name,
                         #(
                             <#var_ty
-                             as ::arcane::es::event::reflect::Meta>::META
+                             as ::arcane::es::event::reflect::Name>::NAMES
+                        ),*
+                    )
+                };
+            }
+        }
+    }
+
+    /// Generates code to derive [`event::reflect::Revision`].
+    #[must_use]
+    pub fn impl_revision_reflection(&self) -> TokenStream {
+        if !self.is_revisable {
+            return TokenStream::new();
+        }
+
+        let ty = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
+
+        let var_ty = self.variants.iter().map(|f| &f.ty);
+
+        let subst_gen_types =
+            Self::substitute_generic_types_trivially(&self.generics);
+
+        quote! {
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl #impl_gens ::arcane::es::event::reflect::Revision
+                 for #ty #ty_gens #where_clause
+            {
+                #[doc(hidden)]
+                const REVISIONS: &'static [
+                    ::arcane::es::event::RevisionOf<Self>
+                ] = {
+                    #subst_gen_types
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        ::arcane::es::event::RevisionOf<Self>,
+                        #(
+                            <
+                                #var_ty
+                                as ::arcane::es::event::reflect::Revision
+                            >::REVISIONS
                         ),*
                     )
                 };
@@ -302,11 +343,10 @@ impl Definition {
     }
 
     /// Generates non-public machinery code used to statically check that all
-    /// the [`Event::name`]s (and [`event::Revisable::revision`]s, optionally)
-    /// pairs are corresponding to a single Rust type.
+    /// the [`Event::name`][0]s and [`event::Revisable::revision`]s pairs
+    /// are corresponding to a single Rust type.
     ///
-    /// [`Event::name`]: event::Event::name
-    /// [`Field`]: syn::Field
+    /// [0]: event::Event::name
     #[must_use]
     pub fn gen_uniqueness_check(&self) -> TokenStream {
         let ty = &self.ident;
@@ -510,15 +550,15 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::reflect::Meta for Event {
+            impl ::arcane::es::event::reflect::Name for Event {
                 #[doc(hidden)]
-                const META: &'static [::arcane::es::event::Meta] = {
+                const NAMES: &'static [::arcane::es::event::Name] = {
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::Meta,
+                        ::arcane::es::event::Name,
                         <FileEvent
-                            as ::arcane::es::event::reflect::Meta>::META,
+                         as ::arcane::es::event::reflect::Name>::NAMES,
                         <ChatEvent
-                            as ::arcane::es::event::reflect::Meta>::META
+                         as ::arcane::es::event::reflect::Name>::NAMES
                     )
                 };
             }
@@ -533,9 +573,9 @@ mod spec {
                     ::arcane::es::event::codegen::const_concat_slices!(
                         (&'static str, &'static str, &'static str),
                         <FileEvent
-                            as ::arcane::es::event::codegen::Meta>::META,
+                         as ::arcane::es::event::codegen::Meta>::META,
                         <ChatEvent
-                            as ::arcane::es::event::codegen::Meta>::META
+                         as ::arcane::es::event::codegen::Meta>::META
                     )
                 };
             }
@@ -630,15 +670,32 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::reflect::Meta for Event {
+            impl ::arcane::es::event::reflect::Name for Event {
                 #[doc(hidden)]
-                const META: &'static [::arcane::es::event::Meta] = {
+                const NAMES: &'static [::arcane::es::event::Name] = {
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::Meta,
+                        ::arcane::es::event::Name,
                         <FileEvent
-                            as ::arcane::es::event::reflect::Meta>::META,
+                         as ::arcane::es::event::reflect::Name>::NAMES,
                         <ChatEvent
-                            as ::arcane::es::event::reflect::Meta>::META
+                         as ::arcane::es::event::reflect::Name>::NAMES
+                    )
+                };
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::arcane::es::event::reflect::Revision for Event {
+                #[doc(hidden)]
+                const REVISIONS: &'static [
+                    ::arcane::es::event::RevisionOf<Self>
+                ] = {
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        ::arcane::es::event::RevisionOf<Self>,
+                        <FileEvent
+                         as ::arcane::es::event::reflect::Revision>::REVISIONS,
+                        <ChatEvent
+                         as ::arcane::es::event::reflect::Revision>::REVISIONS
                     )
                 };
             }
@@ -653,9 +710,9 @@ mod spec {
                     ::arcane::es::event::codegen::const_concat_slices!(
                         (&'static str, &'static str, &'static str),
                         <FileEvent
-                            as ::arcane::es::event::codegen::Meta>::META,
+                         as ::arcane::es::event::codegen::Meta>::META,
                         <ChatEvent
-                            as ::arcane::es::event::codegen::Meta>::META
+                         as ::arcane::es::event::codegen::Meta>::META
                     )
                 };
             }
@@ -753,20 +810,42 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl<'a, F, C> ::arcane::es::event::reflect::Meta
+            impl<'a, F, C> ::arcane::es::event::reflect::Name
                 for Event<'a, F, C>
             {
                 #[doc(hidden)]
-                const META: &'static [::arcane::es::event::Meta] = {
+                const NAMES: &'static [::arcane::es::event::Name] = {
                     type F = ();
                     type C = ();
 
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::Meta,
+                        ::arcane::es::event::Name,
                         <FileEvent<'a, F>
-                            as ::arcane::es::event::reflect::Meta>::META,
+                         as ::arcane::es::event::reflect::Name>::NAMES,
                         <ChatEvent<'a, C>
-                            as ::arcane::es::event::reflect::Meta>::META
+                         as ::arcane::es::event::reflect::Name>::NAMES
+                    )
+                };
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl<'a, F, C> ::arcane::es::event::reflect::Revision
+                for Event<'a, F, C>
+            {
+                #[doc(hidden)]
+                const REVISIONS: &'static [
+                    ::arcane::es::event::RevisionOf<Self>
+                ] = {
+                    type F = ();
+                    type C = ();
+
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        ::arcane::es::event::RevisionOf<Self>,
+                        <FileEvent<'a, F>
+                         as ::arcane::es::event::reflect::Revision>::REVISIONS,
+                        <ChatEvent<'a, C>
+                         as ::arcane::es::event::reflect::Revision>::REVISIONS
                     )
                 };
             }
@@ -786,9 +865,9 @@ mod spec {
                     ::arcane::es::event::codegen::const_concat_slices!(
                         (&'static str, &'static str, &'static str),
                         <FileEvent<'a, F>
-                            as ::arcane::es::event::codegen::Meta>::META,
+                         as ::arcane::es::event::codegen::Meta>::META,
                         <ChatEvent<'a, C>
-                            as ::arcane::es::event::codegen::Meta>::META
+                         as ::arcane::es::event::codegen::Meta>::META
                     )
                 };
             }
@@ -812,6 +891,7 @@ mod spec {
     #[test]
     fn ignores_ignored_variant() {
         let input_ignore = parse_quote! {
+            #[event(revision)]
             enum Event {
                 File(FileEvent),
                 Chat(ChatEvent),
@@ -820,6 +900,7 @@ mod spec {
             }
         };
         let input_skip = parse_quote! {
+            #[event(revision)]
             enum Event {
                 File(FileEvent),
                 Chat(ChatEvent),
@@ -835,6 +916,33 @@ mod spec {
                     match self {
                         Self::File(f) => ::arcane::es::Event::name(f),
                         Self::Chat(f) => ::arcane::es::Event::name(f),
+                        _ => unreachable!(),
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            impl ::arcane::es::event::Revisable for Event
+            where
+                FileEvent: ::arcane::es::event::Revisable,
+                ::arcane::es::event::RevisionOf<FileEvent>: From<
+                    ::arcane::es::event::RevisionOf<FileEvent>
+                >,
+                ChatEvent: ::arcane::es::event::Revisable,
+                ::arcane::es::event::RevisionOf<FileEvent>: From<
+                    ::arcane::es::event::RevisionOf<ChatEvent>
+                >
+            {
+                type Revision = ::arcane::es::event::RevisionOf<FileEvent>;
+
+                fn revision(&self) -> Self::Revision {
+                    match self {
+                        Self::File(f) => Self::Revision::from(
+                            ::arcane::es::event::Revisable::revision(f)
+                        ),
+                        Self::Chat(f) => Self::Revision::from(
+                            ::arcane::es::event::Revisable::revision(f)
+                        ),
                         _ => unreachable!(),
                     }
                 }
@@ -861,15 +969,32 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::reflect::Meta for Event {
+            impl ::arcane::es::event::reflect::Name for Event {
                 #[doc(hidden)]
-                const META: &'static [::arcane::es::event::Meta] = {
+                const NAMES: &'static [::arcane::es::event::Name] = {
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::Meta,
+                        ::arcane::es::event::Name,
                         <FileEvent
-                            as ::arcane::es::event::reflect::Meta>::META,
+                         as ::arcane::es::event::reflect::Name>::NAMES,
                         <ChatEvent
-                            as ::arcane::es::event::reflect::Meta>::META
+                         as ::arcane::es::event::reflect::Name>::NAMES
+                    )
+                };
+            }
+
+            #[automatically_derived]
+            #[doc(hidden)]
+            impl ::arcane::es::event::reflect::Revision for Event {
+                #[doc(hidden)]
+                const REVISIONS: &'static [
+                    ::arcane::es::event::RevisionOf<Self>
+                ] = {
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        ::arcane::es::event::RevisionOf<Self>,
+                        <FileEvent
+                         as ::arcane::es::event::reflect::Revision>::REVISIONS,
+                        <ChatEvent
+                         as ::arcane::es::event::reflect::Revision>::REVISIONS
                     )
                 };
             }
@@ -884,9 +1009,9 @@ mod spec {
                     ::arcane::es::event::codegen::const_concat_slices!(
                         (&'static str, &'static str, &'static str),
                         <FileEvent
-                            as ::arcane::es::event::codegen::Meta>::META,
+                         as ::arcane::es::event::codegen::Meta>::META,
                         <ChatEvent
-                            as ::arcane::es::event::codegen::Meta>::META
+                         as ::arcane::es::event::codegen::Meta>::META
                     )
                 };
             }
