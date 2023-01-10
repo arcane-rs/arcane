@@ -23,10 +23,12 @@ pub struct Attrs {
     impl_event,
     impl_event_revisable,
     impl_event_sourced,
-    impl_name_reflection,
-    impl_revision_reflection,
-    gen_uniqueness_check
+    gen_uniqueness_assertion
 ))]
+#[cfg_attr(
+    feature = "reflect",
+    to_tokens(append(impl_reflect_static, impl_reflect_concrete))
+)]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
@@ -83,7 +85,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
 }
 
 impl Definition {
-    /// Substitutes the given [`syn::Generics`] with trivial types.
+    /// Substitutes the provided [`syn::Generics`] with trivial types.
     ///
     /// - [`syn::Lifetime`] -> `'static`;
     /// - [`syn::Type`] -> `()`.
@@ -101,20 +103,19 @@ impl Definition {
         quote! { < #( #generics ),* > }
     }
 
-    /// Replaces all generic type parameters with `type T = ()`. This required
-    /// for const contexts, where generic type parameters cannot be passed
-    /// correctly.
+    /// Shadows the provided [`syn::Generics`] with `type T = ()` definitions.
+    /// This required for `const` contexts, where generic type parameters cannot
+    /// be passed correctly.
     // TODO: Remove this, once rust-lang/rust#57775 is resolved:
     //       https://github.com/rust-lang/rust/issues/57775
-    fn substitute_generic_types_trivially(
-        generics: &syn::Generics,
-    ) -> TokenStream {
-        let ty = generics.type_params().map(|p| {
+    fn shadow_generics_trivially(generics: &syn::Generics) -> TokenStream {
+        let shadow_ty = generics.type_params().map(|p| {
             let ident = &p.ident;
+
             quote! { type #ident = (); }
         });
 
-        quote! { #( #ty )* }
+        quote! { #( #shadow_ty )* }
     }
 
     /// Generates code of an [`Event`] trait implementation, by simply matching
@@ -270,31 +271,28 @@ impl Definition {
         }
     }
 
-    /// Generates code to derive [`event::reflect::Name`].
+    #[cfg(feature = "reflect")]
+    /// Generates code of an [`event::reflect::Static`] trait implementation.
     #[must_use]
-    pub fn impl_name_reflection(&self) -> TokenStream {
+    pub fn impl_reflect_static(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
         let var_ty = self.variants.iter().map(|f| &f.ty);
 
-        let subst_gen_types =
-            Self::substitute_generic_types_trivially(&self.generics);
+        let subst_gen_types = Self::shadow_generics_trivially(&self.generics);
 
         quote! {
             #[automatically_derived]
-            #[doc(hidden)]
-            impl #impl_gens ::arcane::es::event::reflect::Name for #ty #ty_gens
-                #where_clause
+            impl #impl_gens ::arcane::es::event::reflect::Static
+             for #ty #ty_gens #where_clause
             {
-                #[doc(hidden)]
                 const NAMES: &'static [::arcane::es::event::Name] = {
                     #subst_gen_types
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::Name,
                         #(
-                            <#var_ty
-                             as ::arcane::es::event::reflect::Name>::NAMES
+                            <#var_ty as ::arcane::es::event::reflect::Static>
+                                ::NAMES
                         ),*
                     )
                 };
@@ -302,9 +300,10 @@ impl Definition {
         }
     }
 
-    /// Generates code to derive [`event::reflect::Revision`].
+    #[cfg(feature = "reflect")]
+    /// Generates code of an [`event::reflect::Concrete`] trait implementation.
     #[must_use]
-    pub fn impl_revision_reflection(&self) -> TokenStream {
+    pub fn impl_reflect_concrete(&self) -> TokenStream {
         if !self.is_revisable {
             return TokenStream::new();
         }
@@ -314,28 +313,22 @@ impl Definition {
 
         let var_ty = self.variants.iter().map(|f| &f.ty);
 
-        let subst_gen_types =
-            Self::substitute_generic_types_trivially(&self.generics);
+        let subst_gen_types = Self::shadow_generics_trivially(&self.generics);
 
         quote! {
             #[automatically_derived]
-            #[doc(hidden)]
-            impl #impl_gens ::arcane::es::event::reflect::Revision
-                 for #ty #ty_gens #where_clause
+            impl #impl_gens ::arcane::es::event::reflect::Concrete
+             for #ty #ty_gens #where_clause
             {
                 // TODO: Replace with `::arcane::es::event::RevisionOf<Self>`
                 //       once rust-lang/rust#57775 is resolved:
                 //       https://github.com/rust-lang/rust/issues/57775
-                #[doc(hidden)]
                 const REVISIONS: &'static [::arcane::es::event::Version] = {
                     #subst_gen_types
                     ::arcane::es::event::codegen::const_concat_slices!(
-                        ::arcane::es::event::Version,
                         #(
-                            <
-                                #var_ty
-                                as ::arcane::es::event::reflect::Revision
-                            >::REVISIONS
+                            <#var_ty as ::arcane::es::event::reflect::Concrete>
+                                ::REVISIONS
                         ),*
                     )
                 };
@@ -343,13 +336,11 @@ impl Definition {
         }
     }
 
-    /// Generates non-public machinery code used to statically check that all
+    /// Generates non-public machinery code used to statically check whether all
     /// the [`Event::name`][0]s and [`event::Revisable::revision`]s pairs
-    /// are corresponding to a single Rust type.
-    ///
-    /// [0]: event::Event::name
+    /// correspond to a single Rust type.
     #[must_use]
-    pub fn gen_uniqueness_check(&self) -> TokenStream {
+    pub fn gen_uniqueness_assertion(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
@@ -359,22 +350,20 @@ impl Definition {
         //       instead of type params substitution, once rust-lang/rust#57775
         //       is resolved: https://github.com/rust-lang/rust/issues/57775
         let ty_subst_gens = Self::substitute_generics_trivially(&self.generics);
-        let subst_gen_types =
-            Self::substitute_generic_types_trivially(&self.generics);
+        let subst_gen_types = Self::shadow_generics_trivially(&self.generics);
 
-        let mod_codegen = quote! { ::arcane::es::event::codegen };
+        let codegen = quote! { ::arcane::es::event::codegen };
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens #mod_codegen ::Meta for #ty #ty_gens #where_clause {
+            impl #impl_gens #codegen ::Reflect for #ty #ty_gens #where_clause {
                 #[doc(hidden)]
                 const META: &'static [
                     (&'static str, &'static str, &'static str)
                 ] = {
                     #subst_gen_types
-                    #mod_codegen ::const_concat_slices!(
-                        (&'static str, &'static str, &'static str),
-                        #( <#var_ty as #mod_codegen ::Meta>::META ),*
+                    #codegen ::const_concat_slices!(
+                        #( <#var_ty as #codegen ::Reflect>::META ),*
                     )
                 };
             }
@@ -382,9 +371,8 @@ impl Definition {
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !#mod_codegen
-                    ::has_different_types_with_same_name_and_revision::<
-                        #ty #ty_subst_gens>(),
+                !#codegen ::has_different_types_with_same_name_and_revision
+                          ::<#ty #ty_subst_gens>(),
                 "having different `Event` types with the same name \
                  and revision inside a single enum is forbidden",
             );
@@ -758,12 +746,12 @@ mod spec {
             impl<'a, F, C> ::arcane::es::event::Revisable for Event<'a, F, C>
             where
                 FileEvent<'a, F>: ::arcane::es::event::Revisable,
-                ::arcane::es::event::RevisionOf< FileEvent <'a, F> >: From<
-                    ::arcane::es::event::RevisionOf< FileEvent <'a, F> >
+                ::arcane::es::event::RevisionOf<FileEvent<'a, F> >: From<
+                    ::arcane::es::event::RevisionOf<FileEvent<'a, F> >
                 >,
                 ChatEvent<'a, C>: ::arcane::es::event::Revisable,
-                ::arcane::es::event::RevisionOf< FileEvent <'a, F> >: From<
-                    ::arcane::es::event::RevisionOf< ChatEvent<'a, C> >
+                ::arcane::es::event::RevisionOf<FileEvent<'a, F> >: From<
+                    ::arcane::es::event::RevisionOf<ChatEvent<'a, C> >
                 >
             {
                 type Revision = ::arcane::es::event::RevisionOf<

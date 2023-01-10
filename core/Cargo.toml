@@ -19,7 +19,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 codegen = ["dep:sealed"] # only enables codegen glue
-es = ["dep:derive_more"]
+es = ["dep:derive_more"] # enables event sourcing machinery
+reflect = []             # enables compile-time reflection capabilities
 
 [dependencies]
 derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false, optional = true }

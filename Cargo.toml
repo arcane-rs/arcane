@@ -18,9 +18,10 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-doc = ["arcane-codegen?/doc"] # only for generating documentation
+doc = ["arcane-codegen?/doc"]      # only for generating documentation
 derive = ["arcane-codegen", "arcane-core/codegen"]
-es = ["arcane-core/es"]
+es = ["arcane-core/es"]            # enables event sourcing machinery
+reflect = ["arcane-codegen?/reflect", "arcane-core/reflect"]  # enables compile-time reflection capabilities
 
 [dependencies]
 arcane-core = { version = "0.1.0-dev", path = "./core" }
@@ -28,7 +29,7 @@ arcane-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
 
 [[example]]
 name = "event"
-required-features = ["derive", "es"]
+required-features = ["derive", "es", "reflect"]
 
 [workspace]
 members = ["codegen", "codegen/impl", "codegen/shim", "core"]

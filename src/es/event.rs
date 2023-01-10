@@ -12,8 +12,6 @@ pub use arcane_codegen::es::event::Event;
 #[cfg(feature = "derive")]
 #[doc(hidden)]
 pub mod codegen {
-    //! Not a public API.
-
     #[doc(inline)]
     pub use arcane_core::es::event::codegen::*;
 

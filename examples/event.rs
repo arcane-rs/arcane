@@ -58,7 +58,7 @@ impl Initialized<MessagePosted> for Message {
 
 fn assert_names<E>(expected: &[Name])
 where
-    E: reflect::Name,
+    E: reflect::Static,
 {
     assert_eq!(E::NAMES.len(), expected.len());
 
@@ -69,7 +69,7 @@ where
 
 fn assert_revisions<E>(expected: &[Version])
 where
-    E: reflect::Revision<Revision = Version>,
+    E: reflect::Concrete<Revision = Version>,
 {
     assert_eq!(E::REVISIONS.len(), expected.len());
 

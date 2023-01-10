@@ -22,6 +22,7 @@ proc-macro = true
 
 [features]
 doc = ["arcane-codegen-impl/doc", "dep:arcane-core"] # only for generating documentation
+reflect = ["arcane-codegen-impl/reflect"]            # enables generating compile-time reflection capabilities
 
 [dependencies]
 arcane-codegen-impl = { version = "0.1.0-dev", path = "../impl" }

@@ -19,6 +19,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 doc = ["arcane-codegen-shim/doc", "dep:arcane-core"] # only for generating documentation
+reflect = ["arcane-codegen-shim/reflect"]            # enables generating compile-time reflection capabilities
 
 [dependencies]
 arcane-codegen-shim = { version = "0.1.0-dev", path = "./shim" }
