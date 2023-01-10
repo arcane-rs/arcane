@@ -116,12 +116,15 @@ use arcane as _;
 // Only for generating documentation.
 #[cfg(feature = "doc")]
 use arcane_core as _;
-#[cfg(doc)]
+#[cfg(all(doc, feature = "es"))]
 use arcane_core::es::event;
 
+#[cfg(feature = "es")]
 use arcane_codegen_impl as codegen;
+#[cfg(feature = "es")]
 use proc_macro::TokenStream;
 
+#[cfg(feature = "es")]
 /// Macro for deriving the [`Event`] trait on structs and enums.
 ///
 /// # Enums

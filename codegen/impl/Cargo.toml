@@ -18,14 +18,19 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-doc = ["dep:arcane-core"]          # only for generating documentation
-reflect = ["arcane-core?/reflect"] # enables generating compile-time reflection capabilities
+# Enables generating event sourcing machinery.
+es = ["dep:proc-macro2", "dep:quote", "dep:syn", "dep:synthez", "arcane-core?/es"]
+# Enables generating compile-time reflection capabilities.
+reflect = ["arcane-core?/reflect"]
+
+# Only for generating documentation.
+doc = ["dep:arcane-core"]
 
 [dependencies]
-proc-macro2 = { version = "1.0.4", default-features = false }
-quote = { version = "1.0.9", default-features = false }
-syn = { version = "1.0.72", features = ["derive", "extra-traits", "parsing", "printing"], default-features = false }
-synthez = { version = "0.2", default-features = false }
+proc-macro2 = { version = "1.0.4", default-features = false, optional = true }
+quote = { version = "1.0.9", default-features = false, optional = true }
+syn = { version = "1.0.72", features = ["derive", "extra-traits", "parsing", "printing"], default-features = false, optional = true }
+synthez = { version = "0.2", default-features = false, optional = true }
 
 # `doc` feature dependencies
-arcane-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }
+arcane-core = { version = "0.1.0-dev", path = "../../core", optional = true }

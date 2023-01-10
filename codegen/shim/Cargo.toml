@@ -21,15 +21,20 @@ rustdoc-args = ["--cfg", "docsrs"]
 proc-macro = true
 
 [features]
-doc = ["arcane-codegen-impl/doc", "dep:arcane-core"] # only for generating documentation
-reflect = ["arcane-codegen-impl/reflect"]            # enables generating compile-time reflection capabilities
+# Enables generating event sourcing machinery.
+es = ["dep:syn", "arcane-codegen-impl/es", "arcane-core?/es"]
+# Enables generating compile-time reflection capabilities.
+reflect = ["arcane-codegen-impl?/reflect"]
+
+# Only for generating documentation.
+doc = ["dep:arcane-core", "arcane-codegen-impl?/doc"]
 
 [dependencies]
-arcane-codegen-impl = { version = "0.1.0-dev", path = "../impl" }
-syn = { version = "1.0.72", features = ["proc-macro"], default-features = false }
+arcane-codegen-impl = { version = "0.1.0-dev", path = "../impl", optional = true }
+syn = { version = "1.0.72", features = ["proc-macro"], default-features = false, optional = true }
 
-# `doc` feature
-arcane-core = { version = "0.1.0-dev", path = "../../core", features = ["es"], optional = true }
+# `doc` feature dependencies
+arcane-core = { version = "0.1.0-dev", path = "../../core", optional = true }
 
 [dev-dependencies]
-arcane = { path = "../..", features = ["derive", "es"] }
+arcane = { path = "../..", features = ["derive", "es", "reflect"] }

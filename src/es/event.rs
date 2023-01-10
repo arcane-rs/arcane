@@ -13,8 +13,10 @@ pub use arcane_codegen::es::event::Event;
 #[doc(hidden)]
 pub mod codegen {
     #[doc(inline)]
-    pub use arcane_core::es::event::codegen::*;
+    pub use arcane_codegen::es::event::{
+        concat_slices, has_different_types_with_same_name_and_revision, Reflect,
+    };
 
     #[doc(inline)]
-    pub use arcane_core::const_concat_slices;
+    pub use arcane_codegen::const_concat_slices;
 }
