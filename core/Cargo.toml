@@ -6,6 +6,7 @@ rust-version = "1.60"
 description = "Core abstractions and implementations of `arcane` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
+    "Mikhail Bashilov <m.bashilov.srg@gmail.com>",
     "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcane-core"
@@ -18,8 +19,10 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-codegen = ["dep:sealed"] # only enables codegen glue
-es = ["dep:derive_more"]
+# Enables event sourcing machinery.
+es = ["dep:derive_more", "dep:sealed"]
+# Enables compile-time reflection capabilities.
+reflect = []
 
 [dependencies]
 derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false, optional = true }
@@ -27,4 +30,4 @@ ref-cast = "1.0"
 sealed = { version = "0.4", optional = true }
 
 [dev-dependencies]
-arcane = { version = "0.1.0-dev", path = "..", features = ["derive", "es"] }
+arcane = { version = "0.1.0-dev", path = "..", features = ["derive", "es", "reflect"] }

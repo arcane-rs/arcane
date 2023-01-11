@@ -55,13 +55,20 @@ jobs:
       matrix:
         include:
           - { features: "<none>", crate: "arcane-core" }
-          - { features: "codegen", crate: "arcane-core" }
           - { features: "es", crate: "arcane-core" }
-          - { features: "es,codegen", crate: "arcane-core" }
+          - { features: "reflect", crate: "arcane-core" }
+          - { features: "es,reflect", crate: "arcane-core" }
+          - { features: "<none>", crate: "arcane-codegen" }
+          - { features: "es", crate: "arcane-codegen" }
+          - { features: "reflect", crate: "arcane-codegen" }
+          - { features: "es,reflect", crate: "arcane-codegen" }
           - { features: "<none>", crate: "arcane" }
           - { features: "derive", crate: "arcane" }
           - { features: "es", crate: "arcane" }
-          - { features: "es,derive", crate: "arcane" }
+          - { features: "reflect", crate: "arcane" }
+          - { features: "derive,es", crate: "arcane" }
+          - { features: "derive,reflect", crate: "arcane" }
+          - { features: "derive,es,reflect", crate: "arcane" }
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -74,7 +81,7 @@ jobs:
 
       - run: cargo +nightly update -Z minimal-versions
 
-      - run: cargo check -p ${{ matrix.crate }} --no-default-features
+      - run: cargo test -p ${{ matrix.crate }} --no-default-features
                    ${{ (matrix.features != '<none>'
                         && format('--features {0}', matrix.features))
                     ||     '' }}

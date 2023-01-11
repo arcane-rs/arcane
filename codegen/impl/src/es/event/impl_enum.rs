@@ -5,7 +5,7 @@ use quote::quote;
 use syn::{parse_quote, spanned::Spanned as _};
 use synthez::{ParseAttrs, ToTokens};
 
-#[cfg(doc)]
+#[cfg(all(doc, feature = "doc"))]
 use arcane_core::es::{event, Event};
 
 /// Attributes of the `#[derive(Event)]` macro placed on an enum.
@@ -23,8 +23,12 @@ pub struct Attrs {
     impl_event,
     impl_event_revisable,
     impl_event_sourced,
-    gen_uniqueness_glue_code
+    gen_uniqueness_assertion
 ))]
+#[cfg_attr(
+    feature = "reflect",
+    to_tokens(append(impl_reflect_static, impl_reflect_concrete))
+)]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
@@ -81,7 +85,7 @@ impl TryFrom<syn::DeriveInput> for Definition {
 }
 
 impl Definition {
-    /// Substitutes the given [`syn::Generics`] with trivial types.
+    /// Substitutes the provided [`syn::Generics`] with trivial types.
     ///
     /// - [`syn::Lifetime`] -> `'static`;
     /// - [`syn::Type`] -> `()`.
@@ -97,6 +101,21 @@ impl Definition {
         });
 
         quote! { < #( #generics ),* > }
+    }
+
+    /// Shadows the provided [`syn::Generics`] with `type T = ();` aliases.
+    /// This required for `const` contexts, where generic type parameters cannot
+    /// be passed correctly.
+    // TODO: Remove this, once rust-lang/rust#57775 is resolved:
+    //       https://github.com/rust-lang/rust/issues/57775
+    fn shadow_generics_trivially(generics: &syn::Generics) -> TokenStream {
+        let shadow_ty = generics.type_params().map(|p| {
+            let ident = &p.ident;
+
+            quote! { type #ident = (); }
+        });
+
+        quote! { #( #shadow_ty )* }
     }
 
     /// Generates code of an [`Event`] trait implementation, by simply matching
@@ -240,7 +259,7 @@ impl Definition {
         quote! {
             #[automatically_derived]
             impl #impl_gens ::arcane::es::event::Sourced<#ty #ty_gens>
-                for Option<__S> #where_clause
+             for Option<__S> #where_clause
             {
                 fn apply(&mut self, event: &#ty #ty_gens) {
                     match event {
@@ -252,74 +271,110 @@ impl Definition {
         }
     }
 
-    /// Generates hidden machinery code used to statically check that all the
-    /// [`Event::name`]s (and [`event::Revisable::revision`]s, optionally) pairs
-    /// are corresponding to a single Rust type.
-    ///
-    /// # Panics
-    ///
-    /// If some enum [`Variant`]s don't have exactly 1 [`Field`] and not marked
-    /// with `#[event(ignored)]` attribute (which is checked by [`TryFrom`] impl
-    /// of this [`Definition`]).
-    ///
-    /// [`Field`]: syn::Field
+    #[cfg(feature = "reflect")]
+    /// Generates code of an [`event::reflect::Static`] trait implementation.
     #[must_use]
-    pub fn gen_uniqueness_glue_code(&self) -> TokenStream {
+    pub fn impl_reflect_static(&self) -> TokenStream {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let var_ty = self.variants.iter().map(|v| &v.ty).collect::<Vec<_>>();
+        let var_ty = self.variants.iter().map(|f| &f.ty);
 
-        // TODO: Use `Self::__arcane_events()` inside impl instead of type
-        //       params substitution, once rust-lang/rust#57775 is resolved:
-        //       https://github.com/rust-lang/rust/issues/57775
+        let subst_gen_types = Self::shadow_generics_trivially(&self.generics);
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_gens ::arcane::es::event::reflect::Static
+             for #ty #ty_gens #where_clause
+            {
+                const NAMES: &'static [::arcane::es::event::Name] = {
+                    #subst_gen_types
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        #(
+                            <#var_ty as ::arcane::es::event::reflect::Static>
+                                ::NAMES,
+                        )*
+                    )
+                };
+            }
+        }
+    }
+
+    #[cfg(feature = "reflect")]
+    /// Generates code of an [`event::reflect::Concrete`] trait implementation.
+    #[must_use]
+    pub fn impl_reflect_concrete(&self) -> TokenStream {
+        if !self.is_revisable {
+            return TokenStream::new();
+        }
+
+        let ty = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
+
+        let var_ty = self.variants.iter().map(|f| &f.ty);
+
+        let subst_gen_types = Self::shadow_generics_trivially(&self.generics);
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_gens ::arcane::es::event::reflect::Concrete
+             for #ty #ty_gens #where_clause
+            {
+                // TODO: Replace with `::arcane::es::event::RevisionOf<Self>`
+                //       once rust-lang/rust#57775 is resolved:
+                //       https://github.com/rust-lang/rust/issues/57775
+                const REVISIONS: &'static [::arcane::es::event::Version] = {
+                    #subst_gen_types
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        #(
+                            <#var_ty as ::arcane::es::event::reflect::Concrete>
+                                ::REVISIONS,
+                        )*
+                    )
+                };
+            }
+        }
+    }
+
+    /// Generates non-public machinery code used to statically check whether all
+    /// the [`Event::name`][0]s and [`event::Revisable::revision`]s pairs
+    /// correspond to a single Rust type.
+    ///
+    /// [0]: event::Event::name
+    #[must_use]
+    pub fn gen_uniqueness_assertion(&self) -> TokenStream {
+        let ty = &self.ident;
+        let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
+
+        let var_ty = self.variants.iter().map(|f| &f.ty);
+
+        // TODO: Use `has_different_types_with_same_name_and_ver` inside impl
+        //       instead of type params substitution, once rust-lang/rust#57775
+        //       is resolved: https://github.com/rust-lang/rust/issues/57775
         let ty_subst_gens = Self::substitute_generics_trivially(&self.generics);
+        let subst_gen_types = Self::shadow_generics_trivially(&self.generics);
 
-        let glue = quote! { ::arcane::es::event::codegen };
+        let codegen = quote! { ::arcane::es::event::codegen };
         quote! {
             #[automatically_derived]
             #[doc(hidden)]
-            impl #impl_gens #glue::Reflect for #ty #ty_gens
-                 #where_clause
-            {
+            impl #impl_gens #codegen ::Reflect for #ty #ty_gens #where_clause {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    #( <#var_ty as #glue::Reflect>::COUNT )+*;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl #ty #ty_gens {
-                #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, &'static str);
-                    <Self as #glue::Reflect>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", ""); <Self as #glue::Reflect>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    #({
-                        let events = <#var_ty>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    })*
-
-                    res
-                }
+                const META: &'static [
+                    (&'static str, &'static str, &'static str)
+                ] = {
+                    #subst_gen_types
+                    #codegen ::const_concat_slices!(
+                        #( <#var_ty as #codegen ::Reflect>::META, )*
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !#glue::has_different_types_with_same_name_and_revision(
-                    #ty::#ty_subst_gens::__arcane_events(),
-                ),
+                !#codegen ::has_different_types_with_same_name_and_revision
+                          ::<#ty #ty_subst_gens>(),
                 "having different `Event` types with the same name \
                  and revision inside a single enum is forbidden",
             );
@@ -449,7 +504,7 @@ mod spec {
             }
         };
 
-        let output = quote! {
+        let mut output = quote! {
             #[automatically_derived]
             impl ::arcane::es::Event for Event {
                 fn name(&self) -> ::arcane::es::event::Name {
@@ -488,61 +543,43 @@ mod spec {
             #[doc(hidden)]
             impl ::arcane::es::event::codegen::Reflect for Event {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    <FileEvent
-                     as ::arcane::es::event::codegen::Reflect>::COUNT +
-                    <ChatEvent
-                     as ::arcane::es::event::codegen::Reflect>::COUNT;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl Event {
-                #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, &'static str);
-                    <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", "");
-                        <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    {
-                        let events = <FileEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-                    {
-                        let events = <ChatEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-
-                    res
-                }
+                const META: &'static [
+                    (&'static str, &'static str, &'static str)
+                ] = {
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        <FileEvent
+                         as ::arcane::es::event::codegen::Reflect>::META,
+                        <ChatEvent
+                         as ::arcane::es::event::codegen::Reflect>::META,
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_revision(
-                        Event::<>::__arcane_events(),
-                    ),
+                !::arcane::es::event::codegen
+                 ::has_different_types_with_same_name_and_revision
+                 ::<Event<> >(),
                 "having different `Event` types with the same name \
                  and revision inside a single enum is forbidden",
             );
         };
+        if cfg!(feature = "reflect") {
+            output.extend([quote! {
+                #[automatically_derived]
+                impl ::arcane::es::event::reflect::Static for Event {
+                    const NAMES: &'static [::arcane::es::event::Name] = {
+                        ::arcane::es::event::codegen::const_concat_slices!(
+                            <FileEvent
+                             as ::arcane::es::event::reflect::Static>::NAMES,
+                            <ChatEvent
+                             as ::arcane::es::event::reflect::Static>::NAMES,
+                        )
+                    };
+                }
+            }]);
+        }
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
@@ -559,7 +596,7 @@ mod spec {
             }
         };
 
-        let output = quote! {
+        let mut output = quote! {
             #[automatically_derived]
             impl ::arcane::es::Event for Event {
                 fn name(&self) -> ::arcane::es::event::Name {
@@ -624,61 +661,55 @@ mod spec {
             #[doc(hidden)]
             impl ::arcane::es::event::codegen::Reflect for Event {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    <FileEvent
-                     as ::arcane::es::event::codegen::Reflect>::COUNT +
-                    <ChatEvent
-                     as ::arcane::es::event::codegen::Reflect>::COUNT;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl Event {
-                #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, &'static str);
-                    <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", "");
-                        <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    {
-                        let events = <FileEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-                    {
-                        let events = <ChatEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-
-                    res
-                }
+                const META: &'static [
+                    (&'static str, &'static str, &'static str)
+                ] = {
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        <FileEvent
+                         as ::arcane::es::event::codegen::Reflect>::META,
+                        <ChatEvent
+                         as ::arcane::es::event::codegen::Reflect>::META,
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_revision(
-                        Event::<>::__arcane_events(),
-                    ),
+                !::arcane::es::event::codegen
+                 ::has_different_types_with_same_name_and_revision
+                 ::<Event<> >(),
                 "having different `Event` types with the same name \
                  and revision inside a single enum is forbidden",
             );
         };
+        if cfg!(feature = "reflect") {
+            output.extend([quote! {
+                #[automatically_derived]
+                impl ::arcane::es::event::reflect::Static for Event {
+                    const NAMES: &'static [::arcane::es::event::Name] = {
+                        ::arcane::es::event::codegen::const_concat_slices!(
+                            <FileEvent
+                             as ::arcane::es::event::reflect::Static>::NAMES,
+                            <ChatEvent
+                             as ::arcane::es::event::reflect::Static>::NAMES,
+                        )
+                    };
+                }
+
+                #[automatically_derived]
+                impl ::arcane::es::event::reflect::Concrete for Event {
+                    const REVISIONS: &'static [::arcane::es::event::Version] = {
+                        ::arcane::es::event::codegen::const_concat_slices!(
+                            <FileEvent as
+                             ::arcane::es::event::reflect::Concrete>::REVISIONS,
+                            <ChatEvent as
+                             ::arcane::es::event::reflect::Concrete>::REVISIONS,
+                        )
+                    };
+                }
+            }]);
+        }
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
@@ -695,7 +726,7 @@ mod spec {
             }
         };
 
-        let output = quote! {
+        let mut output = quote! {
             #[automatically_derived]
             impl<'a, F, C> ::arcane::es::Event for Event<'a, F, C> {
                 fn name(&self) -> ::arcane::es::event::Name {
@@ -710,12 +741,12 @@ mod spec {
             impl<'a, F, C> ::arcane::es::event::Revisable for Event<'a, F, C>
             where
                 FileEvent<'a, F>: ::arcane::es::event::Revisable,
-                ::arcane::es::event::RevisionOf< FileEvent <'a, F> >: From<
-                    ::arcane::es::event::RevisionOf< FileEvent <'a, F> >
+                ::arcane::es::event::RevisionOf<FileEvent<'a, F> >: From<
+                    ::arcane::es::event::RevisionOf<FileEvent<'a, F> >
                 >,
                 ChatEvent<'a, C>: ::arcane::es::event::Revisable,
-                ::arcane::es::event::RevisionOf< FileEvent <'a, F> >: From<
-                    ::arcane::es::event::RevisionOf< ChatEvent<'a, C> >
+                ::arcane::es::event::RevisionOf<FileEvent<'a, F> >: From<
+                    ::arcane::es::event::RevisionOf<ChatEvent<'a, C> >
                 >
             {
                 type Revision = ::arcane::es::event::RevisionOf<
@@ -736,7 +767,7 @@ mod spec {
 
             #[automatically_derived]
             impl<'a, F, C, __S> ::arcane::es::event::Sourced<Event<'a, F, C> >
-                for Option<__S>
+             for Option<__S>
             where
                 Self: ::arcane::es::event::Sourced<
                           ::arcane::es::event::Initial<FileEvent<'a, F> >
@@ -762,64 +793,71 @@ mod spec {
             #[automatically_derived]
             #[doc(hidden)]
             impl<'a, F, C> ::arcane::es::event::codegen::Reflect
-                for Event<'a, F, C>
+             for Event<'a, F, C>
             {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    <FileEvent<'a, F>
-                     as ::arcane::es::event::codegen::Reflect>::COUNT +
-                    <ChatEvent<'a, C>
-                     as ::arcane::es::event::codegen::Reflect>::COUNT;
-            }
+                const META: &'static [
+                    (&'static str, &'static str, &'static str)
+                ] = {
+                    type F = ();
+                    type C = ();
 
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl Event<'a, F, C> {
-                #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, &'static str);
-                    <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", "");
-                        <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    {
-                        let events = <FileEvent<'a, F> >::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-                    {
-                        let events = <ChatEvent<'a, C> >::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-
-                    res
-                }
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        <FileEvent<'a, F>
+                         as ::arcane::es::event::codegen::Reflect>::META,
+                        <ChatEvent<'a, C>
+                         as ::arcane::es::event::codegen::Reflect>::META,
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_revision(
-                        Event::<'static, (), ()>::__arcane_events(),
-                    ),
+                !::arcane::es::event::codegen
+                 ::has_different_types_with_same_name_and_revision
+                 ::<Event<'static, (), ()> >(),
                 "having different `Event` types with the same name \
                  and revision inside a single enum is forbidden",
             );
         };
+        if cfg!(feature = "reflect") {
+            output.extend([quote! {
+                #[automatically_derived]
+                impl<'a, F, C> ::arcane::es::event::reflect::Static
+                 for Event<'a, F, C>
+                {
+                    const NAMES: &'static [::arcane::es::event::Name] = {
+                        type F = ();
+                        type C = ();
+
+                        ::arcane::es::event::codegen::const_concat_slices!(
+                            <FileEvent<'a, F>
+                             as ::arcane::es::event::reflect::Static>::NAMES,
+                            <ChatEvent<'a, C>
+                             as ::arcane::es::event::reflect::Static>::NAMES,
+                        )
+                    };
+                }
+
+                #[automatically_derived]
+                impl<'a, F, C> ::arcane::es::event::reflect::Concrete
+                 for Event<'a, F, C>
+                {
+                    const REVISIONS: &'static [::arcane::es::event::Version] = {
+                        type F = ();
+                        type C = ();
+
+                        ::arcane::es::event::codegen::const_concat_slices!(
+                            <FileEvent<'a, F> as
+                             ::arcane::es::event::reflect::Concrete>::REVISIONS,
+                            <ChatEvent<'a, C> as
+                             ::arcane::es::event::reflect::Concrete>::REVISIONS,
+                        )
+                    };
+                }
+            }]);
+        }
 
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
@@ -828,6 +866,7 @@ mod spec {
     #[test]
     fn ignores_ignored_variant() {
         let input_ignore = parse_quote! {
+            #[event(revision)]
             enum Event {
                 File(FileEvent),
                 Chat(ChatEvent),
@@ -836,6 +875,7 @@ mod spec {
             }
         };
         let input_skip = parse_quote! {
+            #[event(revision)]
             enum Event {
                 File(FileEvent),
                 Chat(ChatEvent),
@@ -844,13 +884,40 @@ mod spec {
             }
         };
 
-        let output = quote! {
+        let mut output = quote! {
             #[automatically_derived]
             impl ::arcane::es::Event for Event {
                 fn name(&self) -> ::arcane::es::event::Name {
                     match self {
                         Self::File(f) => ::arcane::es::Event::name(f),
                         Self::Chat(f) => ::arcane::es::Event::name(f),
+                        _ => unreachable!(),
+                    }
+                }
+            }
+
+            #[automatically_derived]
+            impl ::arcane::es::event::Revisable for Event
+            where
+                FileEvent: ::arcane::es::event::Revisable,
+                ::arcane::es::event::RevisionOf<FileEvent>: From<
+                    ::arcane::es::event::RevisionOf<FileEvent>
+                >,
+                ChatEvent: ::arcane::es::event::Revisable,
+                ::arcane::es::event::RevisionOf<FileEvent>: From<
+                    ::arcane::es::event::RevisionOf<ChatEvent>
+                >
+            {
+                type Revision = ::arcane::es::event::RevisionOf<FileEvent>;
+
+                fn revision(&self) -> Self::Revision {
+                    match self {
+                        Self::File(f) => Self::Revision::from(
+                            ::arcane::es::event::Revisable::revision(f)
+                        ),
+                        Self::Chat(f) => Self::Revision::from(
+                            ::arcane::es::event::Revisable::revision(f)
+                        ),
                         _ => unreachable!(),
                     }
                 }
@@ -879,61 +946,55 @@ mod spec {
             #[doc(hidden)]
             impl ::arcane::es::event::codegen::Reflect for Event {
                 #[doc(hidden)]
-                const COUNT: usize =
-                    <FileEvent
-                     as ::arcane::es::event::codegen::Reflect>::COUNT +
-                    <ChatEvent
-                     as ::arcane::es::event::codegen::Reflect>::COUNT;
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl Event {
-                #[doc(hidden)]
-                pub const fn __arcane_events() -> [
-                    (&'static str, &'static str, &'static str);
-                    <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                ] {
-                    let mut res = [
-                        ("", "", "");
-                        <Self as ::arcane::es::event::codegen::Reflect>::COUNT
-                    ];
-
-                    let mut i = 0;
-                    {
-                        let events = <FileEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-                    {
-                        let events = <ChatEvent>::__arcane_events();
-                        let mut j = 0;
-                        while j < events.len() {
-                            res[i] = events[j];
-                            j += 1;
-                            i += 1;
-                        }
-                    }
-
-                    res
-                }
+                const META: &'static [
+                    (&'static str, &'static str, &'static str)
+                ] = {
+                    ::arcane::es::event::codegen::const_concat_slices!(
+                        <FileEvent
+                         as ::arcane::es::event::codegen::Reflect>::META,
+                        <ChatEvent
+                         as ::arcane::es::event::codegen::Reflect>::META,
+                    )
+                };
             }
 
             #[automatically_derived]
             #[doc(hidden)]
             const _: () = ::std::assert!(
-                !::arcane::es::event::codegen::
-                    has_different_types_with_same_name_and_revision(
-                        Event::<>::__arcane_events(),
-                    ),
+                !::arcane::es::event::codegen
+                 ::has_different_types_with_same_name_and_revision
+                 ::<Event<> >(),
                 "having different `Event` types with the same name \
                  and revision inside a single enum is forbidden",
             );
         };
+        if cfg!(feature = "reflect") {
+            output.extend([quote! {
+                #[automatically_derived]
+                impl ::arcane::es::event::reflect::Static for Event {
+                    const NAMES: &'static [::arcane::es::event::Name] = {
+                        ::arcane::es::event::codegen::const_concat_slices!(
+                            <FileEvent
+                             as ::arcane::es::event::reflect::Static>::NAMES,
+                            <ChatEvent
+                             as ::arcane::es::event::reflect::Static>::NAMES,
+                        )
+                    };
+                }
+
+                #[automatically_derived]
+                impl ::arcane::es::event::reflect::Concrete for Event {
+                    const REVISIONS: &'static [::arcane::es::event::Version] = {
+                        ::arcane::es::event::codegen::const_concat_slices!(
+                            <FileEvent as
+                             ::arcane::es::event::reflect::Concrete>::REVISIONS,
+                            <ChatEvent as
+                             ::arcane::es::event::reflect::Concrete>::REVISIONS,
+                        )
+                    };
+                }
+            }]);
+        }
 
         let input_ignore = derive(input_ignore).unwrap().to_string();
         let input_skip = derive(input_skip).unwrap().to_string();

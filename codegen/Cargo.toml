@@ -6,6 +6,7 @@ rust-version = "1.60"
 description = "Code generation for `arcane` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
+    "Mikhail Bashilov <m.bashilov.srg@gmail.com>",
     "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcane-codegen"
@@ -18,10 +19,16 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-doc = ["arcane-codegen-shim/doc", "dep:arcane-core"] # only for generating documentation
+# Enables generating event sourcing machinery.
+es = ["arcane-codegen-shim/es", "arcane-core?/es"]
+# Enables generating compile-time reflection capabilities.
+reflect = ["arcane-codegen-shim?/reflect"]
+
+# Only for generating documentation.
+doc = ["dep:arcane-core", "arcane-codegen-shim?/doc"]
 
 [dependencies]
-arcane-codegen-shim = { version = "0.1.0-dev", path = "./shim" }
+arcane-codegen-shim = { version = "0.1.0-dev", path = "./shim", optional = true }
 
-# `doc` feature
-arcane-core = { version = "0.1.0-dev", path = "../core", features = ["es"], optional = true }
+# `doc` feature dependencies
+arcane-core = { version = "0.1.0-dev", path = "../core", optional = true }

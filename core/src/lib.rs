@@ -117,9 +117,3 @@ pub mod es;
 use arcane as _;
 
 pub use ref_cast::RefCast;
-
-#[cfg(feature = "codegen")]
-/// See [`sealed`] crate documentation.
-///
-/// [`sealed`]: https://docs.rs/sealed
-pub use sealed::sealed;

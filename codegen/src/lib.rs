@@ -110,6 +110,7 @@
     variant_size_differences
 )]
 
+#[cfg(feature = "es")]
 pub mod es;
 
 // Only for generating documentation.

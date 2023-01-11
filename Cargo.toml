@@ -6,6 +6,7 @@ rust-version = "1.60"
 description = "Opionated CQRS/ES framework with type magic."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
+    "Mikhail Bashilov <m.bashilov.srg@gmail.com>",
     "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcane-core"
@@ -18,9 +19,15 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-doc = ["arcane-codegen?/doc"] # only for generating documentation
-derive = ["arcane-codegen", "arcane-core/codegen"]
-es = ["arcane-core/es"]
+# Enables deriving code generation capabilities.
+derive = ["dep:arcane-codegen"]
+# Enables event sourcing machinery.
+es = ["arcane-codegen?/es", "arcane-core/es"]
+# Enables compile-time reflection capabilities.
+reflect = ["arcane-codegen?/reflect", "arcane-core/reflect"]
+
+# Only for generating documentation.
+doc = ["arcane-codegen?/doc"]
 
 [dependencies]
 arcane-core = { version = "0.1.0-dev", path = "./core" }
@@ -28,7 +35,7 @@ arcane-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
 
 [[example]]
 name = "event"
-required-features = ["derive", "es"]
+required-features = ["derive", "es", "reflect"]
 
 [workspace]
 members = ["codegen", "codegen/impl", "codegen/shim", "core"]
