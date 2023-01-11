@@ -18,7 +18,7 @@ All user visible changes to this project will be documented in this file. This p
     - `EventRevision`
     - `EventSourced`
     - `EventInitialised`
-    - `reflect::Name`, `reflect::Revision`
+    - `event::reflect::Static`, `event::reflect::Concrete`
   - Structs
     - `EventVersion`
     - `event::Initial` specialization wrapper

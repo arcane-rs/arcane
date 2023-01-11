@@ -6,6 +6,7 @@ rust-version = "1.60"
 description = "Core abstractions and implementations of `arcane` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
+    "Mikhail Bashilov <m.bashilov.srg@gmail.com>",
     "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcane-core"
@@ -29,4 +30,4 @@ ref-cast = "1.0"
 sealed = { version = "0.4", optional = true }
 
 [dev-dependencies]
-arcane = { version = "0.1.0-dev", path = "..", features = ["derive", "es"] }
+arcane = { version = "0.1.0-dev", path = "..", features = ["derive", "es", "reflect"] }

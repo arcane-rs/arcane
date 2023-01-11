@@ -56,40 +56,42 @@ impl Initialized<MessagePosted> for Message {
     }
 }
 
-fn assert_names<E>(expected: &[Name])
+fn assert_names<E>(expected: impl AsRef<[Name]>)
 where
     E: reflect::Static,
 {
-    assert_eq!(E::NAMES.len(), expected.len());
+    let expected = expected.as_ref();
 
+    assert_eq!(E::NAMES.len(), expected.len());
     for (actual, expected) in E::NAMES.iter().zip(expected) {
         assert_eq!(actual, expected);
     }
 }
 
-fn assert_revisions<E>(expected: &[Version])
+fn assert_revisions<E>(expected: impl AsRef<[Version]>)
 where
     E: reflect::Concrete<Revision = Version>,
 {
-    assert_eq!(E::REVISIONS.len(), expected.len());
+    let expected = expected.as_ref();
 
+    assert_eq!(E::REVISIONS.len(), expected.len());
     for (actual, expected) in E::REVISIONS.iter().zip(expected) {
         assert_eq!(actual, expected);
     }
 }
 
 fn main() {
-    assert_names::<ChatCreated>(&["chat.created"]);
-    assert_names::<MessagePosted>(&["message.posted"]);
-    assert_names::<ChatEvent>(&["chat.created", "message.posted"]);
-    assert_names::<MessageEvent>(&["message.posted"]);
-    assert_names::<AnyEvent>(&[
+    assert_names::<ChatCreated>(["chat.created"]);
+    assert_names::<MessagePosted>(["message.posted"]);
+    assert_names::<ChatEvent>(["chat.created", "message.posted"]);
+    assert_names::<MessageEvent>(["message.posted"]);
+    assert_names::<AnyEvent>([
         "chat.created",
         "message.posted",
         "message.posted",
     ]);
 
-    assert_revisions::<MessagePosted>(&[Version::try_new(1).unwrap()]);
+    assert_revisions::<MessagePosted>([Version::try_new(1).unwrap()]);
 
     let mut chat = Option::<Chat>::None;
     let mut message = Option::<Message>::None;

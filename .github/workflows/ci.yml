@@ -81,7 +81,7 @@ jobs:
 
       - run: cargo +nightly update -Z minimal-versions
 
-      - run: cargo check -p ${{ matrix.crate }} --no-default-features
+      - run: cargo test -p ${{ matrix.crate }} --no-default-features
                    ${{ (matrix.features != '<none>'
                         && format('--features {0}', matrix.features))
                     ||     '' }}

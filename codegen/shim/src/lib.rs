@@ -116,7 +116,7 @@ use arcane as _;
 // Only for generating documentation.
 #[cfg(feature = "doc")]
 use arcane_core as _;
-#[cfg(all(doc, feature = "es"))]
+#[cfg(all(doc, feature = "doc", feature = "es"))]
 use arcane_core::es::event;
 
 #[cfg(feature = "es")]
@@ -141,7 +141,7 @@ use proc_macro::TokenStream;
 /// Also, provides a blanket [`event::Sourced`] implementation for every state,
 /// which can be sourced from all the enum variants.
 ///
-/// > **WARNING:** Currently may not work with complex generics using where
+/// > **WARNING**: Currently may not work with complex generics using where
 /// >              clause because of `const` evaluation limitations. Should be
 /// >              lifted once [rust-lang/rust#57775] is resolved.
 ///
@@ -169,7 +169,7 @@ use proc_macro::TokenStream;
 /// Use this on a particular enum variant to completely ignore it in code
 /// generation.
 ///
-/// > **WARNING:** Calling [`Event::name()`] or [`event::Revisable::revision()`]
+/// > **WARNING**: Calling [`Event::name()`] or [`event::Revisable::revision()`]
 /// >              on ignored variants will result in [`unreachable!`] panic.
 ///
 /// ## Example

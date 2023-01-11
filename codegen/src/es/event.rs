@@ -1,6 +1,6 @@
 //! Code generation related to [`Event`] and its aiding [`Event`] machinery.
 
-#[cfg(doc)]
+#[cfg(all(doc, feature = "doc"))]
 use arcane_core::es::{event, ConcreteEvent, Event, StaticEvent};
 
 #[doc(inline)]
@@ -32,20 +32,25 @@ macro_rules! const_concat_slices {
 pub const fn concat_slices<T: Copy, const LEN: usize>(
     input: &[&[T]],
 ) -> [T; LEN] {
-    let (mut i, mut total_len) = (0, 0);
-    let mut first_elem = None;
-    while i < input.len() {
-        total_len += input[i].len();
-        if matches!(first_elem, None) && total_len > 0 {
-            first_elem = Some(input[i][0]);
+    let default_value = {
+        let (mut i, mut total_len) = (0, 0);
+        let mut first_elem = None;
+        while i < input.len() {
+            total_len += input[i].len();
+            if matches!(first_elem, None) && total_len > 0 {
+                first_elem = Some(input[i][0]);
+            }
+            i += 1;
         }
-        i += 1;
-    }
-    if total_len != LEN {
-        panic!("Actual slices lengths mismatches the specified `LEN` const")
-    }
-    let Some(default_value) = first_elem else {
-        panic!("Specified `LEN` const cannot be zero")
+        // TODO: Use `assert_ne!()` here, once it's allowed in `const` context.
+        #[allow(clippy::manual_assert)]
+        if total_len != LEN {
+            panic!("Actual slices lengths mismatches the specified `LEN` const")
+        }
+        let Some(val) = first_elem else {
+            panic!("Specified `LEN` const cannot be zero")
+        };
+        val
     };
 
     let mut out = [default_value; LEN];

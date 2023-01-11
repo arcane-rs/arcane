@@ -1,8 +1,11 @@
 //! [`Event`] machinery.
 
+#[cfg(feature = "reflect")]
+#[doc(inline)]
+pub use arcane_core::es::event::reflect;
 #[doc(inline)]
 pub use arcane_core::es::event::{
-    reflect, Concrete, Event, Initial, Initialized, Name, Revisable, Revision,
+    Concrete, Event, Initial, Initialized, Name, Revisable, Revision,
     RevisionOf, Sourced, Sourcing, Static, Version,
 };
 

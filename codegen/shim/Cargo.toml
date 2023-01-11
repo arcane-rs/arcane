@@ -6,6 +6,7 @@ rust-version = "1.60"
 description = "Internal proc macro shim of `arcane-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",
+    "Mikhail Bashilov <m.bashilov.srg@gmail.com>",
     "Kai Ren <tyranron@gmail.com>",
 ]
 documentation = "https://docs.rs/arcane-codegen"

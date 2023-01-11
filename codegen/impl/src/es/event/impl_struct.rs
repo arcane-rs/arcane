@@ -7,7 +7,7 @@ use quote::quote;
 use syn::spanned::Spanned as _;
 use synthez::{ParseAttrs, Required, ToTokens};
 
-#[cfg(doc)]
+#[cfg(all(doc, feature = "doc"))]
 use arcane_core::es::event;
 
 /// Attributes of `#[derive(Event)]` macro on structs.
@@ -233,7 +233,7 @@ mod spec {
             struct Event;
         };
 
-        let output = quote! {
+        let mut output = quote! {
             #[automatically_derived]
             impl ::arcane::es::event::Static for Event {
                 const NAME: ::arcane::es::event::Name = "event";
@@ -241,16 +241,7 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::reflect::Name for Event {
-                #[doc(hidden)]
-                const NAMES: &'static [::arcane::es::event::Name] = &[
-                    <Self as ::arcane::es::event::Static>::NAME
-                ];
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Meta for Event {
+            impl ::arcane::es::event::codegen::Reflect for Event {
                 #[doc(hidden)]
                 const META: &'static [
                     (&'static str, &'static str, &'static str)
@@ -263,12 +254,21 @@ mod spec {
                         ::std::column!(),
                     ),
                     <Self as ::arcane::es::event::Static>::NAME,
-                    ""
+                    "",
                 )];
             }
         };
+        if cfg!(feature = "reflect") {
+            output.extend([quote! {
+                #[automatically_derived]
+                impl ::arcane::es::event::reflect::Static for Event {
+                    const NAMES: &'static [::arcane::es::event::Name] =
+                        &[<Self as ::arcane::es::event::Static>::NAME];
+                }
+            }]);
+        }
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string(),);
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
     #[test]
@@ -278,7 +278,7 @@ mod spec {
             struct Event;
         };
 
-        let output = quote! {
+        let mut output = quote! {
             #[automatically_derived]
             impl ::arcane::es::event::Static for Event {
                 const NAME: ::arcane::es::event::Name = "event";
@@ -296,25 +296,7 @@ mod spec {
 
             #[automatically_derived]
             #[doc(hidden)]
-            impl ::arcane::es::event::reflect::Name for Event {
-                #[doc(hidden)]
-                const NAMES: &'static [::arcane::es::event::Name] = &[
-                    <Self as ::arcane::es::event::Static>::NAME
-                ];
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::arcane::es::event::reflect::Revision for Event {
-                #[doc(hidden)]
-                const REVISIONS: &'static [::arcane::es::event::Version] = &[
-                    <Self as ::arcane::es::event::Concrete>::REVISION
-                ];
-            }
-
-            #[automatically_derived]
-            #[doc(hidden)]
-            impl ::arcane::es::event::codegen::Meta for Event {
+            impl ::arcane::es::event::codegen::Reflect for Event {
                 #[doc(hidden)]
                 const META: &'static [
                     (&'static str, &'static str, &'static str)
@@ -327,12 +309,27 @@ mod spec {
                         ::std::column!(),
                     ),
                     <Self as ::arcane::es::event::Static>::NAME,
-                    "1"
+                    "1",
                 )];
             }
         };
+        if cfg!(feature = "reflect") {
+            output.extend([quote! {
+                #[automatically_derived]
+                impl ::arcane::es::event::reflect::Static for Event {
+                    const NAMES: &'static [::arcane::es::event::Name] =
+                        &[<Self as ::arcane::es::event::Static>::NAME];
+                }
 
-        assert_eq!(derive(input).unwrap().to_string(), output.to_string(),);
+                #[automatically_derived]
+                impl ::arcane::es::event::reflect::Concrete for Event {
+                    const REVISIONS: &'static [::arcane::es::event::Version] =
+                        &[<Self as ::arcane::es::event::Concrete>::REVISION];
+                }
+            }]);
+        }
+
+        assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
     #[test]
