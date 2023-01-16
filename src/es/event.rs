@@ -6,7 +6,7 @@ pub use arcane_core::es::event::reflect;
 #[doc(inline)]
 pub use arcane_core::es::event::{
     Concrete, Event, Initial, Initialized, Name, Revisable, Revision,
-    RevisionOf, Sourced, Sourcing, Static, Version,
+    RevisionOf, Sourced, Sourcing, Static, Version, Stored, FromStoredError
 };
 
 #[cfg(feature = "derive")]

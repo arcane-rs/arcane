@@ -23,6 +23,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 es = ["arcane-codegen-shim/es", "arcane-core?/es"]
 # Enables generating compile-time reflection capabilities.
 reflect = ["arcane-codegen-shim?/reflect"]
+# Enables stored events support.
+stored = ["arcane-codegen-shim?/stored"]
 
 # Only for generating documentation.
 doc = ["dep:arcane-core", "arcane-codegen-shim?/doc"]

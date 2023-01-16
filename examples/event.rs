@@ -1,12 +1,13 @@
 use arcane::es::event::{
-    reflect, Event, Initialized, Name, Revisable, Sourced, Sourcing, Version,
+    reflect, Event, Initialized, Name, Revisable, Sourced, Sourcing, Stored,
+    Version,
 };
 
 #[derive(Event)]
 #[event(name = "chat.created")]
 struct ChatCreated;
 
-#[derive(Event)]
+#[derive(Clone, Copy, Debug, Event, PartialEq)]
 #[event(name = "message.posted", rev = 1)]
 struct MessagePosted;
 
@@ -17,7 +18,7 @@ enum ChatEvent {
     MessagePosted(MessagePosted),
 }
 
-#[derive(Event)]
+#[derive(Clone, Copy, Debug, Event, PartialEq)]
 #[event(rev)]
 enum MessageEvent {
     #[event(init)]
@@ -93,10 +94,26 @@ fn main() {
 
     assert_revisions::<MessagePosted>([Version::try_new(1).unwrap()]);
 
+    let ev = MessageEvent::MessagePosted(MessagePosted);
+    let stored = Stored::<MessageEvent>::from(ev.clone());
+    assert_eq!(stored.name, ev.name());
+    assert_eq!(stored.revision, ev.revision());
+    assert_eq!(stored.event, ev);
+    let stored_ev = MessageEvent::try_from(stored).unwrap();
+    assert_eq!(stored_ev, ev);
+
+    let ev = MessagePosted;
+    let stored = Stored::<MessagePosted>::from(ev.clone());
+    assert_eq!(stored.name, ev.name());
+    assert_eq!(stored.revision, ev.revision());
+    assert_eq!(stored.event, ev);
+    let stored_ev = MessagePosted::try_from(stored).unwrap();
+    assert_eq!(stored_ev, ev);
+
     let mut chat = Option::<Chat>::None;
     let mut message = Option::<Message>::None;
 
-    let ev = ChatEvent::Created(ChatCreated.into());
+    let ev = ChatEvent::Created(ChatCreated);
     chat.apply(&ev);
     assert_eq!(ev.name(), "chat.created");
     assert_eq!(chat, Some(Chat { message_count: 0 }));
@@ -110,7 +127,7 @@ fn main() {
     chat.apply(ev);
     assert_eq!(chat, Some(Chat { message_count: 2 }));
 
-    let ev = MessageEvent::MessagePosted(MessagePosted.into());
+    let ev = MessageEvent::MessagePosted(MessagePosted);
     message.apply(&ev);
     assert_eq!(ev.name(), "message.posted");
     assert_eq!(message, Some(Message));
@@ -120,6 +137,6 @@ fn main() {
     assert_eq!(ev.name(), "chat.created");
 
     let ev =
-        AnyEvent::Message(MessageEvent::MessagePosted(MessagePosted.into()));
+        AnyEvent::Message(MessageEvent::MessagePosted(MessagePosted));
     assert_eq!(ev.name(), "message.posted");
 }

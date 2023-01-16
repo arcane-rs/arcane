@@ -29,6 +29,10 @@ pub struct Attrs {
     feature = "reflect",
     to_tokens(append(impl_reflect_static, impl_reflect_concrete))
 )]
+#[cfg_attr(
+    feature = "stored",
+    to_tokens(append(impl_stored_conversion))
+)]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
@@ -332,6 +336,68 @@ impl Definition {
                         )*
                     )
                 };
+            }
+        }
+    }
+
+    #[cfg(feature = "stored")]
+    /// Generates code allows to convert between this [`Event`]
+    /// and [`event::Stored`].
+    #[must_use]
+    pub fn impl_stored_conversion(&self) -> TokenStream {
+        if !self.is_revisable {
+            return TokenStream::new();
+        }
+
+        let ty = &self.ident;
+        let (_, ty_gens, where_clause) = self.generics.split_for_impl();
+        let generics = {
+            let mut generics = self.generics.clone();
+            generics.params.push(parse_quote! { '__stored });
+            generics
+        };
+        let (impl_gens, _, _) = generics.split_for_impl();
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_gens ::std::convert::TryFrom<::arcane::es::event::Stored<
+                '__stored,
+                #ty #ty_gens
+            >> for #ty #ty_gens
+               #where_clause
+            {
+                type Error = ::arcane::es::event::FromStoredError;
+
+                fn try_from(
+                    stored: ::arcane::es::event::Stored<'__stored, #ty #ty_gens>
+                ) -> Result<Self, ::arcane::es::event::FromStoredError> {
+                    let name: &str = stored.name.as_ref();
+
+                    <
+                        #ty #ty_gens as ::arcane::es::event::reflect::Concrete
+                    >::names_and_revisions_iter()
+                        .any(|(n, r)| n == &name && r == &stored.revision)
+                        .then_some(stored.event)
+                        .ok_or(::arcane::es::event::FromStoredError)
+                }
+            }
+
+            #[automatically_derived]
+            impl #impl_gens ::std::convert::From<#ty #ty_gens>
+             for ::arcane::es::event::Stored<'__stored, #ty #ty_gens>
+                 #where_clause
+            {
+                fn from(event: #ty #ty_gens) -> Self {
+                    Self {
+                        name: ::std::borrow::Cow::from(<
+                            #ty #ty_gens as ::arcane::es::Event
+                        >::name(&event)),
+                        revision: <
+                            #ty #ty_gens as ::arcane::es::event::Revisable
+                        >::revision(&event),
+                        event,
+                    }
+                }
             }
         }
     }

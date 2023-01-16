@@ -1,8 +1,8 @@
 //! [`Event`] machinery.
 
-use std::num::NonZeroU16;
+use std::{borrow::Cow, num::NonZeroU16};
 
-use derive_more::{Deref, DerefMut, Display, Into};
+use derive_more::{Deref, DerefMut, Display, Into, Error};
 use ref_cast::RefCast;
 use sealed::sealed;
 
@@ -260,6 +260,29 @@ where
         *self = Some(S::init(&event.0));
     }
 }
+
+#[cfg(feature = "stored")]
+/// [`Event`] that can be stored in a repository. Holds metadata separately from
+/// the [`Event`] itself.
+#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
+pub struct Stored<'a, Ev: Revisable> {
+    /// Name of the [`Event`].
+    #[serde(rename = "n")]
+    pub name: Cow<'a, str>,
+
+    /// [`Revision`] of the [`Event`].
+    #[serde(rename = "r")]
+    pub revision: Ev::Revision,
+
+    /// [`Event`] itself.
+    #[serde(rename = "data")]
+    pub event: Ev,
+}
+
+#[cfg(feature = "stored")]
+/// Error of converting [`Stored`] event to [`Event`].
+#[derive(Clone, Copy, Debug, Default, Display, Error)]
+pub struct FromStoredError;
 
 #[cfg(feature = "reflect")]
 pub mod reflect {

@@ -25,6 +25,8 @@ derive = ["dep:arcane-codegen"]
 es = ["arcane-codegen?/es", "arcane-core/es"]
 # Enables compile-time reflection capabilities.
 reflect = ["arcane-codegen?/reflect", "arcane-core/reflect"]
+# Enables stored events support.
+stored = ["arcane-codegen?/stored", "arcane-core/stored"]
 
 # Only for generating documentation.
 doc = ["arcane-codegen?/doc"]
@@ -35,7 +37,7 @@ arcane-codegen = { version = "0.1.0-dev", path = "./codegen", optional = true }
 
 [[example]]
 name = "event"
-required-features = ["derive", "es", "reflect"]
+required-features = ["derive", "es", "reflect", "stored"]
 
 [workspace]
 members = ["codegen", "codegen/impl", "codegen/shim", "core"]
