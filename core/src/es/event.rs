@@ -20,6 +20,7 @@ impl Revision for Version {}
 #[derive(
     Clone, Copy, Debug, Display, Eq, Hash, Into, Ord, PartialEq, PartialOrd,
 )]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Version(NonZeroU16);
 
 impl Version {

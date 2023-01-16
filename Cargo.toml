@@ -25,6 +25,8 @@ derive = ["dep:arcane-codegen"]
 es = ["arcane-codegen?/es", "arcane-core/es"]
 # Enables compile-time reflection capabilities.
 reflect = ["arcane-codegen?/reflect", "arcane-core/reflect"]
+# Enables `serde` support.
+serde = ["arcane-core/serde"]
 # Enables stored events support.
 stored = ["arcane-codegen?/stored", "arcane-core/stored"]
 
