@@ -1,5 +1,5 @@
 use arcane::es::event::{
-    reflect, Event, Initialized, Name, Revisable, Sourced, Sourcing, Stored,
+    reflect, Event, Initialized, Name, Revisable, Sourced, Sourcing, Raw,
     Version,
 };
 
@@ -95,20 +95,20 @@ fn main() {
     assert_revisions::<MessagePosted>([Version::try_new(1).unwrap()]);
 
     let ev = MessageEvent::MessagePosted(MessagePosted);
-    let stored = Stored::<MessageEvent>::from(ev.clone());
-    assert_eq!(stored.name, ev.name());
-    assert_eq!(stored.revision, ev.revision());
-    assert_eq!(stored.event, ev);
-    let stored_ev = MessageEvent::try_from(stored).unwrap();
-    assert_eq!(stored_ev, ev);
+    let raw = Raw::from(ev.clone());
+    assert_eq!(raw.name, ev.name());
+    assert_eq!(raw.revision, ev.revision());
+    assert_eq!(raw.event, ev);
+    let raw_ev = MessageEvent::try_from(raw).unwrap();
+    assert_eq!(raw_ev, ev);
 
     let ev = MessagePosted;
-    let stored = Stored::<MessagePosted>::from(ev.clone());
-    assert_eq!(stored.name, ev.name());
-    assert_eq!(stored.revision, ev.revision());
-    assert_eq!(stored.event, ev);
-    let stored_ev = MessagePosted::try_from(stored).unwrap();
-    assert_eq!(stored_ev, ev);
+    let raw = Raw::from(ev.clone());
+    assert_eq!(raw.name, ev.name());
+    assert_eq!(raw.revision, ev.revision());
+    assert_eq!(raw.event, ev);
+    let raw_ev = MessagePosted::try_from(raw).unwrap();
+    assert_eq!(raw_ev, ev);
 
     let mut chat = Option::<Chat>::None;
     let mut message = Option::<Message>::None;

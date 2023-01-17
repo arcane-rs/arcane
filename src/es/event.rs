@@ -3,10 +3,13 @@
 #[cfg(feature = "reflect")]
 #[doc(inline)]
 pub use arcane_core::es::event::reflect;
+#[cfg(feature = "raw")]
+#[doc(inline)]
+pub use arcane_core::es::event::raw;
 #[doc(inline)]
 pub use arcane_core::es::event::{
     Concrete, Event, Initial, Initialized, Name, Revisable, Revision,
-    RevisionOf, Sourced, Sourcing, Static, Version, Stored, FromStoredError
+    RevisionOf, Sourced, Sourcing, Static, Version, FromRawError
 };
 
 #[cfg(feature = "derive")]

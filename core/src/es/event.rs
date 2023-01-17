@@ -1,8 +1,10 @@
 //! [`Event`] machinery.
 
-use std::{borrow::Cow, num::NonZeroU16};
+use std::num::NonZeroU16;
 
-use derive_more::{Deref, DerefMut, Display, Into, Error};
+use derive_more::{Deref, DerefMut, Display, Into};
+#[cfg(feature = "raw")]
+use derive_more::Error;
 use ref_cast::RefCast;
 use sealed::sealed;
 
@@ -20,7 +22,6 @@ impl Revision for Version {}
 #[derive(
     Clone, Copy, Debug, Display, Eq, Hash, Into, Ord, PartialEq, PartialOrd,
 )]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Version(NonZeroU16);
 
 impl Version {
@@ -262,28 +263,42 @@ where
     }
 }
 
-#[cfg(feature = "stored")]
-/// [`Event`] that can be stored in a repository. Holds metadata separately from
-/// the [`Event`] itself.
-#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
-pub struct Stored<'a, Ev: Revisable> {
-    /// Name of the [`Event`].
-    #[serde(rename = "n")]
-    pub name: Cow<'a, str>,
+#[cfg(feature = "raw")]
+pub mod raw {
+    use std::borrow::Cow;
 
-    /// [`Revision`] of the [`Event`].
-    #[serde(rename = "r")]
-    pub revision: Ev::Revision,
+    pub trait Data<Ev> {
+        fn into_event(self) -> Ev;
+    }
 
-    /// [`Event`] itself.
-    #[serde(rename = "data")]
-    pub event: Ev,
+    /// Raw [`Event`] representation.
+    #[derive(Clone, Debug, Default)]
+    pub struct Event<'a, D> {
+        /// Name of the [`Event`].
+        pub name: Cow<'a, str>,
+
+        /// [`Event`] data.
+        pub data: D,
+    }
+
+    /// Raw [`event::Revisable`] representation.
+    #[derive(Clone, Debug, Default)]
+    pub struct Revisable<'a, R, D> {
+        /// Name of the [`Event`].
+        pub name: Cow<'a, str>,
+
+        /// [`Revision`] of the [`Event`].
+        pub revision: R,
+
+        /// [`Event`] data.
+        pub data: D,
+    }
 }
 
-#[cfg(feature = "stored")]
-/// Error of converting [`Stored`] event to [`Event`].
+#[cfg(feature = "raw")]
+/// Error of converting [`Raw`] event to [`Event`].
 #[derive(Clone, Copy, Debug, Default, Display, Error)]
-pub struct FromStoredError;
+pub struct FromRawError;
 
 #[cfg(feature = "reflect")]
 pub mod reflect {

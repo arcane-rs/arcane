@@ -43,8 +43,8 @@ fn can_parse_as_non_zero_u16(value: &Option<syn::LitInt>) -> syn::Result<()> {
     to_tokens(append(impl_reflect_static, impl_reflect_concrete))
 )]
 #[cfg_attr(
-    feature = "stored",
-    to_tokens(append(impl_stored_conversion))
+    feature = "raw",
+    to_tokens(append(impl_raw_conversion))
 )]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this structure's type.
@@ -171,11 +171,11 @@ impl Definition {
         }
     }
 
-    #[cfg(feature = "stored")]
+    #[cfg(feature = "raw")]
     /// Generates code allows to convert between this [`Event`]
-    /// and [`event::Stored`].
+    /// and [`event::Raw`].
     #[must_use]
-    pub fn impl_stored_conversion(&self) -> TokenStream {
+    pub fn impl_raw_conversion(&self) -> TokenStream {
         if self.event_revision.is_none() {
             return TokenStream::new();
         }
@@ -184,38 +184,38 @@ impl Definition {
         let (_, ty_gens, where_clause) = self.generics.split_for_impl();
         let generics = {
             let mut generics = self.generics.clone();
-            generics.params.push(parse_quote! { '__stored });
+            generics.params.push(parse_quote! { '__raw });
             generics
         };
         let (impl_gens, _, _) = generics.split_for_impl();
 
         quote! {
             #[automatically_derived]
-            impl #impl_gens ::std::convert::TryFrom<::arcane::es::event::Stored<
-                '__stored,
+            impl #impl_gens ::std::convert::TryFrom<::arcane::es::event::Raw<
+                '__raw,
                 #ty #ty_gens
             >> for #ty #ty_gens
                #where_clause
             {
-                type Error = ::arcane::es::event::FromStoredError;
+                type Error = ::arcane::es::event::FromRawError;
 
                 fn try_from(
-                    stored: ::arcane::es::event::Stored<'__stored, #ty #ty_gens>
-                ) -> Result<Self, ::arcane::es::event::FromStoredError> {
-                    let name: &str = stored.name.as_ref();
+                    raw: ::arcane::es::event::Raw<'__raw, #ty #ty_gens>
+                ) -> Result<Self, ::arcane::es::event::FromRawError> {
+                    let name: &str = raw.name.as_ref();
 
                     <
                         #ty #ty_gens as ::arcane::es::event::reflect::Concrete
                     >::names_and_revisions_iter()
-                        .any(|(n, r)| n == &name && r == &stored.revision)
-                        .then_some(stored.event)
-                        .ok_or(::arcane::es::event::FromStoredError)
+                        .any(|(n, r)| n == &name && r == &raw.revision)
+                        .then_some(raw.event)
+                        .ok_or(::arcane::es::event::FromRawError)
                 }
             }
 
             #[automatically_derived]
             impl #impl_gens ::std::convert::From<#ty #ty_gens>
-             for ::arcane::es::event::Stored<'__stored, #ty #ty_gens>
+             for ::arcane::es::event::Raw<'__raw, #ty #ty_gens>
                  #where_clause
             {
                 fn from(event: #ty #ty_gens) -> Self {

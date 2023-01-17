@@ -23,8 +23,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 es = ["dep:proc-macro2", "dep:quote", "dep:syn", "dep:synthez", "arcane-core?/es"]
 # Enables generating compile-time reflection capabilities.
 reflect = ["arcane-core?/reflect"]
-# Enables stored events support.
-stored = ["arcane-core?/stored"]
+# Enables raw events support.
+raw = ["arcane-core?/raw"]
 
 # Only for generating documentation.
 doc = ["dep:arcane-core"]

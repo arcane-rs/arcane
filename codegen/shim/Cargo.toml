@@ -26,8 +26,8 @@ proc-macro = true
 es = ["dep:syn", "arcane-codegen-impl/es", "arcane-core?/es"]
 # Enables generating compile-time reflection capabilities.
 reflect = ["arcane-codegen-impl?/reflect"]
-# Enables stored events support.
-stored = ["arcane-codegen-impl?/stored"]
+# Enables raw events support.
+raw = ["arcane-codegen-impl?/raw"]
 
 # Only for generating documentation.
 doc = ["dep:arcane-core", "arcane-codegen-impl?/doc"]
