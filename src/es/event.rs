@@ -5,7 +5,7 @@
 pub use arcane_core::es::event::reflect;
 #[cfg(feature = "raw")]
 #[doc(inline)]
-pub use arcane_core::es::event::raw;
+pub use arcane_core::es::event::Raw;
 #[doc(inline)]
 pub use arcane_core::es::event::{
     Concrete, Event, Initial, Initialized, Name, Revisable, Revision,

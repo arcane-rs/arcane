@@ -1,6 +1,6 @@
 //! [`Event`] machinery.
 
-use std::num::NonZeroU16;
+use std::{borrow::Cow, num::NonZeroU16};
 
 use derive_more::{Deref, DerefMut, Display, Into};
 #[cfg(feature = "raw")]
@@ -263,36 +263,17 @@ where
     }
 }
 
-#[cfg(feature = "raw")]
-pub mod raw {
-    use std::borrow::Cow;
+/// Raw [`Event`] representation.
+#[derive(Clone, Debug)]
+pub struct Raw<'name, Data, Rev = ()> {
+    /// [`Name`] of the [`Event`].
+    pub name: Cow<'name, str>,
 
-    pub trait Data<Ev> {
-        fn into_event(self) -> Ev;
-    }
+    /// [`Revision`] of the [`Event`].
+    pub revision: Rev,
 
-    /// Raw [`Event`] representation.
-    #[derive(Clone, Debug, Default)]
-    pub struct Event<'a, D> {
-        /// Name of the [`Event`].
-        pub name: Cow<'a, str>,
-
-        /// [`Event`] data.
-        pub data: D,
-    }
-
-    /// Raw [`event::Revisable`] representation.
-    #[derive(Clone, Debug, Default)]
-    pub struct Revisable<'a, R, D> {
-        /// Name of the [`Event`].
-        pub name: Cow<'a, str>,
-
-        /// [`Revision`] of the [`Event`].
-        pub revision: R,
-
-        /// [`Event`] data.
-        pub data: D,
-    }
+    /// [`Event`]'s data.
+    pub data: Data,
 }
 
 #[cfg(feature = "raw")]

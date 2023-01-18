@@ -29,10 +29,10 @@ pub struct Attrs {
     feature = "reflect",
     to_tokens(append(impl_reflect_static, impl_reflect_concrete))
 )]
-#[cfg_attr(
-    feature = "raw",
-    to_tokens(append(impl_raw_conversion))
-)]
+// #[cfg_attr(
+//     feature = "raw",
+//     to_tokens(append(impl_raw_conversion))
+// )]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
@@ -340,67 +340,67 @@ impl Definition {
         }
     }
 
-    #[cfg(feature = "raw")]
-    /// Generates code allows to convert between this [`Event`]
-    /// and [`event::Raw`].
-    #[must_use]
-    pub fn impl_raw_conversion(&self) -> TokenStream {
-        if !self.is_revisable {
-            return TokenStream::new();
-        }
-
-        let ty = &self.ident;
-        let (_, ty_gens, where_clause) = self.generics.split_for_impl();
-        let generics = {
-            let mut generics = self.generics.clone();
-            generics.params.push(parse_quote! { '__raw });
-            generics
-        };
-        let (impl_gens, _, _) = generics.split_for_impl();
-
-        quote! {
-            #[automatically_derived]
-            impl #impl_gens ::std::convert::TryFrom<::arcane::es::event::Raw<
-                '__raw,
-                #ty #ty_gens
-            >> for #ty #ty_gens
-               #where_clause
-            {
-                type Error = ::arcane::es::event::FromRawError;
-
-                fn try_from(
-                    raw: ::arcane::es::event::Raw<'__raw, #ty #ty_gens>
-                ) -> Result<Self, ::arcane::es::event::FromRawError> {
-                    let name: &str = raw.name.as_ref();
-
-                    <
-                        #ty #ty_gens as ::arcane::es::event::reflect::Concrete
-                    >::names_and_revisions_iter()
-                        .any(|(n, r)| n == &name && r == &raw.revision)
-                        .then_some(raw.event)
-                        .ok_or(::arcane::es::event::FromRawError)
-                }
-            }
-
-            #[automatically_derived]
-            impl #impl_gens ::std::convert::From<#ty #ty_gens>
-             for ::arcane::es::event::Raw<'__raw, #ty #ty_gens>
-                 #where_clause
-            {
-                fn from(event: #ty #ty_gens) -> Self {
-                    Self {
-                        name: ::std::borrow::Cow::from(<
-                            #ty #ty_gens as ::arcane::es::Event
-                        >::name(&event)),
-                        revision: <
-                            #ty #ty_gens as ::arcane::es::event::Revisable
-                        >::revision(&event),
-                        event,
-                    }
-                }
-            }
-        }
-    }
+    // #[cfg(feature = "raw")]
+    // /// Generates code allows to convert between this [`Event`]
+    // /// and [`event::Raw`].
+    // #[must_use]
+    // pub fn impl_raw_conversion(&self) -> TokenStream {
+    //     if !self.is_revisable {
+    //         return TokenStream::new();
+    //     }
+    //
+    //     let ty = &self.ident;
+    //     let (_, ty_gens, where_clause) = self.generics.split_for_impl();
+    //     let generics = {
+    //         let mut generics = self.generics.clone();
+    //         generics.params.push(parse_quote! { '__raw });
+    //         generics
+    //     };
+    //     let (impl_gens, _, _) = generics.split_for_impl();
+    //
+    //     quote! {
+    //         #[automatically_derived]
+    //         impl #impl_gens ::std::convert::TryFrom<::arcane::es::event::Raw<
+    //             '__raw,
+    //             #ty #ty_gens
+    //         >> for #ty #ty_gens
+    //            #where_clause
+    //         {
+    //             type Error = ::arcane::es::event::FromRawError;
+    //
+    //             fn try_from(
+    //                 raw: ::arcane::es::event::Raw<'__raw, #ty #ty_gens>
+    //             ) -> Result<Self, ::arcane::es::event::FromRawError> {
+    //                 let name: &str = raw.name.as_ref();
+    //
+    //                 <
+    //                     #ty #ty_gens as ::arcane::es::event::reflect::Concrete
+    //                 >::names_and_revisions_iter()
+    //                     .any(|(n, r)| n == &name && r == &raw.revision)
+    //                     .then_some(raw.event)
+    //                     .ok_or(::arcane::es::event::FromRawError)
+    //             }
+    //         }
+    //
+    //         #[automatically_derived]
+    //         impl #impl_gens ::std::convert::From<#ty #ty_gens>
+    //          for ::arcane::es::event::Raw<'__raw, #ty #ty_gens>
+    //              #where_clause
+    //         {
+    //             fn from(event: #ty #ty_gens) -> Self {
+    //                 Self {
+    //                     name: ::std::borrow::Cow::from(<
+    //                         #ty #ty_gens as ::arcane::es::Event
+    //                     >::name(&event)),
+    //                     revision: <
+    //                         #ty #ty_gens as ::arcane::es::event::Revisable
+    //                     >::revision(&event),
+    //                     event,
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     /// Generates non-public machinery code used to statically check whether all
     /// the [`Event::name`][0]s and [`event::Revisable::revision`]s pairs
