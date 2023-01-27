@@ -1,9 +1,10 @@
 arcane-codegen-impl
 ===================
 
-[![Rust docs](https://docs.rs/arcane-codegen-impl/badge.svg "Rust docs")](https://docs.rs/arcane-codegen-impl)
+[![crates.io](https://img.shields.io/crates/v/arcane-codegen-impl.svg "crates.io")](https://crates.io/crates/arcane-codegen-impl)
 [![Rust 1.65+](https://img.shields.io/badge/rustc-1.65+-lightgray.svg "Rust 1.65+")](https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html)
-[![Unsafe Forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg "Unsafe forbidden")](https://github.com/rust-secure-code/safety-dance)
+[![Unsafe Forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg "Unsafe forbidden")](https://github.com/rust-secure-code/safety-dance)  
+[![Rust docs](https://docs.rs/arcane-codegen-impl/badge.svg "Rust docs")](https://docs.rs/arcane-codegen-impl)
 
 Code generation implementation of [`arcane-codegen`] crate.
 
