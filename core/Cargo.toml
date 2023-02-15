@@ -23,11 +23,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 es = ["dep:derive_more", "dep:sealed"]
 # Enables compile-time reflection capabilities.
 reflect = []
-# Enables raw events support.
-raw = ["derive_more?/error"]
 
 [dependencies]
-derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false, optional = true }
+derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "error", "into"], default-features = false, optional = true }
 ref-cast = "1.0"
 sealed = { version = "0.4", optional = true }
 

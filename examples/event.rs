@@ -11,6 +11,21 @@ struct ChatCreated;
 #[event(name = "message.posted", rev = 1)]
 struct MessagePosted;
 
+impl TryFrom<MessageEvent> for MessagePosted {
+    type Error = ();
+
+    fn try_from(event: MessageEvent) -> Result<Self, Self::Error> {
+        Ok(match event {
+            MessageEvent::MessagePosted(posted) => posted,
+        })
+    }
+}
+
+impl From<MessagePosted> for MessageEvent {
+    fn from(event: MessagePosted) -> Self {
+        MessageEvent::MessagePosted(event)
+    }
+}
 #[derive(Event)]
 enum ChatEvent {
     #[event(init)]
@@ -18,7 +33,13 @@ enum ChatEvent {
     MessagePosted(MessagePosted),
 }
 
-#[derive(Clone, Copy, Debug, Event, PartialEq)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Event,
+    PartialEq,
+)]
 #[event(rev)]
 enum MessageEvent {
     #[event(init)]
@@ -98,17 +119,18 @@ fn main() {
     let raw = Raw::<MessagePosted, Version>::try_from(ev.clone()).unwrap();
     assert_eq!(raw.name, ev.name());
     assert_eq!(raw.revision, ev.revision());
-    assert_eq!(raw.event, ev);
+    assert_eq!(raw.data, ev);
     let raw_ev = MessagePosted::try_from(raw).unwrap();
     assert_eq!(raw_ev, ev);
 
-    // let ev = MessageEvent::MessagePosted(MessagePosted);
-    // let raw = Raw::from(ev.clone());
+    let ev = MessageEvent::MessagePosted(MessagePosted);
+    let raw = Raw::<MessageEvent, Version>::try_from(ev.clone()).unwrap();
     // assert_eq!(raw.name, ev.name());
     // assert_eq!(raw.revision, ev.revision());
-    // assert_eq!(raw.event, ev);
-    // let raw_ev = MessageEvent::try_from(raw).unwrap();
-    // assert_eq!(raw_ev, ev);
+    // assert_eq!(raw.data, ev);
+    let raw_ev: MessageEvent =
+        Raw::<MessageEvent, Version>::try_into(raw).unwrap();
+    assert_eq!(raw_ev, ev);
 
     let mut chat = Option::<Chat>::None;
     let mut message = Option::<Message>::None;

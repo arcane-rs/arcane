@@ -3,8 +3,6 @@
 use std::{borrow::Cow, num::NonZeroU16};
 
 use derive_more::{Deref, DerefMut, Display, Into};
-#[cfg(feature = "raw")]
-use derive_more::Error;
 use ref_cast::RefCast;
 use sealed::sealed;
 
@@ -276,10 +274,20 @@ pub struct Raw<'name, Data, Rev = ()> {
     pub data: Data,
 }
 
-#[cfg(feature = "raw")]
 /// Error of converting [`Raw`] event to [`Event`].
-#[derive(Clone, Copy, Debug, Default, Display, Error)]
-pub struct FromRawError;
+#[derive(
+    Clone,
+    Debug,
+)]
+pub enum FromRawError<FromDataError, Rev>
+{
+    UnknownEvent {
+        name: String,
+        revision: Rev,
+    },
+
+    FromDataError(FromDataError),
+}
 
 #[cfg(feature = "reflect")]
 pub mod reflect {

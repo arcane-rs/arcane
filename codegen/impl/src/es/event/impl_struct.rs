@@ -36,13 +36,13 @@ fn can_parse_as_non_zero_u16(value: &Option<syn::LitInt>) -> syn::Result<()> {
 #[to_tokens(append(
     impl_event_static,
     impl_event_concrete,
+    impl_raw_conversion,
     gen_uniqueness_assertion
 ))]
 #[cfg_attr(
     feature = "reflect",
-    to_tokens(append(impl_reflect_static, impl_reflect_concrete))
+    to_tokens(append(impl_reflect_static, impl_reflect_concrete,))
 )]
-#[cfg_attr(feature = "raw", to_tokens(append(impl_into_raw)))]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this structure's type.
     pub ident: syn::Ident,
@@ -168,31 +168,51 @@ impl Definition {
         }
     }
 
-    #[cfg(feature = "raw")]
     /// Generates code allows to convert between this [`Event`]
     /// and [`event::Raw`].
     #[must_use]
-    pub fn impl_into_raw(&self) -> TokenStream {
+    pub fn impl_raw_conversion(&self) -> TokenStream {
         let ty = &self.ident;
 
         let (_, ty_gens, _) = self.generics.split_for_impl();
+
         let generics = {
             let mut generics = self.generics.clone();
             generics.params.push(parse_quote! { '__raw });
             generics.params.push(parse_quote! { __Data });
+            generics
+        };
+        let (impl_gens, _, _) = generics.split_for_impl();
 
+        let into_generics = {
+            let mut generics = generics.clone();
             let where_clause = generics
                 .where_clause
                 .get_or_insert_with(|| parse_quote! { where });
             where_clause
                 .predicates
                 .push(parse_quote! { __Data: TryFrom<#ty #ty_gens> });
-
             generics
         };
-        let (impl_gens, _, where_clause) = generics.split_for_impl();
+        let (_, _, into_where_clause) = into_generics.split_for_impl();
 
-        let (revision_ty, revision_val) = self
+        let from_generics = {
+            let mut generics = self.generics.clone();
+            let where_clause = generics
+                .where_clause
+                .get_or_insert_with(|| parse_quote! { where });
+            where_clause
+                .predicates
+                .push(parse_quote! { #ty #ty_gens: TryFrom<__Data> });
+            where_clause.predicates.push(parse_quote! {
+                <#ty #ty_gens as TryFrom<__Data>>::Error:
+                    ::std::fmt::Display
+            });
+            generics
+        };
+        let (_, _, from_where_clause) = from_generics.split_for_impl();
+
+        let (revision_ty, revision_val, concrete_revision_val) = self
             .event_revision
             .is_some()
             .then(|| {
@@ -202,19 +222,25 @@ impl Definition {
                         <#ty #ty_gens
                          as ::arcane::es::event::Revisable>::revision(&event)
                     },
+                    quote! {
+                        <#ty #ty_gens
+                         as ::arcane::es::event::Concrete>::REVISION
+                    },
                 )
             })
-            .unwrap_or_else(|| (quote! { () }, quote! { () }));
+            .unwrap_or_else(|| (quote! { () }, quote! { () }, quote! { () }));
 
         quote! {
             #[automatically_derived]
             impl #impl_gens ::std::convert::TryFrom<#ty #ty_gens>
              for ::arcane::es::event::Raw<'__raw, __Data, #revision_ty>
-                 #where_clause
+                 #into_where_clause
             {
                 type Error = <__Data as TryFrom<#ty #ty_gens>>::Error;
 
-                fn try_from(event: #ty #ty_gens) -> Result<Self, Self::Error> {
+                fn try_from(event: #ty #ty_gens)
+                    -> ::std::result::Result<Self, Self::Error>
+                {
                     Ok(Self {
                         name: ::std::borrow::Cow::from(<
                             #ty #ty_gens as ::arcane::es::Event
@@ -224,6 +250,38 @@ impl Definition {
                             event
                         )?,
                     })
+                }
+            }
+
+            #[automatically_derived]
+            impl #impl_gens ::std::convert::TryFrom<
+                ::arcane::es::event::Raw<'__raw, __Data, #revision_ty>
+            > for #ty #ty_gens
+            #from_where_clause
+            {
+                type Error = ::arcane::es::event::FromRawError<
+                    <#ty #ty_gens as TryFrom<__Data>>::Error,
+                    #revision_ty
+                >;
+
+                fn try_from(
+                    raw: ::arcane::es::event::Raw<'__raw, __Data, #revision_ty>
+                ) -> ::std::result::Result<Self, Self::Error> {
+                    if raw.name
+                       != <#ty #ty_gens as ::arcane::es::event::Static>::NAME
+                       && raw.revision != #concrete_revision_val
+                    {
+                        return Err(
+                            ::arcane::es::event::FromRawError::UnknownEvent {
+                                name: raw.name.to_string(),
+                                revision: raw.revision,
+                            }
+                        );
+                    }
+
+                    <#ty #ty_gens as TryFrom<__Data>>::try_from(
+                        raw.data
+                    ).map_err(::arcane::es::event::FromRawError::FromDataError)
                 }
             }
         }

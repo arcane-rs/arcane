@@ -23,16 +23,13 @@ pub struct Attrs {
     impl_event,
     impl_event_revisable,
     impl_event_sourced,
+    impl_raw_conversion,
     gen_uniqueness_assertion
 ))]
 #[cfg_attr(
     feature = "reflect",
     to_tokens(append(impl_reflect_static, impl_reflect_concrete))
 )]
-// #[cfg_attr(
-//     feature = "raw",
-//     to_tokens(append(impl_raw_conversion))
-// )]
 pub struct Definition {
     /// [`syn::Ident`](struct@syn::Ident) of this enum's type.
     pub ident: syn::Ident,
@@ -340,67 +337,176 @@ impl Definition {
         }
     }
 
-    // #[cfg(feature = "raw")]
-    // /// Generates code allows to convert between this [`Event`]
-    // /// and [`event::Raw`].
-    // #[must_use]
-    // pub fn impl_raw_conversion(&self) -> TokenStream {
-    //     if !self.is_revisable {
-    //         return TokenStream::new();
-    //     }
-    //
-    //     let ty = &self.ident;
-    //     let (_, ty_gens, where_clause) = self.generics.split_for_impl();
-    //     let generics = {
-    //         let mut generics = self.generics.clone();
-    //         generics.params.push(parse_quote! { '__raw });
-    //         generics
-    //     };
-    //     let (impl_gens, _, _) = generics.split_for_impl();
-    //
-    //     quote! {
-    //         #[automatically_derived]
-    //         impl #impl_gens ::std::convert::TryFrom<::arcane::es::event::Raw<
-    //             '__raw,
-    //             #ty #ty_gens
-    //         >> for #ty #ty_gens
-    //            #where_clause
-    //         {
-    //             type Error = ::arcane::es::event::FromRawError;
-    //
-    //             fn try_from(
-    //                 raw: ::arcane::es::event::Raw<'__raw, #ty #ty_gens>
-    //             ) -> Result<Self, ::arcane::es::event::FromRawError> {
-    //                 let name: &str = raw.name.as_ref();
-    //
-    //                 <
-    //                     #ty #ty_gens as ::arcane::es::event::reflect::Concrete
-    //                 >::names_and_revisions_iter()
-    //                     .any(|(n, r)| n == &name && r == &raw.revision)
-    //                     .then_some(raw.event)
-    //                     .ok_or(::arcane::es::event::FromRawError)
-    //             }
-    //         }
-    //
-    //         #[automatically_derived]
-    //         impl #impl_gens ::std::convert::From<#ty #ty_gens>
-    //          for ::arcane::es::event::Raw<'__raw, #ty #ty_gens>
-    //              #where_clause
-    //         {
-    //             fn from(event: #ty #ty_gens) -> Self {
-    //                 Self {
-    //                     name: ::std::borrow::Cow::from(<
-    //                         #ty #ty_gens as ::arcane::es::Event
-    //                     >::name(&event)),
-    //                     revision: <
-    //                         #ty #ty_gens as ::arcane::es::event::Revisable
-    //                     >::revision(&event),
-    //                     event,
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    /// Generates code allows to convert between this [`Event`]
+    /// and [`event::Raw`].
+    #[must_use]
+    pub fn impl_raw_conversion(&self) -> TokenStream {
+        if !self.is_revisable {
+            return TokenStream::new();
+        }
+
+        let ty = &self.ident;
+        let first_variant = self.variants.first().map(|v| &v.ty);
+
+        let (_, ty_gens, _) = self.generics.split_for_impl();
+
+        let generics = {
+            let mut generics = self.generics.clone();
+            generics.params.push(parse_quote! { '__raw });
+            generics.params.push(parse_quote! { __Data });
+            generics
+        };
+        let (impl_gens, _, _) = generics.split_for_impl();
+
+        let into_generics = {
+            let mut generics = generics.clone();
+            let where_clause = generics
+                .where_clause
+                .get_or_insert_with(|| parse_quote! { where });
+            where_clause
+                .predicates
+                .push(parse_quote! { __Data: TryFrom<#first_variant> });
+            for v in self.variants.iter().skip(1) {
+                let var_ty = &v.ty;
+
+                where_clause.predicates.push(parse_quote! {
+                    __Data: TryFrom<
+                        #var_ty,
+                        Error = <
+                            __Data as ::std::convert::TryFrom<#first_variant>
+                        >::Error
+                    >
+                });
+            }
+            generics
+        };
+        let (_, _, into_where_clause) = into_generics.split_for_impl();
+
+        let from_generics = {
+            let mut generics = self.generics.clone();
+            let where_clause = generics
+                .where_clause
+                .get_or_insert_with(|| parse_quote! { where });
+            where_clause
+                .predicates
+                .push(parse_quote! { #first_variant: TryFrom<__Data> });
+            for v in self.variants.iter().skip(1) {
+                let var_ty = &v.ty;
+
+                where_clause.predicates.push(parse_quote! {
+                    #var_ty: TryFrom<
+                        __Data,
+                        Error = <
+                            #first_variant as ::std::convert::TryFrom<__Data>
+                        >::Error
+                    >
+                });
+            }
+            generics
+        };
+        let (_, _, from_where_clause) = from_generics.split_for_impl();
+
+        let (revision_ty, revision_val) = self
+            .is_revisable
+            .then(|| {
+                (
+                    quote! { ::arcane::es::event::RevisionOf<#ty #ty_gens> },
+                    quote! {
+                        <
+                            #ty #ty_gens as ::arcane::es::event::Revisable
+                        >::revision(&event)
+                    },
+                )
+            })
+            .unwrap_or_else(|| (quote! { () }, quote! { () }));
+
+        let into_variant_arms = self.variants.iter().map(|v| {
+            let var_ident = &v.ident;
+            let var_ty = &v.ty;
+
+            quote! {
+                #ty::#var_ident(ev) => <
+                    __Data as ::std::convert::TryFrom<#var_ty>
+                >::try_from(ev)?
+            }
+        });
+
+        let try_from_variant = self.variants.iter().map(|v| {
+            let var_ident = &v.ident;
+            let var_ty = &v.ty;
+
+            quote! {
+                for (_, var_name, var_rev) in
+                    <#var_ty as ::arcane::es::event::codegen::Reflect>::META
+                {
+                    if var_name == name && var_rev == rev {
+                        return <
+                            #var_ty as ::std::convert::TryFrom<__Data>
+                        >::try_from(raw.data)
+                            .map(Self:: #var_ident)
+                            .map_err(
+                                ::arcane::es::event::FromRawError::FromDataError
+                            );
+                    }
+                }
+            }
+        });
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_gens ::std::convert::TryFrom<#ty #ty_gens>
+             for ::arcane::es::event::Raw<'__raw, __Data, #revision_ty>
+                 #into_where_clause
+            {
+                type Error = <
+                    __Data as ::std::convert::TryFrom<#first_variant>
+                >::Error;
+
+                fn try_from(event: #ty #ty_gens)
+                    -> ::std::result::Result<Self, Self::Error>
+                {
+                    Ok(Self {
+                        name: ::std::borrow::Cow::from(<
+                            #ty #ty_gens as ::arcane::es::Event
+                        >::name(&event)),
+                        revision: #revision_val,
+                        data: match event {
+                            #( #into_variant_arms ),*
+                        },
+                    })
+                }
+            }
+
+            #[automatically_derived]
+            impl #impl_gens ::std::convert::TryFrom<
+                ::arcane::es::event::Raw<'__raw, __Data, #revision_ty>
+            > for #ty #ty_gens
+            #from_where_clause
+            {
+                type Error = ::arcane::es::event::FromRawError<
+                    <#first_variant as TryFrom<__Data>>::Error,
+                    #revision_ty
+                >;
+
+                fn try_from(
+                    raw: ::arcane::es::event::Raw<'__raw, __Data, #revision_ty>
+                ) -> ::std::result::Result<Self, Self::Error>
+                {
+                    for (_, name, rev) in
+                        <#ty #ty_gens
+                         as ::arcane::es::event::codegen::Reflect>::META
+                    {
+                        #( #try_from_variant )*
+                    }
+
+                    Err(::arcane::es::event::FromRawError::UnknownEvent {
+                        name: raw.name.to_string(),
+                        revision: raw.revision,
+                    })
+                }
+            }
+        }
+    }
 
     /// Generates non-public machinery code used to statically check whether all
     /// the [`Event::name`][0]s and [`event::Revisable::revision`]s pairs
