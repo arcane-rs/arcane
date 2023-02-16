@@ -10,7 +10,7 @@ use sealed::sealed;
 pub type Name = &'static str;
 
 /// Abstracted [`Revision`] number of an [`Event`].
-pub trait Revision: Copy {}
+pub trait Revision: Copy + ToString {}
 
 impl Revision for &str {}
 
@@ -275,17 +275,18 @@ pub struct Raw<'name, Data, Rev = ()> {
 }
 
 /// Error of converting [`Raw`] event to [`Event`].
-#[derive(
-    Clone,
-    Debug,
-)]
-pub enum FromRawError<FromDataError, Rev>
-{
+#[derive(Clone, Debug)]
+pub enum FromRawError<FromDataError, Rev> {
+    /// No [`Event`] associated `name` and `revision` pair found.
     UnknownEvent {
+        /// Name of the unknown [`Event`].
         name: String,
+
+        /// [`Revision`] of the [`Event`].
         revision: Rev,
     },
 
+    /// Failed to decode the [`event::Raw`]'s data.
     FromDataError(FromDataError),
 }
 

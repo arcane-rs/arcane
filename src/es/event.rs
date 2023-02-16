@@ -5,8 +5,8 @@
 pub use arcane_core::es::event::reflect;
 #[doc(inline)]
 pub use arcane_core::es::event::{
-    Concrete, Event, Initial, Initialized, Name, Revisable, Revision,
-    RevisionOf, Sourced, Sourcing, Static, Version, FromRawError, Raw
+    Concrete, Event, FromRawError, Initial, Initialized, Name, Raw, Revisable,
+    Revision, RevisionOf, Sourced, Sourcing, Static, Version,
 };
 
 #[cfg(feature = "derive")]

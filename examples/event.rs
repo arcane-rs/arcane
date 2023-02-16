@@ -33,13 +33,7 @@ enum ChatEvent {
     MessagePosted(MessagePosted),
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Event,
-    PartialEq,
-)]
+#[derive(Clone, Copy, Debug, Event, PartialEq)]
 #[event(rev)]
 enum MessageEvent {
     #[event(init)]
@@ -125,9 +119,9 @@ fn main() {
 
     let ev = MessageEvent::MessagePosted(MessagePosted);
     let raw = Raw::<MessageEvent, Version>::try_from(ev.clone()).unwrap();
-    // assert_eq!(raw.name, ev.name());
-    // assert_eq!(raw.revision, ev.revision());
-    // assert_eq!(raw.data, ev);
+    assert_eq!(raw.name, ev.name());
+    assert_eq!(raw.revision, ev.revision());
+    assert_eq!(raw.data, ev);
     let raw_ev: MessageEvent =
         Raw::<MessageEvent, Version>::try_into(raw).unwrap();
     assert_eq!(raw_ev, ev);
