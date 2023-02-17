@@ -286,7 +286,7 @@ pub enum FromRawError<FromDataError, Rev> {
         revision: Rev,
     },
 
-    /// Failed to decode the [`event::Raw`]'s data.
+    /// Failed to decode the [`Raw`]'s data.
     FromDataError(FromDataError),
 }
 

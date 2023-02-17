@@ -28,6 +28,7 @@ reflect = ["arcane-core?/reflect"]
 doc = ["dep:arcane-core"]
 
 [dependencies]
+itertools = { version = "0.10.5", default-features = false }
 proc-macro2 = { version = "1.0.4", default-features = false, optional = true }
 quote = { version = "1.0.9", default-features = false, optional = true }
 syn = { version = "1.0.72", features = ["derive", "extra-traits", "parsing", "printing"], default-features = false, optional = true }
