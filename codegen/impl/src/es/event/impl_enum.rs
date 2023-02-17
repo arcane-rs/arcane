@@ -283,11 +283,7 @@ impl Definition {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let var_ty = self
-            .variants
-            .iter()
-            .dedup_by(|a, b| a.ty == b.ty)
-            .map(|f| &f.ty);
+        let var_ty = self.variants.iter().map(|f| &f.ty);
 
         let subst_gen_types = Self::shadow_generics_trivially(&self.generics);
 
@@ -320,11 +316,7 @@ impl Definition {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let var_ty = self
-            .variants
-            .iter()
-            .dedup_by(|a, b| a.ty == b.ty)
-            .map(|f| &f.ty);
+        let var_ty = self.variants.iter().map(|f| &f.ty);
 
         let subst_gen_types = Self::shadow_generics_trivially(&self.generics);
 
@@ -364,6 +356,25 @@ impl Definition {
             generics.params.push(parse_quote! { '__raw });
             generics.params.push(parse_quote! { __Data });
 
+            // `dedup_by` is required here to avoid
+            // `A: TryFrom<B, Error = <A as TryFrom<B>>::Error>`
+            // recursion. It is only occurs if the same expression is in
+            // recursion and doesn't affect type aliases.
+            let try_from_variants = self
+                .variants
+                .iter()
+                .dedup_by(|a, b| a.ty == b.ty)
+                .skip(1)
+                .map(|v| {
+                    let var_ty = &v.ty;
+
+                    parse_quote! {
+                        __Data: ::std::convert::TryFrom<#var_ty, Error = <
+                            __Data as ::std::convert::TryFrom<#first_var_ty>
+                        >::Error>
+                    }
+                });
+
             let where_clause = generics
                 .where_clause
                 .get_or_insert_with(|| parse_quote! { where });
@@ -371,23 +382,7 @@ impl Definition {
                 iter::once::<syn::WherePredicate>(parse_quote! {
                     __Data: ::std::convert::TryFrom<#first_var_ty>
                 })
-                .chain(
-                    self.variants
-                        .iter()
-                        .dedup_by(|a, b| a.ty == b.ty)
-                        .skip(1)
-                        .map(|v| {
-                            let var_ty = &v.ty;
-
-                            parse_quote! {
-                                __Data: ::std::convert::TryFrom<#var_ty, Error=<
-                                    __Data as ::std::convert::TryFrom<
-                                        #first_var_ty
-                                    >
-                                >::Error>
-                            }
-                        }),
-                ),
+                .chain(try_from_variants),
             );
 
             generics
@@ -397,13 +392,15 @@ impl Definition {
         let (revision_ty, revision) = self
             .is_revisable
             .then(|| {
-                (
-                    quote! { ::arcane::es::event::RevisionOf<#ty #ty_gens> },
-                    quote! {
-                        <#ty #ty_gens
-                         as ::arcane::es::event::Revisable>::revision(&event)
-                    },
-                )
+                let revision_ty = quote! {
+                    ::arcane::es::event::RevisionOf<#ty #ty_gens>
+                };
+                let revision = quote! {
+                    <#ty #ty_gens
+                     as ::arcane::es::event::Revisable>::revision(&event)
+                };
+
+                (revision_ty, revision)
             })
             .unwrap_or_else(|| (quote! { () }, quote! { () }));
 
@@ -479,6 +476,26 @@ impl Definition {
             let mut generics = self.generics.clone();
             generics.params.push(parse_quote! { '__raw });
             generics.params.push(parse_quote! { __Data });
+
+            // `dedup_by` is required here to avoid
+            // `A: TryFrom<B, Error = <A as TryFrom<B>>::Error>`
+            // recursion. It is only occurs if the same expression is in
+            // recursion and doesn't affect type aliases.
+            let variants_try_from = self
+                .variants
+                .iter()
+                .dedup_by(|a, b| a.ty == b.ty)
+                .skip(1)
+                .map(|v| {
+                    let var_ty = &v.ty;
+
+                    parse_quote! {
+                        #var_ty: ::std::convert::TryFrom<__Data, Error = <
+                            #first_var_ty as ::std::convert::TryFrom<__Data>
+                        >::Error>
+                    }
+                });
+
             let where_clause = generics
                 .where_clause
                 .get_or_insert_with(|| parse_quote! { where });
@@ -486,28 +503,15 @@ impl Definition {
                 iter::once::<syn::WherePredicate>(parse_quote! {
                     #first_var_ty: ::std::convert::TryFrom<__Data>
                 })
-                .chain(
-                    self.variants
-                        .iter()
-                        .dedup_by(|a, b| a.ty == b.ty)
-                        .skip(1)
-                        .map(|v| {
-                            let var_ty = &v.ty;
-
-                            parse_quote! {
-                                #var_ty: ::std::convert::TryFrom<__Data, Error=<
-                                    #first_var_ty as ::std::convert::TryFrom<
-                                        __Data
-                                    >
-                                >::Error>
-                            }
-                        }),
-                ),
+                .chain(variants_try_from),
             );
+
             generics
         };
         let (impl_gens, _, where_clause) = generics.split_for_impl();
 
+        // `dedup_by` is required to improve runtime performance by avoiding
+        // double-checks of the variants guaranteed to be duplicates.
         let try_from_variant =
             self.variants.iter().dedup_by(|a, b| a.ty == b.ty).map(|v| {
                 let var_ident = &v.ident;
@@ -567,11 +571,7 @@ impl Definition {
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
 
-        let var_ty = self
-            .variants
-            .iter()
-            .dedup_by(|a, b| a.ty == b.ty)
-            .map(|f| &f.ty);
+        let var_ty = self.variants.iter().map(|f| &f.ty);
 
         // TODO: Use `has_different_types_with_same_name_and_ver` inside impl
         //       instead of type params substitution, once rust-lang/rust#57775
@@ -1023,6 +1023,8 @@ mod spec {
                     ::arcane::es::event::codegen::const_concat_slices!(
                         <FileEvent
                          as ::arcane::es::event::codegen::Reflect>::META,
+                        <FileEvent
+                         as ::arcane::es::event::codegen::Reflect>::META,
                     )
                 };
             }
@@ -1043,6 +1045,8 @@ mod spec {
                 impl ::arcane::es::event::reflect::Static for Event {
                     const NAMES: &'static [::arcane::es::event::Name] = {
                         ::arcane::es::event::codegen::const_concat_slices!(
+                            <FileEvent
+                             as ::arcane::es::event::reflect::Static>::NAMES,
                             <FileEvent
                              as ::arcane::es::event::reflect::Static>::NAMES,
                         )

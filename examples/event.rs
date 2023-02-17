@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 use arcane::es::event::{
     reflect, Event, Initialized, Name, Raw, Revisable, Sourced, Sourcing,
     Version,
@@ -11,8 +13,14 @@ struct ChatCreated;
 #[event(name = "message.posted", rev = 1)]
 struct MessagePosted;
 
+impl From<MessagePosted> for MessageEvent {
+    fn from(event: MessagePosted) -> Self {
+        MessageEvent::MessagePosted(event)
+    }
+}
+
 impl TryFrom<MessageEvent> for MessagePosted {
-    type Error = ();
+    type Error = Infallible;
 
     fn try_from(event: MessageEvent) -> Result<Self, Self::Error> {
         Ok(match event {
@@ -21,11 +29,6 @@ impl TryFrom<MessageEvent> for MessagePosted {
     }
 }
 
-impl From<MessagePosted> for MessageEvent {
-    fn from(event: MessagePosted) -> Self {
-        MessageEvent::MessagePosted(event)
-    }
-}
 #[derive(Event)]
 enum ChatEvent {
     #[event(init)]
@@ -40,10 +43,13 @@ enum MessageEvent {
     MessagePosted(MessagePosted),
 }
 
+type AnotherMessageEvent = MessageEvent;
+
 #[derive(Event)]
 enum AnyEvent {
     Chat(ChatEvent),
     Message(MessageEvent),
+    AnotherMessage(AnotherMessageEvent),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -103,6 +109,7 @@ fn main() {
     assert_names::<MessageEvent>(["message.posted"]);
     assert_names::<AnyEvent>([
         "chat.created",
+        "message.posted",
         "message.posted",
         "message.posted",
     ]);

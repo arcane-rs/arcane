@@ -183,12 +183,14 @@ impl Definition {
             let mut generics = self.generics.clone();
             generics.params.push(parse_quote! { '__raw });
             generics.params.push(parse_quote! { __Data });
+
             let where_clause = generics
                 .where_clause
                 .get_or_insert_with(|| parse_quote! { where });
             where_clause
                 .predicates
                 .push(parse_quote! { __Data: TryFrom<#ty #ty_gens> });
+
             generics
         };
         let (impl_gens, _, where_clause) = generics.split_for_impl();
@@ -197,13 +199,15 @@ impl Definition {
             .event_revision
             .is_some()
             .then(|| {
-                (
-                    quote! { ::arcane::es::event::RevisionOf<#ty #ty_gens> },
-                    quote! {
-                        <#ty #ty_gens
-                         as ::arcane::es::event::Revisable>::revision(&event)
-                    },
-                )
+                let revision_ty = quote! {
+                    ::arcane::es::event::RevisionOf<#ty #ty_gens>
+                };
+                let revision = quote! {
+                    <#ty #ty_gens
+                     as ::arcane::es::event::Revisable>::revision(&event)
+                };
+
+                (revision_ty, revision)
             })
             .unwrap_or_else(|| (quote! { () }, quote! { () }));
 
@@ -262,13 +266,15 @@ impl Definition {
             .event_revision
             .is_some()
             .then(|| {
-                (
-                    quote! { ::arcane::es::event::RevisionOf<#ty #ty_gens> },
-                    quote! {
-                        <#ty #ty_gens
-                         as ::arcane::es::event::Concrete>::REVISION
-                    },
-                )
+                let revision_ty = quote! {
+                    ::arcane::es::event::RevisionOf<#ty #ty_gens>
+                };
+                let revision = quote! {
+                    <#ty #ty_gens
+                     as ::arcane::es::event::Concrete>::REVISION
+                };
+
+                (revision_ty, revision)
             })
             .unwrap_or_else(|| (quote! { () }, quote! { () }));
 
