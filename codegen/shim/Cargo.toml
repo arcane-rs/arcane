@@ -32,7 +32,7 @@ doc = ["dep:arcane-core", "arcane-codegen-impl?/doc"]
 
 [dependencies]
 arcane-codegen-impl = { version = "0.1.0-dev", path = "../impl", optional = true }
-syn = { version = "2.0.4", features = ["proc-macro"], default-features = false, optional = true }
+syn = { version = "2.0", features = ["proc-macro"], default-features = false, optional = true }
 
 # `doc` feature dependencies
 arcane-core = { version = "0.1.0-dev", path = "../../core", optional = true }

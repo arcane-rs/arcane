@@ -30,8 +30,8 @@ doc = ["dep:arcane-core"]
 [dependencies]
 proc-macro2 = { version = "1.0.4", default-features = false, optional = true }
 quote = { version = "1.0.9", default-features = false, optional = true }
-syn = { version = "2.0.4", features = ["derive", "extra-traits", "parsing", "printing"], default-features = false, optional = true }
-synthez = { version = "0.2", default-features = false, optional = true }
+syn = { version = "2.0", features = ["derive", "extra-traits", "parsing", "printing"], default-features = false, optional = true }
+synthez = { version = "0.3", default-features = false, optional = true }
 
 # `doc` feature dependencies
 arcane-core = { version = "0.1.0-dev", path = "../../core", optional = true }
