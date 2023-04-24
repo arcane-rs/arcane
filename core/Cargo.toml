@@ -27,7 +27,7 @@ reflect = []
 [dependencies]
 derive_more = { version = "0.99", features = ["deref", "deref_mut", "display", "into"], default-features = false, optional = true }
 ref-cast = "1.0"
-sealed = { version = "0.4", optional = true }
+sealed = { version = "0.5", optional = true }
 
 [dev-dependencies]
 arcane = { version = "0.1.0-dev", path = "..", features = ["derive", "es", "reflect"] }
