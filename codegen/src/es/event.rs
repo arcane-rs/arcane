@@ -37,6 +37,9 @@ pub const fn concat_slices<T: Copy, const LEN: usize>(
         let mut first_elem = None;
         while i < input.len() {
             total_len += input[i].len();
+            // error: cannot borrow here, since the borrowed element may contain
+            //        interior mutability
+            #[allow(clippy::redundant_pattern_matching)]
             if matches!(first_elem, None) && total_len > 0 {
                 first_elem = Some(input[i][0]);
             }
