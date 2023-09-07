@@ -145,6 +145,7 @@ jobs:
 
   rustdoc:
     strategy:
+      fail-fast: false
       matrix:
         crate:
           - arcane-core

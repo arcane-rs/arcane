@@ -337,10 +337,8 @@ impl Definition {
     }
 
     /// Generates non-public machinery code used to statically check whether all
-    /// the [`Event::name`][0]s and [`event::Revisable::revision`]s pairs
+    /// the [`Event::name`]s and [`event::Revisable::revision`]s pairs
     /// correspond to a single Rust type.
-    ///
-    /// [0]: event::Event::name
     #[must_use]
     pub fn gen_uniqueness_assertion(&self) -> TokenStream {
         let ty = &self.ident;
