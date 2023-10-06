@@ -48,10 +48,10 @@ pub const fn concat_slices<T: Copy, const LEN: usize>(
         // TODO: Use `assert_ne!()` here, once it's allowed in `const` context.
         #[allow(clippy::manual_assert)]
         if total_len != LEN {
-            panic!("Actual slices lengths mismatches the specified `LEN` const")
+            panic!("actual slices lengths mismatches the specified `LEN` const")
         }
         let Some(val) = first_elem else {
-            panic!("Specified `LEN` const cannot be zero")
+            panic!("specified `LEN` const cannot be zero")
         };
         val
     };
