@@ -2,7 +2,7 @@
 name = "arcane-codegen-shim"
 version = "0.1.0-dev"
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.75"
 description = "Internal proc macro shim of `arcane-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",

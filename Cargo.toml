@@ -2,7 +2,7 @@
 name = "arcane"
 version = "0.1.0-dev"
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.75"
 description = "Opionated CQRS/ES framework with type magic."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",

@@ -265,7 +265,7 @@ where
 pub mod reflect {
     //! Compile-time reflection for [`Event`] machinery.
 
-    use std::{iter, slice};
+    use std::iter;
 
     use super::super::{event, Event};
 
@@ -322,11 +322,8 @@ pub mod reflect {
         /// [`RevisableEvent`]: event::Revisable
         /// [`StaticEvent::NAME`]: event::Static::NAME
         // TODO: Make `const` once `const fn` is allowed in traits.
-        // TODO: Use `-> impl Iterator` once RPITIT is stabilized:
-        //       https://github.com/rust-lang/rust/issues/91611
-        fn names_and_revisions_iter() -> iter::Zip<
-            slice::Iter<'static, event::Name>,
-            slice::Iter<'static, event::RevisionOf<Self>>,
+        fn names_and_revisions_iter() -> impl Iterator<
+            Item = (&'static event::Name, &'static event::RevisionOf<Self>),
         > {
             iter::zip(Self::NAMES, Self::REVISIONS)
         }
