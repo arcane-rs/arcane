@@ -1,6 +1,6 @@
 //! [`Event`] machinery.
 
-use std::num::NonZeroU16;
+use std::{borrow::Cow, num::NonZeroU16};
 
 use derive_more::{Deref, DerefMut, Display, Into};
 use ref_cast::RefCast;
@@ -10,7 +10,7 @@ use sealed::sealed;
 pub type Name = &'static str;
 
 /// Abstracted [`Revision`] number of an [`Event`].
-pub trait Revision: Copy {}
+pub trait Revision: Copy + ToString {}
 
 impl Revision for &str {}
 
@@ -259,6 +259,35 @@ where
     fn apply(&mut self, event: &Initial<Ev>) {
         *self = Some(S::init(&event.0));
     }
+}
+
+/// Raw [`Event`] representation.
+#[derive(Clone, Debug)]
+pub struct Raw<'name, Data, Rev = ()> {
+    /// [`Name`] of the [`Event`].
+    pub name: Cow<'name, str>,
+
+    /// [`Revision`] of the [`Event`].
+    pub revision: Rev,
+
+    /// [`Event`]'s data.
+    pub data: Data,
+}
+
+/// Error of converting [`Raw`] event to [`Event`].
+#[derive(Clone, Debug)]
+pub enum FromRawError<FromDataError, Rev> {
+    /// No [`Event`] associated `name` and `revision` pair found.
+    UnknownEvent {
+        /// Name of the unknown [`Event`].
+        name: String,
+
+        /// [`Revision`] of the [`Event`].
+        revision: Rev,
+    },
+
+    /// Failed to decode the [`Raw`]'s data.
+    FromDataError(FromDataError),
 }
 
 #[cfg(feature = "reflect")]
