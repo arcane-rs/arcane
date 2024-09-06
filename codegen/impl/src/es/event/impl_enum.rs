@@ -491,7 +491,7 @@ mod spec {
         Ok(Definition::try_from(input)?.into_token_stream())
     }
 
-    #[allow(clippy::too_many_lines)] // OK for macro expansion test
+    #[expect(clippy::too_many_lines, reason = "OK for macro expansion test")]
     #[test]
     fn derives_enum_impl() {
         let input = parse_quote! {
@@ -582,7 +582,7 @@ mod spec {
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
-    #[allow(clippy::too_many_lines)] // OK for macro expansion test
+    #[expect(clippy::too_many_lines, reason = "OK for macro expansion test")]
     #[test]
     fn derives_enum_impl_with_revision() {
         let input = parse_quote! {
@@ -712,7 +712,7 @@ mod spec {
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
-    #[allow(clippy::too_many_lines)] // OK for macro expansion test
+    #[expect(clippy::too_many_lines, reason = "OK for macro expansion test")]
     #[test]
     fn derives_enum_with_generics_impl() {
         let input = parse_quote! {
@@ -860,7 +860,7 @@ mod spec {
         assert_eq!(derive(input).unwrap().to_string(), output.to_string());
     }
 
-    #[allow(clippy::too_many_lines)] // OK for macro expansion test
+    #[expect(clippy::too_many_lines, reason = "OK for macro expansion test")]
     #[test]
     fn ignores_ignored_variant() {
         let input_ignore = parse_quote! {

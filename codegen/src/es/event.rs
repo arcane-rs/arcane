@@ -37,16 +37,18 @@ pub const fn concat_slices<T: Copy, const LEN: usize>(
         let mut first_elem = None;
         while i < input.len() {
             total_len += input[i].len();
-            // error: cannot borrow here, since the borrowed element may contain
-            //        interior mutability
-            #[allow(clippy::redundant_pattern_matching)] // false positive
+            #[expect( // false positive
+                clippy::redundant_pattern_matching,
+                reason = "error: cannot borrow here, since the borrowed \
+                          element may contain interior mutability",
+            )]
             if matches!(first_elem, None) && total_len > 0 {
                 first_elem = Some(input[i][0]);
             }
             i += 1;
         }
         // TODO: Use `assert_ne!()` here, once it's allowed in `const` context.
-        #[allow(clippy::manual_assert)] // const context
+        #[expect(clippy::manual_assert, reason = "const context")]
         if total_len != LEN {
             panic!("actual slices lengths mismatches the specified `LEN` const")
         }
