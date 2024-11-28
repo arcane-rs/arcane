@@ -5,7 +5,7 @@ pub mod impl_struct;
 
 use proc_macro2::TokenStream;
 use syn::spanned::Spanned as _;
-use synthez::ToTokens;
+use synthez::ToTokens as _;
 
 /// Expands `#[derive(Event)]` macro.
 ///
