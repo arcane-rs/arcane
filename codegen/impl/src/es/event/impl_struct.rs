@@ -4,7 +4,7 @@ use std::num::NonZeroU16;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::spanned::Spanned as _;
+use syn::{parse_quote, spanned::Spanned as _};
 use synthez::{ParseAttrs, Required, ToTokens};
 
 #[cfg(all(doc, feature = "doc"))]
@@ -37,6 +37,8 @@ fn can_parse_as_non_zero_u16(value: &Option<syn::LitInt>) -> syn::Result<()> {
 #[to_tokens(append(
     impl_event_static,
     impl_event_concrete,
+    impl_into_raw,
+    impl_from_raw,
     gen_uniqueness_assertion
 ))]
 #[cfg_attr(
@@ -168,6 +170,150 @@ impl Definition {
         }
     }
 
+    /// Generates code allows to convert this [`Event`] into its [`Raw`]
+    /// representation.
+    ///
+    /// [`Event`]: event::Event
+    /// [`Raw`]: event::Raw
+    #[must_use]
+    pub fn impl_into_raw(&self) -> TokenStream {
+        let ty = &self.ident;
+
+        let (_, ty_gens, _) = self.generics.split_for_impl();
+        let generics = {
+            let mut generics = self.generics.clone();
+            generics.params.push(parse_quote! { '__raw });
+            generics.params.push(parse_quote! { __Data });
+
+            let where_clause = generics
+                .where_clause
+                .get_or_insert_with(|| parse_quote! { where });
+            where_clause
+                .predicates
+                .push(parse_quote! { __Data: TryFrom<#ty #ty_gens> });
+
+            generics
+        };
+        let (impl_gens, _, where_clause) = generics.split_for_impl();
+
+        let (revision_ty, revision) = self
+            .event_revision
+            .is_some()
+            .then(|| {
+                let revision_ty = quote! {
+                    ::arcane::es::event::RevisionOf<#ty #ty_gens>
+                };
+                let revision = quote! {
+                    <#ty #ty_gens
+                     as ::arcane::es::event::Revisable>::revision(&event)
+                };
+
+                (revision_ty, revision)
+            })
+            .unwrap_or_else(|| (quote! { () }, quote! { () }));
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_gens ::std::convert::TryFrom<#ty #ty_gens>
+             for ::arcane::es::event::Raw<'__raw, __Data, #revision_ty>
+                 #where_clause
+            {
+                type Error = <__Data as TryFrom<#ty #ty_gens>>::Error;
+
+                fn try_from(event: #ty #ty_gens)
+                    -> ::std::result::Result<Self, Self::Error>
+                {
+                    Ok(Self {
+                        name: ::std::borrow::Cow::from(<
+                            #ty #ty_gens as ::arcane::es::Event
+                        >::name(&event)),
+                        revision: #revision,
+                        data: <__Data as TryFrom<#ty #ty_gens>>::try_from(
+                            event
+                        )?,
+                    })
+                }
+            }
+        }
+    }
+
+    /// Generates code allows to construct this [`Event`] from its [`Raw`]
+    /// representation.
+    ///
+    /// [`Event`]: event::Event
+    /// [`Raw`]: event::Raw
+    #[must_use]
+    pub fn impl_from_raw(&self) -> TokenStream {
+        let ty = &self.ident;
+
+        let (_, ty_gens, _) = self.generics.split_for_impl();
+        let generics = {
+            let mut generics = self.generics.clone();
+            generics.params.push(parse_quote! { '__raw });
+            generics.params.push(parse_quote! { __Data });
+
+            let where_clause = generics
+                .where_clause
+                .get_or_insert_with(|| parse_quote! { where });
+            where_clause
+                .predicates
+                .push(parse_quote! { #ty #ty_gens: TryFrom<__Data> });
+
+            generics
+        };
+        let (impl_gens, _, where_clause) = generics.split_for_impl();
+
+        let (revision_ty, revision) = self
+            .event_revision
+            .is_some()
+            .then(|| {
+                let revision_ty = quote! {
+                    ::arcane::es::event::RevisionOf<#ty #ty_gens>
+                };
+                let revision = quote! {
+                    <#ty #ty_gens
+                     as ::arcane::es::event::Concrete>::REVISION
+                };
+
+                (revision_ty, revision)
+            })
+            .unwrap_or_else(|| (quote! { () }, quote! { () }));
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_gens ::std::convert::TryFrom<
+                ::arcane::es::event::Raw<'__raw, __Data, #revision_ty>
+            > for #ty #ty_gens
+            #where_clause
+            {
+                type Error = ::arcane::es::event::FromRawError<
+                    <#ty #ty_gens as TryFrom<__Data>>::Error,
+                    #revision_ty
+                >;
+
+                fn try_from(
+                    raw: ::arcane::es::event::Raw<'__raw, __Data, #revision_ty>
+                ) -> ::std::result::Result<Self, Self::Error> {
+                    if raw.name
+                       != <#ty #ty_gens as ::arcane::es::event::Static>::NAME
+                       && raw.revision != #revision
+                    {
+                        return Err(
+                            ::arcane::es::event::FromRawError::UnknownEvent {
+                                name: raw.name.to_string(),
+                                revision: raw.revision,
+                            }
+                        );
+                    }
+
+                    <#ty #ty_gens as TryFrom<__Data>>::try_from(
+                        raw.data
+                    ).map_err(::arcane::es::event::FromRawError::FromDataError)
+                }
+            }
+        }
+    }
+
     /// Generates non-public machinery code used to statically check whether
     /// [`Event::name`][0] and [`event::Revisable::revision`] pairs correspond
     /// to a single Rust type.
@@ -241,6 +387,59 @@ mod spec {
             }
 
             #[automatically_derived]
+            impl<'__raw, __Data> ::std::convert::TryFrom<Event>
+                             for ::arcane::es::event::Raw<'__raw, __Data, ()>
+            where
+                __Data: TryFrom<Event>
+            {
+                type Error = <__Data as TryFrom<Event>>::Error;
+
+                fn try_from(event: Event)
+                    -> ::std::result::Result<Self, Self::Error>
+                {
+                    Ok(Self {
+                        name: ::std::borrow::Cow::from(
+                            <Event as ::arcane::es::Event>::name(&event)
+                        ),
+                        revision: (),
+                        data: <__Data as TryFrom<Event>>::try_from(event)?,
+                    })
+                }
+            }
+
+            #[automatically_derived]
+            impl<'__raw, __Data> ::std::convert::TryFrom<
+                ::arcane::es::event::Raw<'__raw, __Data, ()>
+            > for Event
+            where
+                Event: TryFrom<__Data>
+            {
+                type Error = ::arcane::es::event::FromRawError<
+                    <Event as TryFrom<__Data>>::Error,
+                    ()
+                >;
+
+                fn try_from(
+                    raw: ::arcane::es::event::Raw<'__raw, __Data, ()>
+                ) -> ::std::result::Result<Self, Self::Error> {
+                    if raw.name
+                       != <Event as ::arcane::es::event::Static>::NAME
+                       && raw.revision != ()
+                    {
+                        return Err(
+                            ::arcane::es::event::FromRawError::UnknownEvent {
+                                name: raw.name.to_string(),
+                                revision: raw.revision,
+                            }
+                        );
+                    }
+
+                    <Event as TryFrom<__Data>>::try_from(raw.data)
+                    .map_err(::arcane::es::event::FromRawError::FromDataError)
+                }
+            }
+
+            #[automatically_derived]
             #[doc(hidden)]
             impl ::arcane::es::event::codegen::Reflect for Event {
                 #[doc(hidden)]
@@ -293,6 +492,74 @@ mod spec {
                 const REVISION: ::arcane::es::event::RevisionOf<Self> = unsafe {
                     ::arcane::es::event::Version::new_unchecked(1)
                 };
+            }
+
+            #[automatically_derived]
+            impl<'__raw, __Data> ::std::convert::TryFrom<Event>
+                             for ::arcane::es::event::Raw<
+                                 '__raw,
+                                 __Data,
+                                 ::arcane::es::event::RevisionOf<Event>
+                             >
+            where
+                __Data: TryFrom<Event>
+            {
+                type Error = <__Data as TryFrom<Event>>::Error;
+
+                fn try_from(event: Event)
+                    -> ::std::result::Result<Self, Self::Error>
+                {
+                    Ok(Self {
+                        name: ::std::borrow::Cow::from(
+                            <Event as ::arcane::es::Event>::name(&event)
+                        ),
+                        revision: <
+                            Event as ::arcane::es::event::Revisable
+                        >::revision(&event),
+                        data: <__Data as TryFrom<Event>>::try_from(event)?,
+                    })
+                }
+            }
+
+            #[automatically_derived]
+            impl<'__raw, __Data> ::std::convert::TryFrom<
+                ::arcane::es::event::Raw<
+                    '__raw,
+                    __Data,
+                    ::arcane::es::event::RevisionOf<Event>
+                >
+            > for Event
+            where
+                Event: TryFrom<__Data>
+            {
+                type Error = ::arcane::es::event::FromRawError<
+                    <Event as TryFrom<__Data>>::Error,
+                    ::arcane::es::event::RevisionOf<Event>
+                >;
+
+                fn try_from(
+                    raw: ::arcane::es::event::Raw<
+                        '__raw,
+                        __Data,
+                        ::arcane::es::event::RevisionOf<Event>
+                    >
+                ) -> ::std::result::Result<Self, Self::Error> {
+                    if raw.name
+                       != <Event as ::arcane::es::event::Static>::NAME
+                       && raw.revision
+                       != <Event as ::arcane::es::event::Concrete>::REVISION
+                    {
+                        return Err(
+                            ::arcane::es::event::FromRawError::UnknownEvent {
+                                name: raw.name.to_string(),
+                                revision: raw.revision,
+                            }
+                        );
+                    }
+
+                    <Event as TryFrom<__Data>>::try_from(raw.data)
+                    .map_err(::arcane::es::event::FromRawError::FromDataError)
+                }
             }
 
             #[automatically_derived]
