@@ -1,14 +1,33 @@
+use std::convert::Infallible;
+
 use arcane::es::event::{
-    reflect, Event, Initialized, Name, Revisable, Sourced, Sourcing, Version,
+    reflect, Event, Initialized, Name, Raw, Revisable, Sourced, Sourcing,
+    Version,
 };
 
 #[derive(Event)]
 #[event(name = "chat.created")]
 struct ChatCreated;
 
-#[derive(Event)]
+#[derive(Clone, Copy, Debug, Event, PartialEq)]
 #[event(name = "message.posted", rev = 1)]
 struct MessagePosted;
+
+impl From<MessagePosted> for MessageEvent {
+    fn from(event: MessagePosted) -> Self {
+        MessageEvent::MessagePosted(event)
+    }
+}
+
+impl TryFrom<MessageEvent> for MessagePosted {
+    type Error = Infallible;
+
+    fn try_from(event: MessageEvent) -> Result<Self, Self::Error> {
+        Ok(match event {
+            MessageEvent::MessagePosted(posted) => posted,
+        })
+    }
+}
 
 #[derive(Event)]
 enum ChatEvent {
@@ -17,17 +36,20 @@ enum ChatEvent {
     MessagePosted(MessagePosted),
 }
 
-#[derive(Event)]
+#[derive(Clone, Copy, Debug, Event, PartialEq)]
 #[event(rev)]
 enum MessageEvent {
     #[event(init)]
     MessagePosted(MessagePosted),
 }
 
+type AnotherMessageEvent = MessageEvent;
+
 #[derive(Event)]
 enum AnyEvent {
     Chat(ChatEvent),
     Message(MessageEvent),
+    AnotherMessage(AnotherMessageEvent),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -89,14 +111,32 @@ fn main() {
         "chat.created",
         "message.posted",
         "message.posted",
+        "message.posted",
     ]);
 
     assert_revisions::<MessagePosted>([Version::try_new(1).unwrap()]);
 
+    let ev = MessagePosted;
+    let raw = Raw::<MessagePosted, Version>::try_from(ev.clone()).unwrap();
+    assert_eq!(raw.name, ev.name());
+    assert_eq!(raw.revision, ev.revision());
+    assert_eq!(raw.data, ev);
+    let raw_ev = MessagePosted::try_from(raw).unwrap();
+    assert_eq!(raw_ev, ev);
+
+    let ev = MessageEvent::MessagePosted(MessagePosted);
+    let raw = Raw::<MessageEvent, Version>::try_from(ev.clone()).unwrap();
+    assert_eq!(raw.name, ev.name());
+    assert_eq!(raw.revision, ev.revision());
+    assert_eq!(raw.data, ev);
+    let raw_ev: MessageEvent =
+        Raw::<MessageEvent, Version>::try_into(raw).unwrap();
+    assert_eq!(raw_ev, ev);
+
     let mut chat = Option::<Chat>::None;
     let mut message = Option::<Message>::None;
 
-    let ev = ChatEvent::Created(ChatCreated.into());
+    let ev = ChatEvent::Created(ChatCreated);
     chat.apply(&ev);
     assert_eq!(ev.name(), "chat.created");
     assert_eq!(chat, Some(Chat { message_count: 0 }));
@@ -110,7 +150,7 @@ fn main() {
     chat.apply(ev);
     assert_eq!(chat, Some(Chat { message_count: 2 }));
 
-    let ev = MessageEvent::MessagePosted(MessagePosted.into());
+    let ev = MessageEvent::MessagePosted(MessagePosted);
     message.apply(&ev);
     assert_eq!(ev.name(), "message.posted");
     assert_eq!(message, Some(Message));
@@ -119,7 +159,6 @@ fn main() {
     let ev = AnyEvent::Chat(ChatEvent::Created(ChatCreated.into()));
     assert_eq!(ev.name(), "chat.created");
 
-    let ev =
-        AnyEvent::Message(MessageEvent::MessagePosted(MessagePosted.into()));
+    let ev = AnyEvent::Message(MessageEvent::MessagePosted(MessagePosted));
     assert_eq!(ev.name(), "message.posted");
 }
