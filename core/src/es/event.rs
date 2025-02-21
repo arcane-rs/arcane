@@ -267,7 +267,7 @@ pub mod reflect {
 
     use std::iter;
 
-    use super::super::{event, Event};
+    use super::super::{Event, event};
 
     /// Compile-time reflection of a single or multiple [`StaticEvent`]s.
     ///

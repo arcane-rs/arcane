@@ -1,5 +1,5 @@
 use arcane::es::event::{
-    reflect, Event, Initialized, Name, Revisable, Sourced, Sourcing, Version,
+    Event, Initialized, Name, Revisable, Sourced, Sourcing, Version, reflect,
 };
 
 #[derive(Event)]

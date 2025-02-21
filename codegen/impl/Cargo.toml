@@ -1,8 +1,8 @@
 [package]
 name = "arcane-codegen-impl"
 version = "0.1.0-dev"
-edition = "2021"
-rust-version = "1.81"
+edition = "2024"
+rust-version = "1.85"
 description = "Code generation implementation of `arcane-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",

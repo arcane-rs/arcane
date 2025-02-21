@@ -1,8 +1,8 @@
 [package]
 name = "arcane-codegen-shim"
 version = "0.1.0-dev"
-edition = "2021"
-rust-version = "1.81"
+edition = "2024"
+rust-version = "1.85"
 description = "Internal proc macro shim of `arcane-codegen` crate."
 authors = [
     "Ilya Solovyiov <ilya.solovyiov@gmail.com>",

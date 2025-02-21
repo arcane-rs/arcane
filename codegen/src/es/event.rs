@@ -1,10 +1,9 @@
 //! Code generation related to [`Event`] and its aiding [`Event`] machinery.
 
-#[cfg(all(doc, feature = "doc"))]
-use arcane_core::es::{event, ConcreteEvent, Event, StaticEvent};
-
 #[doc(inline)]
 pub use arcane_codegen_shim::Event;
+#[cfg(all(doc, feature = "doc"))]
+use arcane_core::es::{ConcreteEvent, Event, StaticEvent, event};
 
 /// Concatenates the specified slices at `const` evaluation phase.
 ///
@@ -96,8 +95,8 @@ pub trait Reflect {
 /// Correctness is checked by asserting this function at compile time in `const`
 /// context.
 #[must_use]
-pub const fn has_different_types_with_same_name_and_revision<E: Reflect>(
-) -> bool {
+pub const fn has_different_types_with_same_name_and_revision<E: Reflect>()
+-> bool {
     let events = <E as Reflect>::META;
 
     let mut outer = 0;
@@ -147,7 +146,7 @@ const fn str_eq(l: &str, r: &str) -> bool {
 
 #[cfg(test)]
 mod has_different_types_with_same_name_and_revision_spec {
-    use super::{has_different_types_with_same_name_and_revision, Reflect};
+    use super::{Reflect, has_different_types_with_same_name_and_revision};
 
     #[test]
     fn no_when_all_events_are_unique() {

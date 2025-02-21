@@ -1,12 +1,11 @@
 //! `#[derive(Event)]` macro implementation for enums.
 
+#[cfg(all(doc, feature = "doc"))]
+use arcane_core::es::{Event, event};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse_quote, spanned::Spanned as _};
 use synthez::{ParseAttrs, ToTokens};
-
-#[cfg(all(doc, feature = "doc"))]
-use arcane_core::es::{event, Event};
 
 /// Attributes of the `#[derive(Event)]` macro placed on an enum.
 #[derive(Debug, Default, ParseAttrs)]
@@ -165,9 +164,8 @@ impl Definition {
         let first_var_ty = self.variants.iter().map(|v| &v.ty).next();
 
         let where_clause = {
-            let mut clause = where_clause
-                .cloned()
-                .unwrap_or_else(|| parse_quote! { where });
+            let mut clause =
+                where_clause.cloned().unwrap_or_else(|| parse_quote! { where });
             for v in &self.variants {
                 let var_ty = &v.ty;
 
@@ -479,7 +477,7 @@ impl Variant {
 #[cfg(test)]
 mod spec {
     use proc_macro2::TokenStream;
-    use quote::{quote, ToTokens};
+    use quote::{ToTokens, quote};
     use syn::parse_quote;
 
     use super::Definition;

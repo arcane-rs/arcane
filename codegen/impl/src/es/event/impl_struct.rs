@@ -2,13 +2,12 @@
 
 use std::num::NonZeroU16;
 
+#[cfg(all(doc, feature = "doc"))]
+use arcane_core::es::event;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::spanned::Spanned as _;
 use synthez::{ParseAttrs, Required, ToTokens};
-
-#[cfg(all(doc, feature = "doc"))]
-use arcane_core::es::event;
 
 /// Attributes of `#[derive(Event)]` macro on structs.
 #[derive(Debug, Default, ParseAttrs)]
@@ -215,7 +214,7 @@ impl Definition {
 #[cfg(test)]
 mod spec {
     use proc_macro2::TokenStream;
-    use quote::{quote, ToTokens};
+    use quote::{ToTokens, quote};
     use syn::parse_quote;
 
     use super::Definition;
