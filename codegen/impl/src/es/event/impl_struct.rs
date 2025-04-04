@@ -147,7 +147,7 @@ impl Definition {
     pub fn impl_reflect_concrete(&self) -> TokenStream {
         if self.event_revision.is_none() {
             return TokenStream::new();
-        };
+        }
 
         let ty = &self.ident;
         let (impl_gens, ty_gens, where_clause) = self.generics.split_for_impl();
