@@ -1,6 +1,6 @@
 //! [`Event`] machinery.
 
-use std::num::NonZeroU16;
+use std::num::NonZero;
 
 use derive_more::{Deref, DerefMut, Display, Into};
 use ref_cast::RefCast;
@@ -16,11 +16,11 @@ impl Revision for &str {}
 
 impl Revision for Version {}
 
-/// [`NonZeroU16`] incremental [`Revision`] number of an [`Event`].
+/// [`NonZero`] [`u16`] incremental [`Revision`] number of an [`Event`].
 #[derive(
     Clone, Copy, Debug, Display, Eq, Hash, Into, Ord, PartialEq, PartialOrd,
 )]
-pub struct Version(NonZeroU16);
+pub struct Version(NonZero<u16>);
 
 impl Version {
     /// Creates a new [`Version`] out of the provided `value`.
@@ -31,7 +31,7 @@ impl Version {
     where
         u16: TryFrom<N>,
     {
-        Some(Self(NonZeroU16::new(u16::try_from(value).ok()?)?))
+        Some(Self(NonZero::new(u16::try_from(value).ok()?)?))
     }
 
     /// Creates a new [`Version`] out of the provided `value` without checking
@@ -44,7 +44,7 @@ impl Version {
     #[must_use]
     pub const unsafe fn new_unchecked(value: u16) -> Self {
         // SAFETY: Safety invariants are the same as for this method.
-        Self(unsafe { NonZeroU16::new_unchecked(value) })
+        Self(unsafe { NonZero::new_unchecked(value) })
     }
 
     /// Returns the value of this [`Version`] as a primitive type.

@@ -21,7 +21,7 @@ Additional rules, not handled by [rustfmt] and [Clippy] are described below.
 
 ```rust
 #[allow(clippy::mut_mut)]
-#[derive(smart_default::SmartDefault, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, smart_default::SmartDefault)]
 #[serde(deny_unknown_fields)]
 struct User {
     #[serde(default)]
@@ -33,7 +33,7 @@ struct User {
 
 ```rust
 #[serde(deny_unknown_fields)]
-#[derive(smart_default::SmartDefault, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, smart_default::SmartDefault)]
 #[allow(clippy::mut_mut)]
 struct User {
     id: u64,
@@ -42,6 +42,13 @@ struct User {
 
 ```rust
 #[derive(Debug, smart_default::SmartDefault, Serialize, Deserialize)]
+struct User {
+    id: u64,
+}
+```
+
+```rust
+#[derive(smart_default::SmartDefault, Debug, Deserialize, Serialize)]
 struct User {
     id: u64,
 }

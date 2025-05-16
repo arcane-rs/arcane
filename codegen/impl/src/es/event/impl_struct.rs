@@ -1,6 +1,6 @@
 //! `#[derive(Event)]` macro implementation for structs.
 
-use std::num::NonZeroU16;
+use std::num::NonZero;
 
 #[cfg(all(doc, feature = "doc"))]
 use arcane_core::es::event;
@@ -21,11 +21,11 @@ pub struct Attrs {
     pub revision: Option<syn::LitInt>,
 }
 
-/// Checks whether the given `value` can be parsed as [`NonZeroU16`].
+/// Checks whether the given `value` can be parsed as [`NonZero`] [`u16`].
 #[expect(clippy::ref_option, reason = "required by macro")]
 fn can_parse_as_non_zero_u16(value: &Option<syn::LitInt>) -> syn::Result<()> {
     value.as_ref().map_or(Ok(()), |v| {
-        syn::LitInt::base10_parse::<NonZeroU16>(v).map(drop)
+        syn::LitInt::base10_parse::<NonZero<u16>>(v).map(drop)
     })
 }
 
