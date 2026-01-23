@@ -25,6 +25,7 @@
     clippy::default_union_representation,
     clippy::derive_partial_eq_without_eq,
     clippy::doc_include_without_cfg,
+    clippy::doc_paragraphs_missing_punctuation,
     clippy::empty_drop,
     clippy::empty_structs_with_brackets,
     clippy::equatable_if_let,
@@ -188,7 +189,7 @@ use proc_macro::TokenStream;
 ///
 /// #### `#[event(revision)]` (optional)
 ///
-/// Aliases: `#[event(rev)]`
+/// Aliases: `#[event(rev)]`.
 ///
 /// Indicator whether the [`event::Revisable`] trait should be implemented.
 ///
@@ -196,14 +197,14 @@ use proc_macro::TokenStream;
 ///
 /// #### `#[event(init)]` (optional)
 ///
-/// Aliases: `#[event(initial)]`
+/// Aliases: `#[event(initial)]`.
 ///
 /// Use this on a particular enum variant to specify that it should be
 /// [`event::Initialized`] rather than [`event::Sourced`].
 ///
 /// #### `#[event(ignore)]` (optional)
 ///
-/// Aliases: `#[event(skip)]`
+/// Aliases: `#[event(skip)]`.
 ///
 /// Use this on a particular enum variant to completely ignore it in code
 /// generation.
@@ -274,7 +275,7 @@ use proc_macro::TokenStream;
 ///
 /// #### `#[event(revision = <non-zero-u16>)]` (optional)
 ///
-/// Aliases: `#[event(rev = <non-zero-u16>)]`
+/// Aliases: `#[event(rev = <non-zero-u16>)]`.
 ///
 /// Value of the [`event::Concrete::REVISION`] constant.
 ///
